@@ -2,10 +2,11 @@ import { SlashCommandBuilder, PermissionFlagsBits, PermissionsBitField, ChannelT
 import { createEmbed, errorEmbed, successEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { logger } from '../../utils/logger.js';
+
 export default {
     data: new SlashCommandBuilder()
         .setName("firstmsg")
-        .setDescription("Get a link to the first message in this channel")
+        .setDescription("Получить ссылку на первое сообщение в этом канале")
         .setDMPermission(false)
         .setDefaultMemberPermissions(PermissionFlagsBits.SendMessages),
     category: "Utility",
@@ -13,7 +14,7 @@ export default {
     async execute(interaction, config, client) {
         const deferSuccess = await InteractionHelper.safeDefer(interaction);
         if (!deferSuccess) {
-            logger.warn(`FirstMsg interaction defer failed`, {
+            logger.warn(`Не удалось отложить взаимодействие FirstMsg`, {
                 userId: interaction.user.id,
                 guildId: interaction.guildId,
                 commandName: 'firstmsg'
@@ -30,13 +31,14 @@ export default {
         const firstMessage = messages.first();
 
         if (!firstMessage) {
-            logger.info(`FirstMsg - no messages found in channel`, {
+            logger.info(`FirstMsg — сообщений в канале не найдено`, {
                 userId: interaction.user.id,
                 channelId: interaction.channelId,
                 guildId: interaction.guildId
             });
+
             return await InteractionHelper.safeEditReply(interaction, {
-                embeds: [successEmbed('First Message', "No messages found in this channel!")],
+                embeds: [successEmbed('Первое сообщение', "В этом канале сообщений не найдено!")],
             });
         }
 
@@ -45,13 +47,13 @@ export default {
         await InteractionHelper.safeEditReply(interaction, {
             embeds: [
                 successEmbed(
-                    "First Message in #" + interaction.channel.name,
-                    `Message Link: ${messageLink}`
+                    "Первое сообщение в #" + interaction.channel.name,
+                    `Ссылка на сообщение: ${messageLink}`
                 ),
             ],
         });
 
-        logger.info(`FirstMsg command executed`, {
+        logger.info(`Команда FirstMsg выполнена`, {
             userId: interaction.user.id,
             channelId: interaction.channelId,
             messageId: firstMessage.id,
