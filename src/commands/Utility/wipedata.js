@@ -4,26 +4,27 @@ import { getConfirmationButtons } from '../../utils/components.js';
 import { logger } from '../../utils/logger.js';
 
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+
 export default {
     slashOnly: true,
     data: new SlashCommandBuilder()
         .setName('wipedata')
-        .setDescription('Delete all your personal data from the bot (irreversible)'),
+        .setDescription('Удалить все ваши личные данные из бота (необратимо)'),
 
     async execute(interaction, guildConfig, client) {
         const warningMessage = 
-            `⚠️ **THIS ACTION IS IRREVERSIBLE!** ⚠️\n\n` +
-            `This will permanently delete **ALL** your data from this server including:\n` +
-            `• 💰 Economy balance (wallet & bank)\n` +
-            `• 📊 Levels and XP\n` +
-            `• 🎒 Inventory items\n` +
-            `• 🛍️ Shop purchases\n` +
-            `• 🎂 Birthday information\n` +
-            `• 🔢 Counter data\n` +
-            `• 📋 All other personal data\n\n` +
-            `**This cannot be undone. Are you absolutely sure?**`;
+            `⚠️ **ЭТО ДЕЙСТВИЕ НЕОБРАТИМО!** ⚠️\n\n` +
+            `Это навсегда удалит **ВСЕ** ваши данные с этого сервера, включая:\n` +
+            `• 💰 Баланс экономики (кошелёк и банк)\n` +
+            `• 📊 Уровни и XP\n` +
+            `• 🎒 Предметы инвентаря\n` +
+            `• 🛍️ Покупки в магазине\n` +
+            `• 🎂 Информацию о дне рождения\n` +
+            `• 🔢 Данные счётчиков\n` +
+            `• 📋 Все остальные личные данные\n\n` +
+            `**Это действие нельзя отменить. Вы действительно уверены?**`;
 
-        const embed = warningEmbed('Wipe All Data', warningMessage);
+        const embed = warningEmbed('Удаление всех данных', warningMessage);
 
         const confirmButtons = getConfirmationButtons('wipedata');
 
@@ -33,7 +34,7 @@ export default {
             flags: MessageFlags.Ephemeral
         });
 
-        logger.info(`Wipedata command executed - confirmation prompt shown`, {
+        logger.info(`Команда Wipedata выполнена — показано окно подтверждения`, {
             userId: interaction.user.id,
             guildId: interaction.guildId
         });
