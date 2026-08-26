@@ -13,6 +13,7 @@ import {
     getEconomyPrefix,
     getUserLevelPrefix,
 } from '../utils/database.js';
+
 const wipedataConfirmHandler = {
   name: 'wipedata_yes',
   async execute(interaction, client) {
@@ -64,7 +65,7 @@ const wipedataConfirmHandler = {
             deletedCount++;
           }
         } catch (error) {
-          logger.error(`Error deleting key ${key}:`, error);
+          logger.error(`Ошибка удаления ключа ${key}:`, error);
           deleteErrors.push(key);
         }
       }
@@ -90,7 +91,7 @@ const wipedataConfirmHandler = {
                 keys.forEach((key) => discoveredKeys.add(key));
               }
             } catch (listError) {
-              logger.debug(`Key listing failed for prefix ${prefix}:`, listError);
+              logger.debug(`Не удалось получить список ключей для префикса ${prefix}:`, listError);
             }
           }
 
@@ -104,35 +105,39 @@ const wipedataConfirmHandler = {
               await client.db.delete(key);
               deletedCount++;
             } catch (error) {
-              logger.error(`Error deleting additional key ${key}:`, error);
+              logger.error(`Ошибка удаления дополнительного ключа ${key}:`, error);
               deleteErrors.push(key);
             }
           }
         }
       } catch (error) {
-        logger.warn('Could not perform prefix search on database:', error);
+        logger.warn('Не удалось выполнить поиск по префиксам в базе данных:', error);
       }
 
       const successMessage =
-        `✅ **Your data has been successfully wiped!**\n\n` +
-        `**Records Deleted:** ${deletedCount}\n\n` +
-        `Your account has been reset to default values. You can now start fresh!\n\n` +
-        `*All your economy balance, levels, items, and personal data have been removed.*`;
+        `✅ **Ваши данные были успешно удалены!**\n\n` +
+        `**Удалено записей:** ${deletedCount}\n\n` +
+        `Ваш аккаунт был сброшен до значений по умолчанию. Теперь вы можете начать с чистого листа!\n\n` +
+        `*Ваш баланс, уровни, предметы и личные данные были полностью удалены.*`;
 
       await interaction.editReply({
-        embeds: [successEmbed('Data Wipe Complete', successMessage)],
+        embeds: [successEmbed('Удаление данных завершено', successMessage)],
         components: []
       });
 
-      logger.info(`User ${interaction.user.tag} (${userId}) wiped their data in guild ${guildId} - Deleted ${deletedCount} records`);
+      logger.info(`Пользователь ${interaction.user.tag} (${userId}) удалил свои данные на сервере ${guildId} — удалено записей: ${deletedCount}`);
+
       if (deleteErrors.length > 0) {
-        logger.warn(`Data wipe completed with ${deleteErrors.length} deletion errors for user ${userId} in guild ${guildId}`);
+        logger.warn(`Удаление данных завершено с ${deleteErrors.length} ошибками для пользователя ${userId} на сервере ${guildId}`);
       }
 
     } catch (error) {
-      logger.error('Wipedata confirm button handler error:', error);
+      logger.error('Ошибка обработчика подтверждения удаления данных:', error);
       
-      await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'An error occurred while wiping your data. Please try again later or contact support.' });
+      await replyUserError(interaction, {
+        type: ErrorTypes.UNKNOWN,
+        message: 'Произошла ошибка при удалении ваших данных. Попробуйте ещё раз позже или обратитесь в службу поддержки.'
+      });
     }
   }
 };
@@ -144,20 +149,23 @@ const wipedataCancelHandler = {
       await interaction.update({
         embeds: [
           createEmbed({
-            title: '❌ Data Wipe Cancelled',
-            description: 'Your data has been preserved. Your account remains unchanged.',
+            title: '❌ Удаление данных отменено',
+            description: 'Ваши данные были сохранены. Ваш аккаунт остался без изменений.',
             color: 'info'
           })
         ],
         components: []
       });
 
-      logger.info(`User ${interaction.user.tag} (${interaction.user.id}) cancelled data wipe in guild ${interaction.guildId}`);
+      logger.info(`Пользователь ${interaction.user.tag} (${interaction.user.id}) отменил удаление данных на сервере ${interaction.guildId}`);
     } catch (error) {
-      logger.error('Wipedata cancel button handler error:', error);
+      logger.error('Ошибка обработчика отмены удаления данных:', error);
       
       if (!interaction.replied && !interaction.deferred) {
-        await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'Could not cancel data wipe.' });
+        await replyUserError(interaction, {
+          type: ErrorTypes.UNKNOWN,
+          message: 'Не удалось отменить удаление данных.'
+        });
       }
     }
   }
