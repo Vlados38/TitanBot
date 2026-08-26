@@ -24,7 +24,7 @@ export const botConfig = {
     activities: [
       {
         name: "Custom Status", // required by Discord API, not shown in the client
-        state: "stalking",     // this is what people actually see
+        state: "Выжидает",     // this is what people actually see
         type: 4,               // Custom
       },
     ],
@@ -61,9 +61,9 @@ export const botConfig = {
   applications: {
     // Default questions shown when someone fills out an application.
     defaultQuestions: [
-      { question: "What is your name?", required: true },
-      { question: "How old are you?", required: true },
-      { question: "Why do you want to join?", required: true },
+      { question: "Как тебя зовут?", required: true },
+      { question: "Сколько тебе лет?", required: true },
+      { question: "Зачем ты зашел на сервер?", required: true },
     ],
 
     // Embed colors by application status.
@@ -141,7 +141,7 @@ export const botConfig = {
     },
     footer: {
       // Default footer text used in bot embeds.
-      text: "Titan Bot",
+      text: "NekoBot",
       // Footer icon URL (null = no icon).
       icon: null,
     },
@@ -229,22 +229,22 @@ export const botConfig = {
       low: {
         emoji: "🟢",
         color: "#2ECC71",
-        label: "Low",
+        label: "Низкий",
       },
       medium: {
         emoji: "🟡",
         color: "#F1C40F",
-        label: "Medium",
+        label: "Средний",
       },
       high: {
         emoji: "🔴",
         color: "#E74C3C",
-        label: "High",
+        label: "Высокий",
       },
       urgent: {
         emoji: "🚨",
         color: "#E91E63",
-        label: "Urgent",
+        label: "Максимальный",
       },
     },
 
@@ -302,10 +302,10 @@ export const botConfig = {
   // =========================
   verification: {
     // Message shown when posting the verification panel.
-    defaultMessage: "Click the button below to verify yourself and gain access to the server!",
+    defaultMessage: "Нажмите, чтобы пройти верификацию на сервере!",
 
     // Text on the verification button.
-    defaultButtonText: "Verify",
+    defaultButtonText: "Верификация",
 
     // Automatic verification behavior.
     autoVerify: {
@@ -332,9 +332,9 @@ export const botConfig = {
 
       // Human-readable descriptions for each criteria mode.
       criteria: {
-        account_age: "Account must be older than specified days",
-        server_size: "All users if server has less than 1000 members",
-        none: "All users immediately"
+        account_age: "Аккаунт должен быть старше указанного срока",
+        server_size: "Все пользователи, если на сервере менее 1000 участников",
+        none: "Все пользователи немедленно"
       }
     },
 
@@ -372,11 +372,11 @@ export const botConfig = {
     // Welcome template posted when a user joins.
     // Placeholders: {user}, {server}, {memberCount}
     defaultWelcomeMessage:
-      "Welcome {user} to {server}! We now have {memberCount} members!",
+      "{user}, Добро пожаловать на сервер **{server}**! С нами уже **{memberCount}** участников!",
     // Goodbye template posted when a user leaves.
     // Placeholders: {user}, {memberCount}
     defaultGoodbyeMessage:
-      "{user} has left the server. We now have {memberCount} members.",
+      "{user} Покинул сервер. Теперь нас **{memberCount}**.",
     // Channel ID for welcome messages.
     defaultWelcomeChannel: null,
     // Channel ID for goodbye messages.
@@ -389,8 +389,8 @@ export const botConfig = {
   counters: {
     defaults: {
       // Default naming/description templates for counter entries.
-      name: "{name} Counter",
-      description: "Server {name} counter",
+      name: "{name} Счетчик",
+      description: "Сервер {name} счетчик",
       // Channel type used for counters (typically "voice").
       type: "voice",
       // Channel name format. `{count}` is replaced automatically.
@@ -404,26 +404,26 @@ export const botConfig = {
     },
     messages: {
       // Default response messages for counter actions.
-      created: "✅ Created counter **{name}**",
-      deleted: "🗑️ Deleted counter **{name}**",
-      updated: "🔄 Updated counter **{name}**",
+      created: "✅ Создать счетчик **{name}**",
+      deleted: "🗑️ Удалить счетчик **{name}**",
+      updated: "🔄 Обновить счетчик **{name}**",
     },
     types: {
       // Built-in counter types and how each count is calculated.
       members: {
-        name: "👥 Members",
-        description: "Total members in the server",
+        name: "👥 Участники",
+        description: "Всего участников на сервере",
         getCount: (guild) => guild.memberCount.toString(),
       },
       bots: {
-        name: "🤖 Bots",
-        description: "Total bot accounts in the server",
+        name: "🤖 Боты",
+        description: "Всего ботов на сервере",
         getCount: (guild) =>
           guild.members.cache.filter((m) => m.user.bot).size.toString(),
       },
       members_only: {
-        name: "👤 Humans",
-        description: "Total human members (non-bots)",
+        name: "👤 Люди",
+        description: "Всего участников сервера (без ботов)",
         getCount: (guild) =>
           guild.members.cache.filter((m) => !m.user.bot).size.toString(),
       },
@@ -434,13 +434,13 @@ export const botConfig = {
   // GENERIC BOT MESSAGES
   // =========================
   messages: {
-    noPermission: "You do not have permission to use this command.",
-    cooldownActive: "Please wait {time} before using this command again.",
-    errorOccurred: "An error occurred while executing this command.",
+    noPermission: "У вас недостаточно прав, для выполнения данной команды.",
+    cooldownActive: "Пожалуйста, подождите {time} перед повторным использованием.",
+    errorOccurred: "При выполнении команды что-то пошло не так.",
     missingPermissions:
-      "I am missing required permissions to perform this action.",
-    commandDisabled: "This command has been disabled.",
-    maintenanceMode: "The bot is currently in maintenance mode.",
+      "Мой хозяин запретил мне это делать!",
+    commandDisabled: "Я не буду выполнять эту команду, она запрещена!",
+    maintenanceMode: "Сейчас я отдыхаю, буду очень скоро!",
   },
 
   // =========================
