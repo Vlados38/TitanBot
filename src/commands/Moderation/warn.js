@@ -6,21 +6,22 @@ import { WarningService } from '../../services/moderation/warningService.js';
 import { ModerationService } from '../../services/moderation/moderationService.js';
 import { TitanBotError, ErrorTypes } from '../../utils/errorHandler.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+
 export default {
     data: new SlashCommandBuilder()
         .setName("warn")
-        .setDescription("Warn a user")
+        .setDescription("Предупредить пользователя")
         .addUserOption((o) =>
             o
                 .setName("target")
                 .setRequired(true)
-                .setDescription("User to warn"),
+                .setDescription("Пользователь, которого нужно предупредить"),
         )
         .addStringOption((o) =>
             o
                 .setName("reason")
                 .setRequired(true)
-                .setDescription("Reason for the warning"),
+                .setDescription("Причина предупреждения"),
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
     category: "moderation",
@@ -46,7 +47,7 @@ export default {
             throw new TitanBotError(
                 'Missing target user',
                 ErrorTypes.USER_INPUT,
-                'You must specify a user to warn.',
+                'Вы должны указать пользователя, которого нужно предупредить.',
                 { subtype: 'invalid_user' },
             );
         }
@@ -55,7 +56,7 @@ export default {
             throw new TitanBotError(
                 'Missing warning reason',
                 ErrorTypes.VALIDATION,
-                'You must provide a reason for the warning.',
+                'Вы должны указать причину предупреждения.',
                 { subtype: 'missing_required' },
             );
         }
@@ -64,7 +65,7 @@ export default {
             throw new TitanBotError(
                 "Target not found",
                 ErrorTypes.USER_INPUT,
-                "The target user is not currently in this server."
+                "Указанный пользователь в данный момент не находится на этом сервере."
             );
         }
 
@@ -99,8 +100,8 @@ export default {
         await InteractionHelper.safeEditReply(interaction, {
             embeds: [
                 successEmbed(
-                    `⚠️ **Warned** ${target.tag}`,
-                    `**Reason:** ${reason}\n**Total Warns:** ${totalCount}`,
+                    `⚠️ **Пользователь предупреждён** ${target.tag}`,
+                    `**Причина:** ${reason}\n**Всего предупреждений:** ${totalCount}`,
                 ),
             ],
         });
