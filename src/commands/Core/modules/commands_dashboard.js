@@ -123,7 +123,7 @@ export function buildOverviewEmbed(snapshot, guild) {
     description: `Управление с помощью слеша и префикса командами на сервере **${guild.name}**.`,
     color: 'info',
     fields,
-    footer: '🔒 commands & configwizard always stay available',
+    footer: '🔒 команды и конфигурации всегда будут доступны',
   });
 }
 
@@ -149,8 +149,8 @@ export function buildCategoryEmbed(category, guild) {
       inline: true,
     },
     {
-      name: '📈 Count',
-      value: `${category.enabledCount}/${category.totalCount} enabled`,
+      name: '📈 Счет',
+      value: `${category.enabledCount}/${category.totalCount} включено`,
       inline: true,
     },
   ];
@@ -158,27 +158,27 @@ export function buildCategoryEmbed(category, guild) {
   const chunks = chunkLines(commandLines);
   chunks.forEach((chunk, index) => {
     fields.push({
-      name: index === 0 ? '📋 Commands & Subcommands' : '📋 (cont.)',
+      name: index === 0 ? '📋 Команды и подкоманды' : '📋',
       value: chunk,
       inline: false,
     });
   });
 
   fields.push({
-    name: 'How to Use',
+    name: 'Как использовать',
     value: [
-      '• Use the dropdown to toggle individual commands or subcommands',
-      '• **Disable All** turns off the whole category',
-      '• **Clear Overrides** re-enables individually disabled entries',
+      '• Используйте выпадающий список для переключения отдельных команд или подкоманд.',
+      '• **Выключить все** полностью выключает категорию',
+      '• **Очистить переопределения** восстанавливает индивидуально отключенные элементы.',
     ].join('\n'),
   });
 
   return createEmbed({
     title: `${category.icon} ${category.displayName}`,
-    description: `Command access for **${guild.name}**.`,
+    description: `Команда доступа для **${guild.name}**.`,
     color: category.categoryDisabled ? 'error' : category.disabledCount > 0 ? 'warning' : 'success',
     fields,
-    footer: '🔒 Protected entries cannot be disabled',
+    footer: '🔒 Защищенные записи нельзя отключить.',
   });
 }
 
@@ -196,7 +196,7 @@ export function buildOverviewComponents(guildId, snapshot) {
     new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
         .setCustomId(customId(DASHBOARD_CATEGORY_SELECT, guildId))
-        .setPlaceholder('📁 Select a category...')
+        .setPlaceholder('📁 Выберите категорию...')
         .addOptions(categoryOptions),
     ),
     new ActionRowBuilder().addComponents(
@@ -219,7 +219,7 @@ export function buildCategoryComponents(guildId, category) {
 
     return new StringSelectMenuOptionBuilder()
       .setLabel(label)
-      .setDescription((enabled ? '🟢 Enabled — click to disable' : '🔴 Disabled — click to enable').slice(0, 100))
+      .setDescription((enabled ? '🟢 Включено - нажмите чтобы выключить' : '🔴 Выключено — нажмите чтобы включить').slice(0, 100))
       .setValue(command.name);
   });
 
