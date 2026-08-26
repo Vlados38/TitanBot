@@ -9,35 +9,35 @@ import { ErrorTypes, replyUserError } from '../../utils/errorHandler.js';
 export default {
     data: new SlashCommandBuilder()
         .setName('welcome')
-        .setDescription('Configure the welcome system')
+        .setDescription('Настройка системы приветствия')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .addSubcommand(subcommand =>
             subcommand
                 .setName('setup')
-                .setDescription('Set up the welcome message')
+                .setDescription('Настроить приветственное сообщение')
                 .addChannelOption(option =>
                     option.setName('channel')
-                        .setDescription('The channel to send welcome messages to')
+                        .setDescription('Канал, в который будут отправляться приветственные сообщения')
                         .addChannelTypes(ChannelType.GuildText)
                         .setRequired(true))
                 .addStringOption(option =>
                     option.setName('message')
-                        .setDescription('Welcome message. Variables: {user}, {username}, {server}, {memberCount}')
+                        .setDescription('Приветственное сообщение. Переменные: {user}, {username}, {server}, {memberCount}')
                         .setRequired(true))
                 .addStringOption(option =>
                     option.setName('image')
-                        .setDescription('URL of the image to include in the welcome message')
+                        .setDescription('URL изображения, которое будет добавлено в приветственное сообщение')
                         .setRequired(false))
                 .addBooleanOption(option =>
                     option.setName('ping')
-                        .setDescription('Whether to ping the user in the welcome message')
+                        .setDescription('Упоминать ли пользователя в приветственном сообщении')
                         .setRequired(false))),
 
     async execute(interaction) {
         try {
             const deferSuccess = await InteractionHelper.safeDefer(interaction);
             if (!deferSuccess) {
-                logger.warn(`Welcome interaction defer failed`, {
+                logger.warn(`Не удалось отложить взаимодействие Welcome`, {
                     userId: interaction.user.id,
                     guildId: interaction.guildId,
                     commandName: 'welcome'
@@ -45,14 +45,17 @@ export default {
                 return;
             }
         } catch (deferError) {
-            logger.error(`Welcome defer error`, { error: deferError.message });
+            logger.error(`Ошибка при отложенной обработке Welcome`, { error: deferError.message });
             return;
         }
 
         const { options, guild, client } = interaction;
 
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-            return await replyUserError(interaction, { type: ErrorTypes.PERMISSION, message: 'You need the **Manage Server** permission to use `/welcome`.' });
+            return await replyUserError(interaction, {
+                type: ErrorTypes.PERMISSION,
+                message: 'Для использования `/welcome` вам необходимо право **Управление сервером**.'
+            });
         }
 
         const subcommand = options.getSubcommand();
@@ -64,22 +67,41 @@ export default {
             const ping = options.getBoolean('ping') ?? false;
 
             const existingConfig = await getWelcomeConfig(client, guild.id);
+
             if (existingConfig?.channelId) {
-                logger.info(`[Welcome] Setup blocked because config already exists in channel ${existingConfig.channelId} for guild ${guild.id}`);
-                return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: `Welcome is already configured for <#${existingConfig.channelId}>. Use **/greet dashboard** to customize channel, message, ping, or image.` });
+                logger.info(
+                    `[Welcome] Настройка заблокирована, поскольку конфигурация уже существует в канале ${existingConfig.channelId} для сервера ${guild.id}`
+                );
+
+                return await replyUserError(interaction, {
+                    type: ErrorTypes.UNKNOWN,
+                    message: `Welcome уже настроен для <#${existingConfig.channelId}>. Используйте **/greet dashboard**, чтобы изменить канал, сообщение, упоминание или изображение.`
+                });
             }
             
             if (!message || message.trim().length === 0) {
-                logger.warn(`[Welcome] Empty message provided by ${interaction.user.tag} in ${guild.name}`);
-                return await replyUserError(interaction, { type: ErrorTypes.VALIDATION, message: 'Welcome message cannot be empty' });
+                logger.warn(
+                    `[Welcome] Пользователь ${interaction.user.tag} указал пустое сообщение на сервере ${guild.name}`
+                );
+
+                return await replyUserError(interaction, {
+                    type: ErrorTypes.VALIDATION,
+                    message: 'Приветственное сообщение не может быть пустым.'
+                });
             }
 
             if (image) {
                 try {
                     new URL(image);
                 } catch (e) {
-                    logger.warn(`[Welcome] Invalid image URL provided by ${interaction.user.tag}: ${image}`);
-                    return await replyUserError(interaction, { type: ErrorTypes.VALIDATION, message: 'Please provide a valid image URL (must start with http:// or https://' });
+                    logger.warn(
+                        `[Welcome] Пользователь ${interaction.user.tag} указал недействительный URL изображения: ${image}`
+                    );
+
+                    return await replyUserError(interaction, {
+                        type: ErrorTypes.VALIDATION,
+                        message: 'Пожалуйста, укажите корректный URL изображения (он должен начинаться с http:// или https://).'
+                    });
                 }
             }
 
@@ -92,7 +114,9 @@ export default {
                     welcomePing: ping
                 });
 
-                logger.info(`[Welcome] Setup configured by ${interaction.user.tag} for guild ${guild.name} (${guild.id})`);
+                logger.info(
+                    `[Welcome] Настройка выполнена пользователем ${interaction.user.tag} для сервера ${guild.name} (${guild.id})`
+                );
 
                 const previewMessage = formatWelcomeMessage(message, {
                     user: interaction.user,
@@ -101,23 +125,43 @@ export default {
 
                 const embed = new EmbedBuilder()
                     .setColor(getColor('success'))
-                    .setTitle('Welcome System Configured')
-                    .setDescription(`Welcome messages will now be sent to ${channel}`)
+                    .setTitle('Система приветствия настроена')
+                    .setDescription(`Приветственные сообщения теперь будут отправляться в ${channel}`)
                     .addFields(
-                        { name: 'Message Preview', value: truncateForEmbedField(previewMessage) },
-                        { name: 'Ping User', value: ping ? 'Yes' : 'No' },
-                        { name: 'Status', value: 'Enabled' }
+                        {
+                            name: 'Предпросмотр сообщения',
+                            value: truncateForEmbedField(previewMessage)
+                        },
+                        {
+                            name: 'Упоминать пользователя',
+                            value: ping ? 'Да' : 'Нет'
+                        },
+                        {
+                            name: 'Статус',
+                            value: 'Включено'
+                        }
                     )
-                    .setFooter({ text: 'Tip: Use /greet dashboard to customize welcome settings' });
+                    .setFooter({
+                        text: 'Совет: используйте /greet dashboard для настройки параметров приветствия'
+                    });
 
                 if (image) {
                     embed.setImage(image);
                 }
 
-                await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+                await InteractionHelper.safeEditReply(interaction, {
+                    embeds: [embed]
+                });
             } catch (error) {
-                logger.error(`[Welcome] Failed to setup welcome system for guild ${guild.id}:`, error);
-                await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'An error occurred while configuring the welcome system. Please try again.' });
+                logger.error(
+                    `[Welcome] Не удалось настроить систему приветствия для сервера ${guild.id}:`,
+                    error
+                );
+
+                await replyUserError(interaction, {
+                    type: ErrorTypes.UNKNOWN,
+                    message: 'Произошла ошибка при настройке системы приветствия. Пожалуйста, попробуйте ещё раз.'
+                });
             }
         }
     },
