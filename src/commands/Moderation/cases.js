@@ -1,13 +1,5 @@
-import {
-    SlashCommandBuilder,
-    PermissionFlagsBits,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle,
-    ComponentType,
-    MessageFlags,
-} from 'discord.js';
-import { createEmbed } from '../../utils/embeds.js';
+import { SlashCommandBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } from 'discord.js';
+import { createEmbed, successEmbed } from '../../utils/embeds.js';
 import { getModerationCases } from '../../utils/moderation.js';
 import { logger } from '../../utils/logger.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
@@ -16,74 +8,62 @@ import { replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
 export default {
     data: new SlashCommandBuilder()
         .setName('cases')
-        .setDescription('View moderation cases and audit logs')
+        .setDescription('Просмотр случаев модерации и журналов аудита')
         .setDefaultMemberPermissions(PermissionFlagsBits.ViewAuditLog)
         .setDMPermission(false)
-        .addStringOption((option) =>
-            option
-                .setName('filter')
-                .setDescription('Filter cases by type or user')
+        .addStringOption(option =>
+            option.setName('filter')
+                .setDescription('Фильтр случаев по типу или пользователю')
                 .addChoices(
-                    { name: 'All Cases', value: 'all' },
-                    { name: 'Bans', value: 'Member Banned' },
-                    { name: 'Kicks', value: 'Member Kicked' },
-                    { name: 'Timeouts', value: 'Member Timed Out' },
-                    { name: 'Warnings', value: 'User Warned' },
-                ),
+                    { name: 'Все случаи', value: 'all' },
+                    { name: 'Блокировки', value: 'Member Banned' },
+                    { name: 'Кики', value: 'Member Kicked' },
+                    { name: 'Тайм-ауты', value: 'Member Timed Out' },
+                    { name: 'Предупреждения', value: 'User Warned' }
+                )
         )
-        .addUserOption((option) =>
-            option
-                .setName('user')
-                .setDescription('Filter cases by specific user'),
+        .addUserOption(option =>
+            option.setName('user')
+                .setDescription('Фильтр случаев по конкретному пользователю')
         )
-        .addIntegerOption((option) =>
-            option
-                .setName('limit')
-                .setDescription('Number of cases to show (default: 10)')
+        .addIntegerOption(option =>
+            option.setName('limit')
+                .setDescription('Количество отображаемых случаев (по умолчанию: 10)')
                 .setMinValue(1)
-                .setMaxValue(50),
+                .setMaxValue(50)
         ),
 
     category: 'moderation',
 
     async execute(interaction, config, client) {
         const deferSuccess = await InteractionHelper.safeDefer(interaction);
-
         if (!deferSuccess) {
-            logger.warn('Cases interaction defer failed', {
+            logger.warn(`Cases interaction defer failed`, {
                 userId: interaction.user.id,
                 guildId: interaction.guildId,
-                commandName: 'cases',
+                commandName: 'cases'
             });
             return;
         }
 
         try {
-            const filterType =
-                interaction.options.getString('filter') || 'all';
+            const filterType = interaction.options.getString('filter') || 'all';
             const targetUser = interaction.options.getUser('user');
             const limit = interaction.options.getInteger('limit') || 10;
 
             const filters = {
                 limit,
                 action: filterType === 'all' ? undefined : filterType,
-                userId: targetUser?.id,
+                userId: targetUser?.id
             };
 
-            const cases = await getModerationCases(
-                interaction.guild.id,
-                filters,
-            );
+            const cases = await getModerationCases(interaction.guild.id, filters);
 
             if (cases.length === 0) {
-                return await replyUserError(interaction, {
-                    type: ErrorTypes.USER_INPUT,
-                    message: targetUser
-                        ? `No moderation cases found for **${targetUser.tag}**.`
-                        : `No ${
-                              filterType === 'all' ? '' : filterType + ' '
-                          }cases found in this server.`,
-                });
+                throw new Error(targetUser 
+                    ? `Для пользователя ${targetUser.tag} случаи модерации не найдены`
+                    : `В этом сервере не найдено ${filterType === 'all' ? 'случаев' : `случаев типа ${filterType}`}.`
+                );
             }
 
             const CASES_PER_PAGE = 5;
@@ -92,160 +72,107 @@ export default {
 
             const createCasesEmbed = (page) => {
                 const startIndex = (page - 1) * CASES_PER_PAGE;
-                const pageCases = cases.slice(
-                    startIndex,
-                    startIndex + CASES_PER_PAGE,
-                );
+                const endIndex = startIndex + CASES_PER_PAGE;
+                const pageCases = cases.slice(startIndex, endIndex);
 
                 const embed = createEmbed({
-                    title: 'Moderation Cases',
-                    description:
-                        `Showing moderation cases for **${interaction.guild.name}**\n\n` +
-                        `**Page ${page} of ${totalPages}**`,
+                    title: 'Случаи модерации',
+                    description: `Случаи модерации для **${interaction.guild.name}**\n\n**Страница ${page} из ${totalPages}**`
                 });
 
-                for (const case_ of pageCases) {
-                    const createdAt = new Date(case_.createdAt);
-
-                    const date = createdAt.toLocaleDateString();
-                    const time = createdAt.toLocaleTimeString();
-
+                pageCases.forEach(case_ => {
+                    const date = new Date(case_.createdAt).toLocaleDateString();
+                    const time = new Date(case_.createdAt).toLocaleTimeString();
+                    
                     embed.addFields({
-                        name: `Case #${case_.caseId} - ${case_.action}`,
-                        value:
-                            `**Target:** ${case_.target}\n` +
-                            `**Moderator:** ${case_.executor}\n` +
-                            `**Date:** ${date} at ${time}\n` +
-                            `**Reason:** ${case_.reason || 'No reason provided'}`,
-                        inline: false,
+                        name: `Случай №${case_.caseId} — ${case_.action}`,
+                        value: `**Нарушитель:** ${case_.target}\n**Модератор:** ${case_.executor}\n**Дата:** ${date} в ${time}\n**Причина:** ${case_.reason || 'Причина не указана'}`,
+                        inline: false
                     });
-                }
+                });
 
                 embed.setFooter({
-                    text:
-                        `Total cases: ${cases.length} | ` +
-                        `Filter: ${filterType}` +
-                        (targetUser
-                            ? ` | User: ${targetUser.tag}`
-                            : ''),
+                    text: `Всего случаев: ${cases.length} | Фильтр: ${filterType}${targetUser ? ` | Пользователь: ${targetUser.tag}` : ''}`
                 });
 
                 return embed;
             };
 
-            const createNavigationRow = (page, disabled = false) => {
+            const createNavigationRow = (page) => {
                 const row = new ActionRowBuilder();
-
+                
                 const prevButton = new ButtonBuilder()
                     .setCustomId('prev_page')
-                    .setLabel('Previous')
-                    .setEmoji('⬅️')
+                    .setLabel('⬅️ Предыдущая')
                     .setStyle(ButtonStyle.Secondary)
-                    .setDisabled(disabled || page === 1);
+                    .setDisabled(page === 1);
 
                 const pageInfoButton = new ButtonBuilder()
                     .setCustomId('page_info')
-                    .setLabel(`Page ${page}/${totalPages}`)
+                    .setLabel(`Страница ${page}/${totalPages}`)
                     .setStyle(ButtonStyle.Primary)
                     .setDisabled(true);
 
                 const nextButton = new ButtonBuilder()
                     .setCustomId('next_page')
-                    .setLabel('Next')
-                    .setEmoji('➡️')
+                    .setLabel('Следующая ➡️')
                     .setStyle(ButtonStyle.Secondary)
-                    .setDisabled(disabled || page === totalPages);
+                    .setDisabled(page === totalPages);
 
-                row.addComponents(
-                    prevButton,
-                    pageInfoButton,
-                    nextButton,
-                );
-
+                row.addComponents(prevButton, pageInfoButton, nextButton);
                 return row;
             };
 
-            const message = await InteractionHelper.safeEditReply(
-                interaction,
-                {
-                    embeds: [createCasesEmbed(currentPage)],
-                    components: [
-                        createNavigationRow(currentPage),
-                    ],
-                },
-            );
-
-            if (!message) return;
+            const message = await interaction.editReply({ 
+                embeds: [createCasesEmbed(currentPage)], 
+                components: [createNavigationRow(currentPage)]
+            });
 
             const collector = message.createMessageComponentCollector({
                 componentType: ComponentType.Button,
-                time: 120_000,
+                time: 120000
             });
 
             collector.on('collect', async (buttonInteraction) => {
-                if (
-                    buttonInteraction.user.id !==
-                    interaction.user.id
-                ) {
-                    await buttonInteraction.reply({
-                        content:
-                            'You cannot use these buttons. Run `/cases` to get your own case view.',
-                        flags: MessageFlags.Ephemeral,
-                    }).catch(() => {});
+                await buttonInteraction.deferUpdate();
 
+                if (buttonInteraction.user.id !== interaction.user.id) {
+                    await buttonInteraction.followUp({
+                        content: 'Вы не можете использовать эти кнопки. Выполните `/cases`, чтобы открыть свой список случаев.',
+                        flags: MessageFlags.Ephemeral
+                    });
                     return;
                 }
 
-                await buttonInteraction.deferUpdate().catch(() => {});
+                const { customId } = buttonInteraction;
 
-                if (
-                    buttonInteraction.customId === 'prev_page' &&
-                    currentPage > 1
-                ) {
+                if (customId === 'prev_page' && currentPage > 1) {
                     currentPage--;
-                } else if (
-                    buttonInteraction.customId === 'next_page' &&
-                    currentPage < totalPages
-                ) {
+                } else if (customId === 'next_page' && currentPage < totalPages) {
                     currentPage++;
                 }
 
-                await InteractionHelper.safeEditReply(
-                    interaction,
-                    {
-                        embeds: [createCasesEmbed(currentPage)],
-                        components: [
-                            createNavigationRow(currentPage),
-                        ],
-                    },
-                );
+                await interaction.editReply({
+                    embeds: [createCasesEmbed(currentPage)],
+                    components: [createNavigationRow(currentPage)]
+                });
             });
 
             collector.on('end', async () => {
+                const disabledRow = createNavigationRow(currentPage);
+                disabledRow.components.forEach(button => button.setDisabled(true));
+                
                 try {
-                    await InteractionHelper.safeEditReply(
-                        interaction,
-                        {
-                            components: [
-                                createNavigationRow(
-                                    currentPage,
-                                    true,
-                                ),
-                            ],
-                        },
-                    );
-                } catch {
-                    // Message may have been deleted or expired.
+                    await message.edit({
+                        components: [disabledRow]
+                    });
+                } catch (error) {
                 }
             });
+
         } catch (error) {
             logger.error('Error in cases command:', error);
-
-            await replyUserError(interaction, {
-                type: ErrorTypes.UNKNOWN,
-                message:
-                    'An error occurred while retrieving moderation cases. Please try again later.',
-            }).catch(() => {});
+            return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'Произошла ошибка при получении случаев модерации. Пожалуйста, попробуйте позже.' });
         }
-    },
+    }
 };
