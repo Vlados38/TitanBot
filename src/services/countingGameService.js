@@ -4,8 +4,8 @@ const COUNTING_GAME_KEY_PREFIX = 'countingGame:';
 
 const COUNTING_SYSTEMS = {
   decimal: {
-    label: 'Decimal',
-    description: 'Standard 10-number system using 0-9',
+    label: 'Десятичная',
+    description: 'Стандартная система счисления по основанию 10 с использованием цифр 0–9',
     toString: (n) => n.toString(10),
     parse: (value) => {
       if (!/^[0-9]+$/.test(value)) return null;
@@ -13,8 +13,8 @@ const COUNTING_SYSTEMS = {
     },
   },
   hexadecimal: {
-    label: 'Hexadecimal',
-    description: '16-number system using 0-9 and A-F',
+    label: 'Шестнадцатеричная',
+    description: 'Система счисления по основанию 16 с использованием цифр 0–9 и букв A–F',
     toString: (n) => n.toString(16).toUpperCase(),
     parse: (value) => {
       if (!/^[0-9A-Fa-f]+$/.test(value)) return null;
@@ -22,8 +22,8 @@ const COUNTING_SYSTEMS = {
     },
   },
   binary: {
-    label: 'Binary',
-    description: '2-number system using 0-1',
+    label: 'Двоичная',
+    description: 'Система счисления по основанию 2 с использованием цифр 0–1',
     toString: (n) => n.toString(2),
     parse: (value) => {
       if (!/^[01]+$/.test(value)) return null;
@@ -32,7 +32,7 @@ const COUNTING_SYSTEMS = {
   },
   base36: {
     label: 'Base36',
-    description: '36-number system using 0-9 and A-Z',
+    description: 'Система счисления по основанию 36 с использованием цифр 0–9 и букв A–Z',
     toString: (n) => n.toString(36).toUpperCase(),
     parse: (value) => {
       if (!/^[0-9A-Za-z]+$/.test(value)) return null;
@@ -41,7 +41,7 @@ const COUNTING_SYSTEMS = {
   },
   base64: {
     label: 'Base64',
-    description: '64-number system using A-Z, a-z, 0-9, +, /',
+    description: 'Система счисления по основанию 64 с использованием A–Z, a–z, 0–9, + и /',
     alphabet: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/',
     toString: (n) => {
       if (n === 0) return 'A';
@@ -71,8 +71,8 @@ const COUNTING_SYSTEMS = {
     },
   },
   roman: {
-    label: 'Roman',
-    description: 'Roman numerals like I, II, III, IV, V',
+    label: 'Римская',
+    description: 'Римские цифры, например I, II, III, IV, V',
     toString: (n) => {
       const romanNumerals = [
         ['M', 1000], ['CM', 900], ['D', 500], ['CD', 400],
@@ -111,8 +111,8 @@ const COUNTING_SYSTEMS = {
     },
   },
   math: {
-    label: 'Math Expressions',
-    description: 'Use a math expression that equals the next number, like 4*4=16',
+    label: 'Математические выражения',
+    description: 'Используйте математическое выражение, равное следующему числу, например 4*4=16',
     toString: (n) => `${n}`,
     parse: (value) => {
       const expression = value.replace(/\s+/g, '');
@@ -145,8 +145,8 @@ const COUNTING_SYSTEMS = {
     },
   },
   alphabet: {
-    label: 'Alphabet',
-    description: 'Letters A-Z in sequence',
+    label: 'Алфавит',
+    description: 'Буквы A–Z по порядку',
     toString: (n) => {
       let num = n;
       let result = '';
@@ -203,7 +203,7 @@ export async function getCountingGameConfig(client, guildId) {
     const rawState = await client.db.get(getStorageKey(guildId));
     return normalizeCountingGame(rawState);
   } catch (error) {
-    logger.error('Failed to load counting game config:', { guildId, error });
+    logger.error('Не удалось загрузить конфигурацию игры в счёт:', { guildId, error });
     return normalizeCountingGame();
   }
 }
@@ -306,6 +306,6 @@ export function buildCountingLeaderboard(config, guild) {
     .map(([userId, count], index) => {
       const member = guild?.members?.cache?.get(userId);
       const username = member ? `${member.user.username}#${member.user.discriminator}` : `<@${userId}>`;
-      return `**${index + 1}.** ${username} — ${count} ${count === 1 ? 'count' : 'counts'}`;
+      return `**${index + 1}.** ${username} — ${count} ${count === 1 ? 'раз' : 'раз'}`;
     });
 }
