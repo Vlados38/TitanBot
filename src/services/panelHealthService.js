@@ -53,16 +53,16 @@ export async function reconcileTicketPanels(client) {
                 summary.healthyPanels += 1;
             } else if (panelStatus.reason === 'channel_missing') {
                 summary.missingChannels += 1;
-                logger.warn(`Ticket panel channel missing for guild ${guild.id} (${guild.name})`);
+                logger.warn(`Канал панели тикетов отсутствует на сервере ${guild.id} (${guild.name})`);
             } else if (panelStatus.reason === 'panel_deleted') {
                 summary.deletedPanels += 1;
                 logger.warn(
-                    `Ticket panel message deleted for guild ${guild.id} (${guild.name}) — admins can repost from /ticket dashboard`,
+                    `Сообщение панели тикетов удалено на сервере ${guild.id} (${guild.name}) — администраторы могут опубликовать его заново через /ticket dashboard`,
                 );
             }
         } catch (error) {
             summary.errors += 1;
-            logger.warn(`Ticket panel health check failed for guild ${guild.id}:`, error.message);
+            logger.warn(`Проверка состояния панели тикетов завершилась ошибкой для сервера ${guild.id}:`, error.message);
         }
     }
 
@@ -98,16 +98,16 @@ export async function reconcileVerificationPanels(client) {
                 summary.healthyPanels += 1;
             } else if (panelStatus.reason === 'channel_missing') {
                 summary.missingChannels += 1;
-                logger.warn(`Verification panel channel missing for guild ${guild.id} (${guild.name})`);
+                logger.warn(`Канал панели верификации отсутствует на сервере ${guild.id} (${guild.name})`);
             } else if (panelStatus.reason === 'panel_deleted') {
                 summary.deletedPanels += 1;
                 logger.warn(
-                    `Verification panel deleted for guild ${guild.id} (${guild.name}) — repost from /verification dashboard`,
+                    `Панель верификации удалена на сервере ${guild.id} (${guild.name}) — опубликуйте её заново через /verification dashboard`,
                 );
             }
         } catch (error) {
             summary.errors += 1;
-            logger.warn(`Verification panel health check failed for guild ${guild.id}:`, error.message);
+            logger.warn(`Проверка состояния панели верификации завершилась ошибкой для сервера ${guild.id}:`, error.message);
         }
     }
 
@@ -148,18 +148,18 @@ export async function reconcileReactionRolePanelHealth(client) {
                 } else if (panelStatus.reason === 'channel_missing') {
                     summary.missingChannels += 1;
                     logger.warn(
-                        `Reaction role panel channel missing for guild ${guild.id}, message ${panelData.messageId}`,
+                        `Канал панели ролей за реакцию отсутствует на сервере ${guild.id}, сообщение ${panelData.messageId}`,
                     );
                 } else if (panelStatus.reason === 'panel_deleted') {
                     summary.deletedPanels += 1;
                     logger.warn(
-                        `Reaction role panel deleted for guild ${guild.id} — repost from /reactroles dashboard`,
+                        `Панель ролей за реакцию удалена на сервере ${guild.id} — опубликуйте её заново через /reactroles dashboard`,
                     );
                 }
             }
         } catch (error) {
             summary.errors += 1;
-            logger.warn(`Reaction role panel health check failed for guild ${guild.id}:`, error.message);
+            logger.warn(`Проверка состояния панели ролей за реакцию завершилась ошибкой для сервера ${guild.id}:`, error.message);
         }
     }
 
