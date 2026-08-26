@@ -3,6 +3,7 @@ import shopConfigSetrole from './modules/shop_config_setrole.js';
 
 export default {
     slashOnly: true,
+
     data: new SlashCommandBuilder()
         .setName('shop-config')
         .setDescription('Configure shop settings. (Manage Server required)')
