@@ -14,7 +14,7 @@ const BACK_BUTTON_ID = "help-back-to-main";
 const ALL_COMMANDS_ID = "help-all-commands";
 const PAGINATION_PREFIX = "help-page";
 const CATEGORY_SELECT_ID = "help-category-select";
-const FOOTER_TEXT = "Made with ❤️";
+const FOOTER_TEXT = "Сделано с ❤️";
 const SUBCOMMAND_TYPE = 1;
 const SUBCOMMAND_GROUP_TYPE = 2;
 
@@ -54,7 +54,7 @@ function buildHelpEntries(command, category) {
     }
 
     const baseName = commandData.name;
-    const baseDescription = commandData.description || "No description";
+    const baseDescription = commandData.description || "Описание отсутствует";
     const options = commandData.options || [];
 
     const entries = [];
@@ -150,7 +150,7 @@ async function createCategoryCommandsMenu(category, client) {
         }
     } catch (error) {
         logger.error(
-            `Error reading commands from category ${category}:`,
+            `Ошибка при чтении команд категории ${category}:`,
             error,
         );
     }
@@ -166,14 +166,14 @@ async function createCategoryCommandsMenu(category, client) {
             }
         }
     } catch (error) {
-        logger.error('Error fetching registered commands:', error);
+        logger.error('Ошибка при получении зарегистрированных команд:', error);
     }
 
     const embed = createEmbed({
-        title: `${icon} ${categoryName} Commands`,
+        title: `${icon} Команды категории ${categoryName}`,
         description: categoryCommands.length > 0
-            ? `Click any command mention below to use it.`
-            : `No commands found in the **${categoryName}** category.`
+            ? `Нажмите на упоминание любой команды ниже, чтобы использовать её.`
+            : `В категории **${categoryName}** команд не найдено.`
     });
 
     if (categoryCommands.length > 0) {
@@ -190,7 +190,7 @@ async function createCategoryCommandsMenu(category, client) {
         const maxLength = 1000;
         if (commandMentions.length <= maxLength) {
             embed.addFields({
-                name: "Commands",
+                name: "Команды",
                 value: commandMentions,
                 inline: false,
             });
@@ -211,7 +211,7 @@ async function createCategoryCommandsMenu(category, client) {
 
             chunks.forEach((chunk, index) => {
                 embed.addFields({
-                    name: `Commands (Part ${index + 1})`,
+                    name: `Команды (часть ${index + 1})`,
                     value: chunk,
                     inline: false,
                 });
@@ -224,7 +224,7 @@ async function createCategoryCommandsMenu(category, client) {
 
     const backButton = createButton(
         BACK_BUTTON_ID,
-        "Back",
+        "Назад",
         "primary",
         "⬅️",
         false,
@@ -281,7 +281,7 @@ export async function createAllCommandsMenu(page = 1, client) {
             }
         } catch (error) {
             logger.error(
-                `Error reading commands from category ${category}:`,
+                `Ошибка при чтении команд категории ${category}:`,
                 error,
             );
         }
@@ -298,7 +298,7 @@ export async function createAllCommandsMenu(page = 1, client) {
             }
         }
     } catch (error) {
-        logger.error('Error fetching registered commands:', error);
+        logger.error('Ошибка при получении зарегистрированных команд:', error);
     }
 
     const totalPages = Math.ceil(allCommands.length / commandsPerPage);
@@ -307,8 +307,8 @@ export async function createAllCommandsMenu(page = 1, client) {
     const pageCommands = allCommands.slice(startIndex, endIndex);
 
     const embed = createEmbed({
-        title: "📋 All Commands",
-        description: `Browse every available command in one list. Use the page buttons below to move through the full set.`
+        title: "📋 Все команды",
+        description: `Просмотрите все доступные команды в одном списке. Используйте кнопки ниже, чтобы перемещаться между страницами.`
     });
 
     embed.setFooter({ text: FOOTER_TEXT });
@@ -334,7 +334,7 @@ export async function createAllCommandsMenu(page = 1, client) {
             if (!chunk) continue;
 
             embed.addFields({
-                name: i === 0 ? `Commands (Page ${page})` : "Commands (cont.)",
+                name: i === 0 ? `Команды (страница ${page})` : "Команды (продолжение)",
                 value: chunk,
                 inline: columnCount > 1,
             });
@@ -354,7 +354,7 @@ export async function createAllCommandsMenu(page = 1, client) {
 
     const backButton = createButton(
         BACK_BUTTON_ID,
-        "Back",
+        "Назад",
         "primary",
         "⬅️",
         false,
@@ -396,7 +396,7 @@ export const helpCategorySelectMenu = {
             }
         } catch (error) {
             if (error?.code === 40060 || error?.code === 10062) {
-                logger.warn('Help category select interaction already acknowledged or expired.', {
+                logger.warn('Взаимодействие с выбором категории справки уже обработано или истекло.', {
                     event: 'interaction.help.select.unavailable',
                     errorCode: String(error.code),
                     customId: interaction.customId,
