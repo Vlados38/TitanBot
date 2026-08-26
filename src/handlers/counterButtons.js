@@ -6,56 +6,75 @@ import { ErrorTypes, replyUserError, handleInteractionError } from '../utils/err
 
 export const counterDeleteActionHandler = {
   name: 'counter-delete',
+
   async execute(interaction, client, args = []) {
     try {
       
       try {
         await interaction.deferUpdate();
       } catch (error) {
-        logger.error("Failed to defer button interaction:", error);
+        logger.error("Не удалось отложить обработку взаимодействия с кнопкой:", error);
         return;
       }
 
       const [action, counterId, ownerId] = args;
 
       if (!interaction.inGuild()) {
-        await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'This action can only be used in a server.' }).catch(logger.error);
+        await replyUserError(interaction, {
+          type: ErrorTypes.UNKNOWN,
+          message: 'Это действие можно использовать только на сервере.'
+        }).catch(logger.error);
         return;
       }
 
       if (!action || !counterId) {
-        await replyUserError(interaction, { type: ErrorTypes.VALIDATION, message: 'Counter delete action data is missing.' }).catch(logger.error);
+        await replyUserError(interaction, {
+          type: ErrorTypes.VALIDATION,
+          message: 'Данные для удаления счётчика отсутствуют.'
+        }).catch(logger.error);
         return;
       }
 
       if (ownerId && interaction.user.id !== ownerId) {
-        await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'Only the user who initiated this deletion can use these buttons.' }).catch(logger.error);
+        await replyUserError(interaction, {
+          type: ErrorTypes.UNKNOWN,
+          message: 'Только пользователь, инициировавший удаление, может использовать эти кнопки.'
+        }).catch(logger.error);
         return;
       }
 
       if (action === 'cancel') {
         await interaction.editReply({
           embeds: [createEmbed({
-            title: '❌ Cancelled',
-            description: 'Counter deletion cancelled.',
+            title: '❌ Отменено',
+            description: 'Удаление счётчика отменено.',
             color: 'error'
           })],
           components: []
         }).catch(logger.error);
+
         return;
       }
 
       if (action !== 'confirm') {
-        await replyUserError(interaction, { type: ErrorTypes.VALIDATION, message: 'Unknown counter delete action.' }).catch(logger.error);
+        await replyUserError(interaction, {
+          type: ErrorTypes.VALIDATION,
+          message: 'Неизвестное действие удаления счётчика.'
+        }).catch(logger.error);
         return;
       }
 
-      const { message } = await performDeletionByCounterId(client, interaction.guild, counterId);
+      const { message } = await performDeletionByCounterId(
+        client,
+        interaction.guild,
+        counterId
+      );
 
       await interaction.editReply({
         embeds: [successEmbed(message)],
         components: []
       }).catch(logger.error);
+
     } catch (error) {
       await handleInteractionError(interaction, error, {
         type: 'button',
