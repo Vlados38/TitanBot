@@ -3,20 +3,24 @@ import { successEmbed, warningEmbed } from '../../utils/embeds.js';
 import { logger } from '../../utils/logger.js';
 
 import { InteractionHelper } from '../../utils/interactionHelper.js';
-const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+const rand = (min, max) =>
+  Math.floor(Math.random() * (max - min + 1)) + min;
+
 const EMBED_DESCRIPTION_LIMIT = 4096;
 
 export default {
-    data: new SlashCommandBuilder()
+  data: new SlashCommandBuilder()
     .setName("fight")
-    .setDescription("Starts a simulated 1v1 text-based battle.")
+    .setDescription("Начать симулированную текстовую битву 1 на 1.")
     .addUserOption((option) =>
       option
         .setName("opponent")
-        .setDescription("The user to fight.")
+        .setDescription("Пользователь, с которым вы будете сражаться.")
         .setRequired(true),
     ),
-  category: 'Fun',
+
+  category: 'Развлечения',
 
   async execute(interaction, config, client) {
     await InteractionHelper.safeDefer(interaction);
@@ -26,58 +30,82 @@ export default {
 
     if (challenger.id === opponent.id) {
       const embed = warningEmbed(
-        "⚔️ Invalid Challenge",
-        `**${challenger.username}**, you can't fight yourself! That's a draw before it even starts.`
+        "⚔️ Недопустимый вызов",
+        `**${challenger.username}**, вы не можете сражаться с самим собой! Это ничья ещё до начала битвы.`
       );
-      return await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+
+      return await InteractionHelper.safeEditReply(interaction, {
+        embeds: [embed],
+      });
     }
 
     if (opponent.bot) {
       const embed = warningEmbed(
-        "⚔️ Invalid Opponent",
-        "You can't fight bots! Challenge a real person instead."
+        "⚔️ Недопустимый противник",
+        "Вы не можете сражаться с ботами! Выберите настоящего пользователя."
       );
-      return await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+
+      return await InteractionHelper.safeEditReply(interaction, {
+        embeds: [embed],
+      });
     }
 
     const winner = rand(0, 1) === 0 ? challenger : opponent;
-    const loser = winner.id === challenger.id ? opponent : challenger;
+    const loser =
+      winner.id === challenger.id ? opponent : challenger;
+
     const rounds = rand(3, 7);
     const damage = rand(10, 50);
 
     const log = [];
+
     log.push(
-      `💥 **${challenger.username}** challenges **${opponent.username}** to a duel! (Best of ${rounds} rounds)`,
+      `💥 **${challenger.username}** вызывает **${opponent.username}** на дуэль! (Лучший из ${rounds} раундов)`,
     );
 
     for (let i = 1; i <= rounds; i++) {
-      const attacker = rand(0, 1) === 0 ? challenger : opponent;
-      const target = attacker.id === challenger.id ? opponent : challenger;
+      const attacker =
+        rand(0, 1) === 0 ? challenger : opponent;
+
+      const target =
+        attacker.id === challenger.id ? opponent : challenger;
+
       const action = [
-        "throws a wild punch",
-        "lands a critical hit",
-        "uses a weak spell",
-        "parries and counterattacks",
+        "наносит размашистый удар",
+        "наносит критический удар",
+        "использует слабое заклинание",
+        "парирует атаку и контратакует",
       ][rand(0, 3)];
+
       log.push(
-        `\n**Round ${i}:** ${attacker.username} ${action} on ${target.username} for ${rand(1, damage)} damage!`,
+        `\n**Раунд ${i}:** ${attacker.username} ${action} по ${target.username} и наносит ${rand(1, damage)} урона!`,
       );
     }
 
     const outcomeText = log.join("\n");
-    const winnerText = `👑 **${winner.username}** has defeated ${loser.username} and claims the victory!`;
-    const fullDescription = `${outcomeText}\n\n${winnerText}`;
 
-    const description = fullDescription.length <= EMBED_DESCRIPTION_LIMIT
-      ? fullDescription
-      : `${fullDescription.slice(0, EMBED_DESCRIPTION_LIMIT - 15)}\n\n...`;
+    const winnerText =
+      `👑 **${winner.username}** побеждает ${loser.username} и забирает победу!`;
+
+    const fullDescription =
+      `${outcomeText}\n\n${winnerText}`;
+
+    const description =
+      fullDescription.length <= EMBED_DESCRIPTION_LIMIT
+        ? fullDescription
+        : `${fullDescription.slice(0, EMBED_DESCRIPTION_LIMIT - 15)}\n\n...`;
 
     const embed = successEmbed(
-      "🏆 Duel Complete!",
+      "🏆 Дуэль завершена!",
       description
     );
 
-    await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
-    logger.debug(`Fight command executed between ${challenger.id} and ${opponent.id} in guild ${interaction.guildId}`);
+    await InteractionHelper.safeEditReply(interaction, {
+      embeds: [embed],
+    });
+
+    logger.debug(
+      `Команда fight выполнена между ${challenger.id} и ${opponent.id} на сервере ${interaction.guildId}`
+    );
   },
 };
