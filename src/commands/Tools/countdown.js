@@ -11,11 +11,11 @@ export { activeCountdowns };
 export default {
     data: new SlashCommandBuilder()
         .setName("countdown")
-        .setDescription("Start a countdown timer")
+        .setDescription("Запустить таймер обратного отсчёта")
         .addIntegerOption((option) =>
             option
                 .setName("minutes")
-                .setDescription("Number of minutes to count down (0-1440)")
+                .setDescription("Количество минут для обратного отсчёта (0-1440)")
                 .setMinValue(0)
                 .setMaxValue(1440)
                 .setRequired(false),
@@ -23,7 +23,7 @@ export default {
         .addIntegerOption((option) =>
             option
                 .setName("seconds")
-                .setDescription("Number of seconds to count down (0-59)")
+                .setDescription("Количество секунд для обратного отсчёта (0-59)")
                 .setMinValue(0)
                 .setMaxValue(59)
                 .setRequired(false),
@@ -31,14 +31,14 @@ export default {
         .addStringOption((option) =>
             option
                 .setName("title")
-                .setDescription("Optional title for the countdown")
+                .setDescription("Необязательное название таймера")
                 .setRequired(false),
         ),
 
     async execute(interaction) {
         const deferSuccess = await InteractionHelper.safeDefer(interaction);
         if (!deferSuccess) {
-            logger.warn(`Countdown interaction defer failed`, {
+            logger.warn(`Не удалось отложить взаимодействие с таймером обратного отсчёта`, {
                 userId: interaction.user.id,
                 guildId: interaction.guildId,
                 commandName: 'countdown'
@@ -48,16 +48,16 @@ export default {
 
         const minutes = interaction.options.getInteger("minutes") || 0;
         const seconds = interaction.options.getInteger("seconds") || 0;
-        const title = interaction.options.getString("title") || "Countdown Timer";
+        const title = interaction.options.getString("title") || "Таймер обратного отсчёта";
 
         const totalSeconds = minutes * 60 + seconds;
 
         if (totalSeconds <= 0) {
-            throw new Error("Please specify a duration of at least 1 second.");
+            throw new Error("Укажите продолжительность не менее 1 секунды.");
         }
 
         if (totalSeconds > 86400) {
-            throw new Error("Countdown cannot be longer than 24 hours.");
+            throw new Error("Таймер не может быть установлен более чем на 24 часа.");
         }
 
         const endTime = Date.now() + totalSeconds * 1000;
@@ -67,7 +67,7 @@ export default {
 
         const initialEmbed = successEmbed(
             `⏱️ ${title}`,
-            `Time remaining: **${formatTime(totalSeconds)}**`,
+            `Оставшееся время: **${formatTime(totalSeconds)}**`,
         );
 
         const message = await interaction.channel.send({
@@ -89,7 +89,7 @@ export default {
         startCountdown(countdownId, countdownData, activeCountdowns);
 
         await InteractionHelper.safeEditReply(interaction, {
-            content: "✅ Countdown started!",
+            content: "✅ Таймер обратного отсчёта запущен!",
             flags: MessageFlags.Ephemeral,
         });
     },
