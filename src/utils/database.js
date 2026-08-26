@@ -1,4 +1,4 @@
-// database.js — facade re-exporting split modules for backward compatibility
+// database.js — фасад, повторно экспортирующий разделённые модули для обратной совместимости
 
 import { pgDb } from './postgresDatabase.js';
 import { logger } from './logger.js';
@@ -105,7 +105,7 @@ export async function insertVerificationAudit(record) {
         await setInDb(key, auditEntries);
         return true;
     } catch (error) {
-        logger.error('Error storing verification audit:', error);
+        logger.error('Ошибка сохранения аудита верификации:', error);
         return false;
     }
 }
@@ -122,8 +122,8 @@ export function unwrapReplitData(data) {
     return data;
 }
 
-// Guild config access: import from services/config/guildConfig.js only.
-// Low-level storage lives in ./database/guildConfigStorage.js
+// Доступ к конфигурации сервера: импортируйте из services/config/guildConfig.js.
+// Низкоуровневое хранилище находится в ./database/guildConfigStorage.js
 
 export { pgDb };
 
@@ -141,7 +141,7 @@ export const getColor = (path, fallback = "#000000") => {
 
     for (const part of parts) {
         if (current[part] === undefined) {
-            logger.warn(`Color path '${path}' not found in config, using fallback`);
+            logger.warn(`Путь цвета '${path}' не найден в конфигурации, используется значение по умолчанию`);
             return fallback;
         }
         current = current[part];
@@ -154,14 +154,14 @@ export async function getGuildBirthdays(client, guildId) {
     const key = getGuildBirthdaysKey(guildId);
     try {
         if (!client.db || typeof client.db.get !== "function") {
-            logger.error("Database client is not available for getGuildBirthdays.");
+            logger.error("Клиент базы данных недоступен для getGuildBirthdays.");
             return {};
         }
 
         const rawData = await client.db.get(key, {});
         return unwrapReplitData(rawData) || {};
     } catch (error) {
-        logger.error(`Error retrieving birthdays for guild ${guildId}:`, error);
+        logger.error(`Ошибка получения дней рождения для сервера ${guildId}:`, error);
         return {};
     }
 }
@@ -169,7 +169,7 @@ export async function getGuildBirthdays(client, guildId) {
 export async function setBirthday(client, guildId, userId, month, day) {
     try {
         if (!client.db || typeof client.db.set !== "function") {
-            logger.error("Database client is not available for setBirthday.");
+            logger.error("Клиент базы данных недоступен для setBirthday.");
             return false;
         }
 
@@ -179,7 +179,7 @@ export async function setBirthday(client, guildId, userId, month, day) {
         await client.db.set(key, birthdays);
         return true;
     } catch (error) {
-        logger.error(`Error setting birthday for user ${userId} in guild ${guildId}:`, error);
+        logger.error(`Ошибка установки дня рождения пользователя ${userId} на сервере ${guildId}:`, error);
         return false;
     }
 }
@@ -187,7 +187,7 @@ export async function setBirthday(client, guildId, userId, month, day) {
 export async function deleteBirthday(client, guildId, userId) {
     try {
         if (!client.db || typeof client.db.set !== "function") {
-            logger.error("Database client is not available for deleteBirthday.");
+            logger.error("Клиент базы данных недоступен для deleteBirthday.");
             return false;
         }
 
@@ -199,18 +199,18 @@ export async function deleteBirthday(client, guildId, userId) {
         }
         return true;
     } catch (error) {
-        logger.error(`Error deleting birthday for user ${userId} in guild ${guildId}:`, error);
+        logger.error(`Ошибка удаления дня рождения пользователя ${userId} на сервере ${guildId}:`, error);
         return false;
     }
 }
 
 export function getMonthName(monthNum) {
     const months = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
+        'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+        'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
     ];
     const index = Math.max(0, Math.min(monthNum - 1, 11));
-    return monthNum >= 1 && monthNum <= 12 ? months[index] : 'Invalid Month';
+    return monthNum >= 1 && monthNum <= 12 ? months[index] : 'Недопустимый месяц';
 }
 
 function isPostgresSqlReady(dbWrapper) {
@@ -290,12 +290,12 @@ export async function getEndedGiveaways(client) {
         }
 
         if (wrapper.isDegraded?.()) {
-            logger.debug('Postgres SQL unavailable for ended giveaways; scanning key-value store');
+            logger.debug('PostgreSQL недоступен для получения завершённых розыгрышей; выполняется сканирование key-value хранилища');
         }
 
         return await getEndedGiveawaysFromKv(client);
     } catch (error) {
-        logger.error('Error getting ended giveaways:', error);
+        logger.error('Ошибка получения завершённых розыгрышей:', error);
         try {
             return await getEndedGiveawaysFromKv(client);
         } catch {
@@ -332,7 +332,7 @@ export async function markGiveawayEnded(client, giveawayId, endedData) {
         const { saveGiveaway } = await import('./giveaways.js');
         return saveGiveaway(client, guildId, endedData);
     } catch (error) {
-        logger.error('Error marking giveaway as ended:', error);
+        logger.error('Ошибка отметки розыгрыша как завершённого:', error);
         return false;
     }
 }
@@ -343,23 +343,23 @@ function normalizeWelcomeConfig(raw = {}) {
     const channelId = base.channelId ?? null;
     const goodbyeChannelId = base.goodbyeChannelId ?? null;
 
-    const welcomeMessage = base.welcomeMessage ?? "Welcome {user} to {server}!";
-    const leaveMessage = base.leaveMessage ?? "{user.tag} has left the server.";
+    const welcomeMessage = base.welcomeMessage ?? "Добро пожаловать, {user}, на сервер {server}!";
+    const leaveMessage = base.leaveMessage ?? "{user.tag} покинул сервер.";
 
     const welcomeEmbed = base.welcomeEmbed ?? {
-        title: "🎉 Welcome!",
-        description: "Welcome {user} to {server}!",
+        title: "🎉 Добро пожаловать!",
+        description: "Добро пожаловать, {user}, на сервер {server}!",
         color: getColor("success"),
         thumbnail: true,
-        footer: "Welcome to {server}!"
+        footer: "Добро пожаловать на {server}!"
     };
 
     const leaveEmbed = base.leaveEmbed ?? {
-        title: "👋 Goodbye",
-        description: "{user.tag} has left the server.",
+        title: "👋 До свидания",
+        description: "{user.tag} покинул сервер.",
         color: getColor("error"),
         thumbnail: true,
-        footer: "Goodbye from {server}!"
+        footer: "До свидания от сервера {server}!"
     };
 
     const roleIds = Array.isArray(base.roleIds) ? base.roleIds : [];
@@ -387,7 +387,7 @@ function normalizeWelcomeConfig(raw = {}) {
 
 export async function getWelcomeConfig(client, guildId) {
     if (!client.db) {
-        logger.warn('Database not available for getWelcomeConfig');
+        logger.warn('База данных недоступна для getWelcomeConfig');
         return normalizeWelcomeConfig();
     }
     
@@ -397,7 +397,7 @@ export async function getWelcomeConfig(client, guildId) {
         const unwrapped = unwrapReplitData(config);
         return normalizeWelcomeConfig(unwrapped);
     } catch (error) {
-        logger.error(`Error getting welcome config for guild ${guildId}:`, error);
+        logger.error(`Ошибка получения конфигурации приветствия для сервера ${guildId}:`, error);
         return normalizeWelcomeConfig();
     }
 }
@@ -406,7 +406,7 @@ export async function saveWelcomeConfig(client, guildId, config) {
     const key = getWelcomeConfigKey(guildId);
     try {
         if (!client.db || typeof client.db.set !== 'function') {
-            logger.error('Database client is not available for saveWelcomeConfig.');
+            logger.error('Клиент базы данных недоступен для saveWelcomeConfig.');
             return false;
         }
 
@@ -416,7 +416,7 @@ export async function saveWelcomeConfig(client, guildId, config) {
         await client.db.set(key, mergedConfig);
         return true;
     } catch (error) {
-        logger.error(`Error saving welcome config for guild ${guildId}:`, error);
+        logger.error(`Ошибка сохранения конфигурации приветствия для сервера ${guildId}:`, error);
         return false;
     }
 }
@@ -429,7 +429,7 @@ export async function updateWelcomeConfig(client, guildId, updates) {
         await saveWelcomeConfig(client, guildId, updatedConfig);
         return updatedConfig;
     } catch (error) {
-        logger.error(`Error updating welcome config for guild ${guildId}:`, error);
+        logger.error(`Ошибка обновления конфигурации приветствия для сервера ${guildId}:`, error);
         throw error;
     }
 }
@@ -451,7 +451,7 @@ export async function getLevelingConfig(client, guildId) {
         
         return config;
     } catch (error) {
-        logger.error('Error getting leveling config:', error);
+        logger.error('Ошибка получения конфигурации системы уровней:', error);
         return {
             enabled: false,
             xpPerMessage: 10,
@@ -472,7 +472,7 @@ export async function saveLevelingConfig(client, guildId, config) {
         await setInDb(key, config);
         return true;
     } catch (error) {
-        logger.error(`Error saving leveling config for guild ${guildId}:`, error);
+        logger.error(`Ошибка сохранения конфигурации системы уровней для сервера ${guildId}:`, error);
         return false;
     }
 }
@@ -503,7 +503,7 @@ export async function getUserLevelData(client, guildId, userId) {
         
         return levelData;
     } catch (error) {
-        logger.error(`Error getting level data for user ${userId} in guild ${guildId}:`, error);
+        logger.error(`Ошибка получения данных уровня пользователя ${userId} на сервере ${guildId}:`, error);
         return {
             xp: 0,
             level: 0,
@@ -531,7 +531,7 @@ export async function saveUserLevelData(client, guildId, userId, data) {
         await setInDb(key, levelData);
         return true;
     } catch (error) {
-        logger.error(`Error saving level data for user ${userId} in guild ${guildId}:`, error);
+        logger.error(`Ошибка сохранения данных уровня пользователя ${userId} на сервере ${guildId}:`, error);
         return false;
     }
 }
@@ -543,7 +543,7 @@ export function getXpForLevel(level) {
 export async function getLeaderboard(client, guildId, limit = 10) {
     try {
         if (!client.db || typeof client.db.list !== "function") {
-            logger.error("Database client is not available for getLeaderboard.");
+            logger.error("Клиент базы данных недоступен для getLeaderboard.");
             return [];
         }
 
@@ -574,10 +574,10 @@ export async function getLeaderboard(client, guildId, limit = 10) {
                     xp: unwrapped.xp || 0,
                     level: unwrapped.level || 0,
                     totalXp: unwrapped.totalXp || 0,
-rank: 0
+                    rank: 0
                 };
             } catch (error) {
-                logger.error(`Error processing leaderboard key ${key}:`, error);
+                logger.error(`Ошибка обработки ключа таблицы лидеров ${key}:`, error);
                 return null;
             }
         });
@@ -593,7 +593,7 @@ rank: 0
         
         return userData.slice(0, limit);
     } catch (error) {
-        logger.error(`Error getting leaderboard for guild ${guildId}:`, error);
+        logger.error(`Ошибка получения таблицы лидеров для сервера ${guildId}:`, error);
         return [];
     }
 }
@@ -601,7 +601,7 @@ rank: 0
 export async function getApplicationRoles(client, guildId) {
     try {
         if (!client.db || typeof client.db.get !== "function") {
-            logger.error("Database client is not available for getApplicationRoles.");
+            logger.error("Клиент базы данных недоступен для getApplicationRoles.");
             return [];
         }
 
@@ -610,7 +610,7 @@ export async function getApplicationRoles(client, guildId) {
         const unwrappedRoles = unwrapReplitData(roles);
         return Array.isArray(unwrappedRoles) ? unwrappedRoles : [];
     } catch (error) {
-        logger.error(`Error getting application roles for guild ${guildId}:`, error);
+        logger.error(`Ошибка получения ролей заявок для сервера ${guildId}:`, error);
         return [];
     }
 }
@@ -618,7 +618,7 @@ export async function getApplicationRoles(client, guildId) {
 export async function saveApplicationRoles(client, guildId, roles) {
     try {
         if (!client.db || typeof client.db.set !== "function") {
-            logger.error("Database client is not available for saveApplicationRoles.");
+            logger.error("Клиент базы данных недоступен для saveApplicationRoles.");
             return false;
         }
 
@@ -626,7 +626,7 @@ export async function saveApplicationRoles(client, guildId, roles) {
         await client.db.set(key, roles);
         return true;
     } catch (error) {
-        logger.error(`Error saving application roles for guild ${guildId}:`, error);
+        logger.error(`Ошибка сохранения ролей заявок для сервера ${guildId}:`, error);
         return false;
     }
 }
@@ -658,7 +658,7 @@ function buildApplicationSettingsDefaults() {
 
 export async function getApplicationSettings(client, guildId) {
     if (!client.db) {
-        logger.warn('Database not available for getApplicationSettings');
+        logger.warn('База данных недоступна для getApplicationSettings');
         return buildApplicationSettingsDefaults();
     }
     
@@ -671,7 +671,7 @@ export async function getApplicationSettings(client, guildId) {
         
         return { ...defaultSettings, ...unwrapped };
     } catch (error) {
-        logger.error(`Error getting application settings for guild ${guildId}:`, error);
+        logger.error(`Ошибка получения настроек заявок для сервера ${guildId}:`, error);
         return buildApplicationSettingsDefaults();
     }
 }
@@ -732,7 +732,7 @@ export async function deleteApplication(client, guildId, applicationId, userIdHi
 
         return true;
     } catch (error) {
-        logger.error(`Error deleting application ${applicationId} in guild ${guildId}:`, error);
+        logger.error(`Ошибка удаления заявки ${applicationId} на сервере ${guildId}:`, error);
         return false;
     }
 }
@@ -778,7 +778,7 @@ export async function cleanupExpiredApplications(client, guildId) {
 
         return { removed, scanned: applicationKeys.length };
     } catch (error) {
-        logger.error(`Error cleaning expired applications for guild ${guildId}:`, error);
+        logger.error(`Ошибка очистки просроченных заявок для сервера ${guildId}:`, error);
         return { removed: 0, scanned: 0 };
     }
 }
@@ -792,7 +792,7 @@ export async function saveApplicationSettings(client, guildId, settings) {
         await client.db.set(key, mergedSettings);
         return true;
     } catch (error) {
-        logger.error(`Error saving application settings for guild ${guildId}:`, error);
+        logger.error(`Ошибка сохранения настроек заявок для сервера ${guildId}:`, error);
         return false;
     }
 }
@@ -811,7 +811,7 @@ export async function getApplicationRoleSettings(client, guildId, roleId) {
         const settings = await client.db.get(key, {});
         return unwrapReplitData(settings) || { questions: null, logChannelId: null };
     } catch (error) {
-        logger.error(`Error getting application role settings for ${guildId}:${roleId}:`, error);
+        logger.error(`Ошибка получения настроек роли заявки для ${guildId}:${roleId}:`, error);
         return { questions: null, logChannelId: null };
     }
 }
@@ -819,7 +819,7 @@ export async function getApplicationRoleSettings(client, guildId, roleId) {
 export async function saveApplicationRoleSettings(client, guildId, roleId, settings) {
     try {
         if (!client.db || typeof client.db.set !== "function") {
-            logger.error("Database client is not available for saveApplicationRoleSettings.");
+            logger.error("Клиент базы данных недоступен для saveApplicationRoleSettings.");
             return false;
         }
 
@@ -827,7 +827,7 @@ export async function saveApplicationRoleSettings(client, guildId, roleId, setti
         await client.db.set(key, settings);
         return true;
     } catch (error) {
-        logger.error(`Error saving application role settings for ${guildId}:${roleId}:`, error);
+        logger.error(`Ошибка сохранения настроек роли заявки для ${guildId}:${roleId}:`, error);
         return false;
     }
 }
@@ -835,7 +835,7 @@ export async function saveApplicationRoleSettings(client, guildId, roleId, setti
 export async function deleteApplicationRoleSettings(client, guildId, roleId) {
     try {
         if (!client.db || typeof client.db.delete !== "function") {
-            logger.error("Database client is not available for deleteApplicationRoleSettings.");
+            logger.error("Клиент базы данных недоступен для deleteApplicationRoleSettings.");
             return false;
         }
 
@@ -843,7 +843,7 @@ export async function deleteApplicationRoleSettings(client, guildId, roleId) {
         await client.db.delete(key);
         return true;
     } catch (error) {
-        logger.error(`Error deleting application role settings for ${guildId}:${roleId}:`, error);
+        logger.error(`Ошибка удаления настроек роли заявки для ${guildId}:${roleId}:`, error);
         return false;
     }
 }
@@ -856,7 +856,7 @@ export async function createApplication(client, application) {
     const newApplication = {
         ...application,
         id: applicationId,
-status: 'pending',
+        status: 'pending',
         createdAt: Date.now(),
         updatedAt: Date.now(),
         reviewedBy: null,
@@ -866,8 +866,8 @@ status: 'pending',
     
     try {
         if (!client.db || typeof client.db.set !== "function") {
-            logger.error("Database client is not available for createApplication.");
-            throw new Error("Database not available");
+            logger.error("Клиент базы данных недоступен для createApplication.");
+            throw new Error("База данных недоступна");
         }
 
         await client.db.set(key, newApplication);
@@ -881,12 +881,12 @@ status: 'pending',
         
         await client.db.set(userKey, applicationsArray);
         if (process.env.NODE_ENV !== 'production') {
-            logger.debug(`Successfully created application ${applicationId} for user ${userId}`);
+            logger.debug(`Заявка ${applicationId} успешно создана для пользователя ${userId}`);
         }
         
         return newApplication;
     } catch (error) {
-        logger.error(`Error creating application for user ${userId} in guild ${guildId}:`, error);
+        logger.error(`Ошибка создания заявки для пользователя ${userId} на сервере ${guildId}:`, error);
         throw error;
     }
 }
@@ -898,7 +898,7 @@ export async function getApplication(client, guildId, applicationId) {
         const application = await client.db.get(key, null);
         return unwrapReplitData(application);
     } catch (error) {
-        logger.error(`Error getting application ${applicationId} in guild ${guildId}:`, error);
+        logger.error(`Ошибка получения заявки ${applicationId} на сервере ${guildId}:`, error);
         return null;
     }
 }
@@ -908,7 +908,7 @@ export async function updateApplication(client, guildId, applicationId, updates)
     try {
         const existingApplication = await getApplication(client, guildId, applicationId);
         if (!existingApplication) {
-            throw new Error(`Application ${applicationId} not found`);
+            throw new Error(`Заявка ${applicationId} не найдена`);
         }
         
         const updatedApplication = {
@@ -920,7 +920,7 @@ export async function updateApplication(client, guildId, applicationId, updates)
         await client.db.set(key, updatedApplication);
         return updatedApplication;
     } catch (error) {
-        logger.error(`Error updating application ${applicationId} in guild ${guildId}:`, error);
+        logger.error(`Ошибка обновления заявки ${applicationId} на сервере ${guildId}:`, error);
         throw error;
     }
 }
@@ -929,7 +929,7 @@ export async function getUserApplications(client, guildId, userId) {
     const userKey = getUserApplicationsKey(guildId, userId);
     try {
         if (!client.db || typeof client.db.get !== "function") {
-            logger.error("Database client is not available for getUserApplications.");
+            logger.error("Клиент базы данных недоступен для getUserApplications.");
             return [];
         }
 
@@ -947,7 +947,7 @@ export async function getUserApplications(client, guildId, userId) {
         const applications = await Promise.all(applicationPromises);
         return applications.filter(Boolean);
     } catch (error) {
-        logger.error(`Error getting applications for user ${userId} in guild ${guildId}:`, error);
+        logger.error(`Ошибка получения заявок пользователя ${userId} на сервере ${guildId}:`, error);
         return [];
     }
 }
@@ -962,7 +962,7 @@ export async function getApplications(client, guildId, filters = {}) {
     
     try {
         if (!client.db || typeof client.db.list !== "function") {
-            logger.error("Database client is not available for getApplications.");
+            logger.error("Клиент базы данных недоступен для getApplications.");
             return [];
         }
 
@@ -1000,14 +1000,14 @@ export async function getApplications(client, guildId, filters = {}) {
         
         return applications.slice(offset, offset + limit);
     } catch (error) {
-        logger.error(`Error getting applications for guild ${guildId}:`, error);
+        logger.error(`Ошибка получения заявок для сервера ${guildId}:`, error);
         return [];
     }
 }
 
 export async function getJoinToCreateConfig(client, guildId) {
     if (!client.db) {
-        logger.warn('Database not available for getJoinToCreateConfig');
+        logger.warn('База данных недоступна для getJoinToCreateConfig');
         return {
             enabled: false,
             triggerChannels: [],
@@ -1035,7 +1035,7 @@ export async function getJoinToCreateConfig(client, guildId) {
             ...unwrapped
         };
     } catch (error) {
-        logger.error(`Error getting Join to Create config for guild ${guildId}:`, error);
+        logger.error(`Ошибка получения конфигурации Join to Create для сервера ${guildId}:`, error);
         return {
             enabled: false,
             triggerChannels: [],
@@ -1057,7 +1057,7 @@ export async function saveJoinToCreateConfig(client, guildId, config) {
         await client.db.set(key, mergedConfig);
         return true;
     } catch (error) {
-        logger.error(`Error saving Join to Create config for guild ${guildId}:`, error);
+        logger.error(`Ошибка сохранения конфигурации Join to Create для сервера ${guildId}:`, error);
         return false;
     }
 }
@@ -1070,7 +1070,7 @@ export async function updateJoinToCreateConfig(client, guildId, updates) {
         await saveJoinToCreateConfig(client, guildId, updatedConfig);
         return updatedConfig;
     } catch (error) {
-        logger.error(`Error updating Join to Create config for guild ${guildId}:`, error);
+        logger.error(`Ошибка обновления конфигурации Join to Create для сервера ${guildId}:`, error);
         throw error;
     }
 }
@@ -1099,7 +1099,7 @@ export async function addJoinToCreateTrigger(client, guildId, channelId, options
         
         return await saveJoinToCreateConfig(client, guildId, config);
     } catch (error) {
-        logger.error(`Error adding Join to Create trigger for guild ${guildId}:`, error);
+        logger.error(`Ошибка добавления триггера Join to Create для сервера ${guildId}:`, error);
         return false;
     }
 }
@@ -1122,7 +1122,7 @@ export async function removeJoinToCreateTrigger(client, guildId, channelId) {
         
         return await saveJoinToCreateConfig(client, guildId, config);
     } catch (error) {
-        logger.error(`Error removing Join to Create trigger for guild ${guildId}:`, error);
+        logger.error(`Ошибка удаления триггера Join to Create для сервера ${guildId}:`, error);
         return false;
     }
 }
@@ -1139,7 +1139,7 @@ export async function registerTemporaryChannel(client, guildId, channelId, owner
         
         return await saveJoinToCreateConfig(client, guildId, config);
     } catch (error) {
-        logger.error(`Error registering temporary channel for guild ${guildId}:`, error);
+        logger.error(`Ошибка регистрации временного канала для сервера ${guildId}:`, error);
         return false;
     }
 }
@@ -1155,7 +1155,7 @@ export async function unregisterTemporaryChannel(client, guildId, channelId) {
         
         return false;
     } catch (error) {
-        logger.error(`Error unregistering temporary channel for guild ${guildId}:`, error);
+        logger.error(`Ошибка отмены регистрации временного канала для сервера ${guildId}:`, error);
         return false;
     }
 }
@@ -1165,7 +1165,7 @@ export async function getTemporaryChannelInfo(client, guildId, channelId) {
         const config = await getJoinToCreateConfig(client, guildId);
         return config.temporaryChannels[channelId] || null;
     } catch (error) {
-        logger.error(`Error getting temporary channel info for guild ${guildId}:`, error);
+        logger.error(`Ошибка получения информации о временном канале для сервера ${guildId}:`, error);
         return null;
     }
 }
@@ -1174,11 +1174,11 @@ export function formatChannelName(template, variables) {
     let formatted = template;
     
     const replacements = {
-        '{username}': variables.username || 'User',
-        '{user_tag}': variables.userTag || 'User#0000',
-        '{display_name}': variables.displayName || 'User',
-        '{guild_name}': variables.guildName || 'Server',
-        '{channel_name}': variables.channelName || 'Voice Channel'
+        '{username}': variables.username || 'Пользователь',
+        '{user_tag}': variables.userTag || 'Пользователь#0000',
+        '{display_name}': variables.displayName || 'Пользователь',
+        '{guild_name}': variables.guildName || 'Сервер',
+        '{channel_name}': variables.channelName || 'Голосовой канал'
     };
     
     for (const [placeholder, value] of Object.entries(replacements)) {
@@ -1186,9 +1186,9 @@ export function formatChannelName(template, variables) {
     }
     
     formatted = formatted.replace(/[^\w\s-]/g, '').trim();
-formatted = formatted.substring(0, 100);
+    formatted = formatted.substring(0, 100);
     
-    return formatted || 'Voice Channel';
+    return formatted || 'Голосовой канал';
 }
 
 function generateCaseId() {
