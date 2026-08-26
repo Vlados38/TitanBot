@@ -62,7 +62,7 @@ class TitanBot extends Client {
       if (dbStatus.isDegraded) {
         logger.warn('');
         logger.warn('╔═══════════════════════════════════════════════════════╗');
-        logger.warn('║ ⚠️  DATABASE RUNNING IN DEGRADED MODE                 ║');
+        logger.warn('║ ⚠️  DATABASE RUNNING IN DEGRADED  MODE                ║');
         logger.warn('║                                                       ║');
         logger.warn('║ Connection: In-Memory Storage (PostgreSQL unavailable)║');
         logger.warn('║ Data Persistence: DISABLED - data lost on restart    ║');
