@@ -16,7 +16,7 @@ export default {
         if (!birthdayData) {
             const embed = new EmbedBuilder()
                 .setColor(0xFF0000)
-                .setTitle('No Birthday Found')
+                .setTitle('День рождения не указан')
                 .setDescription(targetUser.id === interaction.user.id 
                     ? "Вы не указали свой день рождения! Используйте `/birthday set` чтобы указать!"
                     : `${targetUser.username} не указал(а) свою дату рождения.`);
