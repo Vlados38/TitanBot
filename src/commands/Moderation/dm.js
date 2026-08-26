@@ -6,26 +6,27 @@ import { sanitizeMarkdown } from '../../utils/validation.js';
 
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
+
 export default {
     data: new SlashCommandBuilder()
         .setName("dm")
-        .setDescription("Send a direct message to a user (Staff only)")
+        .setDescription("Отправить личное сообщение пользователю (только для персонала)")
         .addUserOption(option =>
             option
                 .setName("user")
-                .setDescription("The user to send a DM to")
+                .setDescription("Пользователь, которому нужно отправить личное сообщение")
                 .setRequired(true)
         )
         .addStringOption(option =>
             option
                 .setName("message")
-                .setDescription("The message to send")
+                .setDescription("Сообщение для отправки")
                 .setRequired(true)
         )
         .addBooleanOption(option =>
             option
                 .setName("anonymous")
-                .setDescription("Send the message anonymously (default: false)")
+                .setDescription("Отправить сообщение анонимно (по умолчанию: false)")
                 .setRequired(false)
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
@@ -43,18 +44,18 @@ export default {
             return;
         }
 
-    const targetUser = interaction.options.getUser("user");
+        const targetUser = interaction.options.getUser("user");
         const message = interaction.options.getString("message");
         const anonymous = interaction.options.getBoolean("anonymous") || false;
 
         try {
             
             if (message.length > 2000) {
-                return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'Messages must be under 2000 characters.' });
+                return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'Сообщение не должно превышать 2000 символов.' });
             }
 
             if (targetUser.bot) {
-                return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'You cannot send DMs to bot accounts.' });
+                return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'Вы не можете отправлять личные сообщения ботам.' });
             }
 
             const sanitized = sanitizeMarkdown(message);
@@ -64,10 +65,10 @@ export default {
             await dmChannel.send({
                 embeds: [
                     successEmbed(
-                        anonymous ? "Message from the Staff Team" : `Message from ${interaction.user.tag}`,
+                        anonymous ? "Сообщение от команды персонала" : `Сообщение от ${interaction.user.tag}`,
                         sanitized
                     ).setFooter({
-                        text: `You cannot reply to this message. | Logger ID: ${interaction.id}`
+                        text: `Вы не можете ответить на это сообщение. | ID журнала: ${interaction.id}`
                     })
                 ]
             });
@@ -92,19 +93,19 @@ export default {
             return await InteractionHelper.safeEditReply(interaction, {
                 embeds: [
                     successEmbed(
-                        "DM Sent",
-                        `Successfully sent a message to ${targetUser.tag}`
+                        "Сообщение отправлено",
+                        `Сообщение успешно отправлено пользователю ${targetUser.tag}`
                     ),
                 ],
             });
         } catch (error) {
             logger.error('DM command error:', error);
             
-if (error.code === 50007) {
-                return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: `Could not send a DM to ${targetUser.tag}. They may have DMs disabled.` });
+            if (error.code === 50007) {
+                return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: `Не удалось отправить личное сообщение пользователю ${targetUser.tag}. Возможно, у него отключены личные сообщения.` });
             }
             
-            return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: `Failed to send DM: ${error.message}` });
+            return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: `Не удалось отправить личное сообщение: ${error.message}` });
         }
     }
 };
