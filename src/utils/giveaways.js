@@ -29,7 +29,7 @@ function arrayToGiveawayMap(giveaways) {
 export async function getGuildGiveaways(client, guildId) {
     try {
         if (!client.db) {
-            logger.warn('Database not available for getGuildGiveaways');
+            logger.warn('База данных недоступна для getGuildGiveaways');
             return [];
         }
 
@@ -42,7 +42,7 @@ export async function getGuildGiveaways(client, guildId) {
         }
         return Array.isArray(unwrappedGiveaways) ? unwrappedGiveaways : [];
     } catch (error) {
-        logger.error(`Error getting giveaways for guild ${guildId}:`, error);
+        logger.error(`Ошибка при получении розыгрышей для сервера ${guildId}:`, error);
         return [];
     }
 }
@@ -50,7 +50,7 @@ export async function getGuildGiveaways(client, guildId) {
 export async function saveGiveaway(client, guildId, giveawayData) {
     try {
         if (!client.db) {
-            logger.warn('Database not available for saveGiveaway');
+            logger.warn('База данных недоступна для saveGiveaway');
             return false;
         }
 
@@ -58,7 +58,7 @@ export async function saveGiveaway(client, guildId, giveawayData) {
             throw new TitanBotError(
                 'Invalid giveaway data: missing messageId',
                 ErrorTypes.VALIDATION,
-                'Cannot save giveaway without a message ID.',
+                'Невозможно сохранить розыгрыш без ID сообщения.',
                 { giveawayData }
             );
         }
@@ -71,10 +71,10 @@ export async function saveGiveaway(client, guildId, giveawayData) {
         
         await client.db.set(key, giveawayMap);
         
-        logger.debug(`Saved giveaway ${giveawayData.messageId} in guild ${guildId}`);
+        logger.debug(`Розыгрыш ${giveawayData.messageId} сохранён на сервере ${guildId}`);
         return true;
     } catch (error) {
-        logger.error(`Error saving giveaway in guild ${guildId}:`, error);
+        logger.error(`Ошибка при сохранении розыгрыша на сервере ${guildId}:`, error);
         if (error instanceof TitanBotError) {
             throw error;
         }
@@ -85,7 +85,7 @@ export async function saveGiveaway(client, guildId, giveawayData) {
 export async function deleteGiveaway(client, guildId, messageId) {
     try {
         if (!client.db) {
-            logger.warn('Database not available for deleteGiveaway');
+            logger.warn('База данных недоступна для deleteGiveaway');
             return false;
         }
 
@@ -93,7 +93,7 @@ export async function deleteGiveaway(client, guildId, messageId) {
             throw new TitanBotError(
                 'Missing messageId parameter',
                 ErrorTypes.VALIDATION,
-                'Cannot delete giveaway without a message ID.',
+                'Невозможно удалить розыгрыш без ID сообщения.',
                 { messageId }
             );
         }
@@ -104,17 +104,17 @@ export async function deleteGiveaway(client, guildId, messageId) {
         const giveawayMap = arrayToGiveawayMap(giveaways);
         
         if (!giveawayMap[messageId]) {
-            logger.debug(`Giveaway not found for deletion: ${messageId} in guild ${guildId}`);
+            logger.debug(`Розыгрыш не найден для удаления: ${messageId} на сервере ${guildId}`);
             return false;
         }
         
         delete giveawayMap[messageId];
         await client.db.set(key, giveawayMap);
         
-        logger.debug(`Deleted giveaway ${messageId} from guild ${guildId}`);
+        logger.debug(`Розыгрыш ${messageId} удалён с сервера ${guildId}`);
         return true;
     } catch (error) {
-        logger.error(`Error deleting giveaway ${messageId} in guild ${guildId}:`, error);
+        logger.error(`Ошибка при удалении розыгрыша ${messageId} на сервере ${guildId}:`, error);
         if (error instanceof TitanBotError) {
             throw error;
         }
@@ -126,7 +126,7 @@ export function createGiveawayEmbed(giveaway, status, winners = []) {
     try {
         return createGiveawayEmbedService(giveaway, status, winners);
     } catch (error) {
-        logger.error('Error creating giveaway embed:', error);
+        logger.error('Ошибка при создании embed розыгрыша:', error);
         throw error;
     }
 }
@@ -141,7 +141,7 @@ export function pickWinners(entrants, count) {
     try {
         return selectWinnersService(entrants, count);
     } catch (error) {
-        logger.error('Error picking winners:', error);
+        logger.error('Ошибка при выборе победителей:', error);
         
         if (!entrants || entrants.length === 0) return [];
         const requested = Math.min(count, entrants.length);
@@ -162,29 +162,29 @@ export function giveawayButtons(ended = false) {
     try {
         return createGiveawayButtonsService(ended);
     } catch (error) {
-        logger.error('Error creating giveaway buttons:', error);
+        logger.error('Ошибка при создании кнопок розыгрыша:', error);
         
         const row = new ActionRowBuilder();
         if (ended) {
             row.addComponents(
                 new ButtonBuilder()
                     .setCustomId('giveaway_reroll')
-                    .setLabel('🎲 Reroll')
+                    .setLabel('🎲 Перевыбрать')
                     .setStyle(ButtonStyle.Secondary),
                 new ButtonBuilder()
                     .setCustomId('giveaway_view')
-                    .setLabel('👁️ View')
+                    .setLabel('👁️ Просмотреть')
                     .setStyle(ButtonStyle.Primary)
             );
         } else {
             row.addComponents(
                 new ButtonBuilder()
                     .setCustomId('giveaway_join')
-                    .setLabel('🎉 Join')
+                    .setLabel('🎉 Участвовать')
                     .setStyle(ButtonStyle.Primary),
                 new ButtonBuilder()
                     .setCustomId('giveaway_end')
-                    .setLabel('🛑 End')
+                    .setLabel('🛑 Завершить')
                     .setStyle(ButtonStyle.Danger)
             );
         }
