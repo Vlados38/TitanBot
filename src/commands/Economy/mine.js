@@ -1,5 +1,7 @@
+// Переведённый файл: mine.js
+
 import { SlashCommandBuilder } from 'discord.js';
-import { createEmbed, errorEmbed, successEmbed, infoEmbed, warningEmbed } from '../../utils/embeds.js';
+import { successEmbed } from '../../utils/embeds.js';
 import { getEconomyData, setEconomyData } from '../../utils/economy.js';
 import { withErrorHandling, createError, ErrorTypes } from '../../utils/errorHandler.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
@@ -11,83 +13,83 @@ const PICKAXE_MULTIPLIER = 1.2;
 const DIAMOND_PICKAXE_MULTIPLIER = 2.0;
 
 const MINE_LOCATIONS = [
-    "abandoned gold mine",
-    "dark, damp cave",
-    "backyard rock quarry",
-    "volcanic obsidian vent",
-    "deep-sea mineral trench",
+    "заброшенная золотая шахта",
+    "тёмная сырая пещера",
+    "каменный карьер на заднем дворе",
+    "вулканический обсидиановый разлом",
+    "глубоководная минеральная впадина",
 ];
 
 export default {
     data: new SlashCommandBuilder()
         .setName('mine')
-        .setDescription('Go mining to earn money'),
+        .setDescription('Отправиться на добычу полезных ископаемых и заработать деньги'),
 
     execute: withErrorHandling(async (interaction, config, client) => {
         const deferred = await InteractionHelper.safeDefer(interaction);
         if (!deferred) return;
-            
-            const userId = interaction.user.id;
-            const guildId = interaction.guildId;
-            const now = Date.now();
 
-            const userData = await getEconomyData(client, guildId, userId);
-            const lastMine = userData.lastMine || 0;
-            const hasDiamondPickaxe = userData.inventory["diamond_pickaxe"] || 0;
-            const hasPickaxe = userData.inventory["pickaxe"] || 0;
+        const userId = interaction.user.id;
+        const guildId = interaction.guildId;
+        const now = Date.now();
 
-            if (now < lastMine + MINE_COOLDOWN) {
-                const remaining = lastMine + MINE_COOLDOWN - now;
-                const hours = Math.floor(remaining / (1000 * 60 * 60));
-                const minutes = Math.floor(
-                    (remaining % (1000 * 60 * 60)) / (1000 * 60),
-                );
+        const userData = await getEconomyData(client, guildId, userId);
+        const lastMine = userData.lastMine || 0;
+        const hasDiamondPickaxe = userData.inventory["diamond_pickaxe"] || 0;
+        const hasPickaxe = userData.inventory["pickaxe"] || 0;
 
-                throw createError(
-                    "Mining cooldown active",
-                    ErrorTypes.RATE_LIMIT,
-                    `Your pickaxe is cooling down. Wait for **${hours}h ${minutes}m** before mining again.`,
-                    { remaining, cooldownType: 'mine' }
-                );
-            }
+        if (now < lastMine + MINE_COOLDOWN) {
+            const remaining = lastMine + MINE_COOLDOWN - now;
+            const hours = Math.floor(remaining / (1000 * 60 * 60));
+            const minutes = Math.floor(
+                (remaining % (1000 * 60 * 60)) / (1000 * 60),
+            );
 
-            const baseEarned =
-                Math.floor(
-                    Math.random() * (BASE_MAX_REWARD - BASE_MIN_REWARD + 1),
-                ) + BASE_MIN_REWARD;
+            throw createError(
+                "Активна перезарядка шахты",
+                ErrorTypes.RATE_LIMIT,
+                `Ваша кирка ещё не готова к использованию. Подождите **${hours}ч ${minutes}мин** перед следующей добычей.`,
+                { remaining, cooldownType: 'mine' }
+            );
+        }
 
-            let finalEarned = baseEarned;
-            let multiplierMessage = "";
+        const baseEarned =
+            Math.floor(
+                Math.random() * (BASE_MAX_REWARD - BASE_MIN_REWARD + 1),
+            ) + BASE_MIN_REWARD;
 
-            if (hasDiamondPickaxe > 0) {
-                finalEarned = Math.floor(baseEarned * DIAMOND_PICKAXE_MULTIPLIER);
-                multiplierMessage = `\n💎 **Diamond Pickaxe Bonus: +100%**`;
-            } else if (hasPickaxe > 0) {
-                finalEarned = Math.floor(baseEarned * PICKAXE_MULTIPLIER);
-                multiplierMessage = `\n⛏️ **Pickaxe Bonus: +20%**`;
-            }
+        let finalEarned = baseEarned;
+        let multiplierMessage = "";
 
-            const location =
-                MINE_LOCATIONS[
-                    Math.floor(Math.random() * MINE_LOCATIONS.length)
-                ];
+        if (hasDiamondPickaxe > 0) {
+            finalEarned = Math.floor(baseEarned * DIAMOND_PICKAXE_MULTIPLIER);
+            multiplierMessage = `\n💎 **Бонус алмазной кирки: +100%**`;
+        } else if (hasPickaxe > 0) {
+            finalEarned = Math.floor(baseEarned * PICKAXE_MULTIPLIER);
+            multiplierMessage = `\n⛏️ **Бонус кирки: +20%**`;
+        }
 
-            userData.wallet += finalEarned;
-userData.lastMine = now;
+        const location =
+            MINE_LOCATIONS[
+                Math.floor(Math.random() * MINE_LOCATIONS.length)
+            ];
 
-            await setEconomyData(client, guildId, userId, userData);
+        userData.wallet += finalEarned;
+        userData.lastMine = now;
 
-            const embed = successEmbed(
-                "💰 Mining Expedition Successful!",
-                `You explored a **${location}** and managed to find minerals worth **$${finalEarned.toLocaleString()}**!${multiplierMessage}`,
-            )
-                .addFields({
-                    name: "New Cash Balance",
-                    value: `$${userData.wallet.toLocaleString()}`,
-                    inline: true,
-                })
-                .setFooter({ text: `Next mine available in 1 hour.` });
+        await setEconomyData(client, guildId, userId, userData);
 
-            await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+        const embed = successEmbed(
+            "💰 Успешная экспедиция!",
+            `Вы исследовали **${location}** и нашли полезных ископаемых на сумму **$${finalEarned.toLocaleString()}**!${multiplierMessage}`,
+        )
+            .addFields({
+                name: "Новый баланс наличных",
+                value: `$${userData.wallet.toLocaleString()}`,
+                inline: true,
+            })
+            .setFooter({ text: `Следующая добыча будет доступна через 1 час.` });
+
+        await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
     }, { command: 'mine' })
 };
