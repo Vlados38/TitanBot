@@ -40,7 +40,7 @@ function buildButtonRow(guildConfig, guildId, disabled = false, panelStatus = nu
         buttons.push(
             new ButtonBuilder()
                 .setCustomId(`ticket_cfg_repost_${guildId}`)
-                .setLabel('Repost Panel')
+                .setLabel('Опубликовать панель')
                 .setStyle(ButtonStyle.Primary)
                 .setEmoji('📌')
                 .setDisabled(disabled),
@@ -50,19 +50,19 @@ function buildButtonRow(guildConfig, guildId, disabled = false, panelStatus = nu
     buttons.push(
         new ButtonBuilder()
             .setCustomId(`ticket_cfg_dm_toggle_${guildId}`)
-            .setLabel('DM on Close')
+            .setLabel('ЛС при закрытии')
             .setStyle(dmEnabled ? ButtonStyle.Success : ButtonStyle.Danger)
             .setEmoji(dmEnabled ? '📬' : '📭')
             .setDisabled(disabled),
         new ButtonBuilder()
             .setCustomId(`ticket_cfg_staff_role_btn_${guildId}`)
-            .setLabel('Staff Role')
+            .setLabel('Роль персонала')
             .setStyle(ButtonStyle.Secondary)
             .setEmoji('🛡️')
             .setDisabled(disabled),
         new ButtonBuilder()
             .setCustomId(`ticket_cfg_delete_${guildId}`)
-            .setLabel('Delete System')
+            .setLabel('Удалить систему')
             .setStyle(ButtonStyle.Danger)
             .setEmoji('🗑️')
             .setDisabled(disabled),
@@ -81,8 +81,8 @@ async function persistPanelMessageId(client, guildId, guildConfig, messageId) {
 
 function buildPanelEmbed(config) {
     return new EmbedBuilder()
-        .setTitle('Support Tickets')
-        .setDescription(config.ticketPanelMessage || 'Click the button below to create a support ticket.')
+        .setTitle('Техническая поддержка')
+        .setDescription(config.ticketPanelMessage || 'Нажмите кнопку ниже, чтобы создать тикет.')
         .setColor(getColor('info'));
 }
 
@@ -90,7 +90,7 @@ function buildPanelButtonRow(config) {
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId('create_ticket')
-            .setLabel(config.ticketButtonLabel || 'Create Ticket')
+            .setLabel(config.ticketButtonLabel || 'Создать тикет')
             .setStyle(ButtonStyle.Primary)
             .setEmoji('📩'),
     );
@@ -100,9 +100,9 @@ async function repostTicketPanel(client, guild, guildConfig, guildId) {
     const channel = await guild.channels.fetch(guildConfig.ticketPanelChannelId).catch(() => null);
     if (!channel) {
         throw new TitanBotError(
-            'Panel channel missing',
+            'Канал панели отсутствует',
             ErrorTypes.CONFIGURATION,
-            'The configured ticket panel channel no longer exists. Set a new panel channel from the dashboard.',
+            'Настроенный канал панели тикетов больше не существует. Укажите новый канал панели через панель управления.',
         );
     }
 
@@ -116,102 +116,102 @@ async function repostTicketPanel(client, guild, guildConfig, guildId) {
 }
 
 function formatCloseDuration(ms) {
-    if (ms == null) return '`N/A`';
+    if (ms == null) return '`Н/Д`';
     const hours = Math.floor(ms / 3_600_000);
     const minutes = Math.floor((ms % 3_600_000) / 60_000);
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
+    if (hours > 0) return `${hours}ч ${minutes}м`;
+    return `${minutes}м`;
 }
 
 function buildDashboardEmbed(config, guild, panelStatus = null, ticketStats = null) {
-    const panelChannel = config.ticketPanelChannelId ? `<#${config.ticketPanelChannelId}>` : '`Not set`';
-    const staffRole = config.ticketStaffRoleId ? `<@&${config.ticketStaffRoleId}>` : '`Not set`';
-    const ticketLogsChannel = config.ticketLogsChannelId ? `<#${config.ticketLogsChannelId}>` : '`Not set`';
-    const transcriptChannel = config.ticketTranscriptChannelId ? `<#${config.ticketTranscriptChannelId}>` : '`Not set`';
+    const panelChannel = config.ticketPanelChannelId ? `<#${config.ticketPanelChannelId}>` : '`Не задан`';
+    const staffRole = config.ticketStaffRoleId ? `<@&${config.ticketStaffRoleId}>` : '`Не задана`';
+    const ticketLogsChannel = config.ticketLogsChannelId ? `<#${config.ticketLogsChannelId}>` : '`Не задан`';
+    const transcriptChannel = config.ticketTranscriptChannelId ? `<#${config.ticketTranscriptChannelId}>` : '`Не задан`';
 
     const openCategoryChannel = config.ticketCategoryId ? guild.channels.cache.get(config.ticketCategoryId) : null;
-    const openCategory = openCategoryChannel ? openCategoryChannel.toString() : '`Not set`';
-    
-    const closedCategoryChannel = config.ticketClosedCategoryId ? guild.channels.cache.get(config.ticketClosedCategoryId) : null;
-    const closedCategory = closedCategoryChannel ? closedCategoryChannel.toString() : '`Not set`';
+    const openCategory = openCategoryChannel ? openCategoryChannel.toString() : '`Не задана`';
 
-    const rawMsg = config.ticketPanelMessage || 'Click the button below to create a support ticket.';
+    const closedCategoryChannel = config.ticketClosedCategoryId ? guild.channels.cache.get(config.ticketClosedCategoryId) : null;
+    const closedCategory = closedCategoryChannel ? closedCategoryChannel.toString() : '`Не задана`';
+
+    const rawMsg = config.ticketPanelMessage || 'Нажмите кнопку ниже, чтобы создать тикет.';
     const panelMsg = `\`${rawMsg.length > 60 ? rawMsg.substring(0, 60) + '…' : rawMsg}\``;
-    const btnLabel = `\`${config.ticketButtonLabel || 'Create Ticket'}\``;
+    const btnLabel = `\`${config.ticketButtonLabel || 'Создать тикет'}\``;
 
     let panelStatusValue = formatPanelStatusField(panelStatus);
 
     const openTickets = ticketStats ? String(ticketStats.openCount) : '`—`';
     const avgCloseTime = ticketStats ? formatCloseDuration(ticketStats.avgCloseTimeMs) : '`—`';
     const feedbackSummary = ticketStats?.feedbackCount
-        ? `${ticketStats.avgRating}/5 (${ticketStats.feedbackCount} rating${ticketStats.feedbackCount !== 1 ? 's' : ''})`
-        : '`No ratings yet`';
+        ? `${ticketStats.avgRating}/5 (${ticketStats.feedbackCount} оцен${ticketStats.feedbackCount !== 1 ? 'ок' : 'ка'})`
+        : '`Оценок пока нет`';
 
     return new EmbedBuilder()
-        .setTitle('🎫 Ticket System Dashboard')
-        .setDescription(`Manage ticket system settings for **${guild.name}**.\nSelect an option below to modify a setting.`)
+        .setTitle('🎫 Панель управления тикетами')
+        .setDescription(`Управление настройками системы тикетов на сервере **${guild.name}**.\nВыберите опцию ниже, чтобы изменить настройку.`)
         .setColor(getColor('info'))
         .addFields(
-            { name: 'Panel Status', value: panelStatusValue, inline: false },
-            { name: 'Panel Channel', value: panelChannel, inline: true },
-            { name: 'Staff Role', value: staffRole, inline: true },
+            { name: 'Статус панели', value: panelStatusValue, inline: false },
+            { name: 'Канал панели', value: panelChannel, inline: true },
+            { name: 'Роль персонала', value: staffRole, inline: true },
             { name: '\u200B', value: '\u200B', inline: true },
-            { name: 'Open Tickets Category', value: openCategory, inline: true },
-            { name: 'Closed Tickets Category', value: closedCategory, inline: true },
+            { name: 'Категория открытых тикетов', value: openCategory, inline: true },
+            { name: 'Категория закрытых тикетов', value: closedCategory, inline: true },
             { name: '\u200B', value: '\u200B', inline: true },
-            { name: 'Panel Message', value: panelMsg, inline: false },
-            { name: 'Button Label', value: btnLabel, inline: true },
-            { name: 'Max Tickets/User', value: String(config.maxTicketsPerUser || 3), inline: true },
-            { name: 'DM on Close', value: config.dmOnClose !== false ? 'Enabled' : 'Disabled', inline: true },
-            { name: 'Ticket Logs Channel', value: ticketLogsChannel, inline: true },
-            { name: 'Transcript Channel', value: transcriptChannel, inline: true },
+            { name: 'Сообщение панели', value: panelMsg, inline: false },
+            { name: 'Текст кнопки', value: btnLabel, inline: true },
+            { name: 'Макс. тикетов на пользователя', value: String(config.maxTicketsPerUser || 3), inline: true },
+            { name: 'ЛС при закрытии', value: config.dmOnClose !== false ? 'Включено' : 'Отключено', inline: true },
+            { name: 'Канал логов тикетов', value: ticketLogsChannel, inline: true },
+            { name: 'Канал транскриптов', value: transcriptChannel, inline: true },
             { name: '\u200B', value: '\u200B', inline: true },
-            { name: 'Open Tickets', value: openTickets, inline: true },
-            { name: 'Avg Close Time', value: avgCloseTime, inline: true },
-            { name: 'Feedback Rating', value: feedbackSummary, inline: true },
+            { name: 'Открытые тикеты', value: openTickets, inline: true },
+            { name: 'Среднее время закрытия', value: avgCloseTime, inline: true },
+            { name: 'Рейтинг отзывов', value: feedbackSummary, inline: true },
         )
-        .setFooter({ text: 'Select an option below • Dashboard closes after 10 minutes of inactivity' })
+        .setFooter({ text: 'Выберите опцию ниже • Панель закрывается после 10 минут бездействия' })
         .setTimestamp();
 }
 
 function buildSelectMenu(guildId) {
     return new StringSelectMenuBuilder()
         .setCustomId(`ticket_config_${guildId}`)
-        .setPlaceholder('Select a setting to configure...')
+        .setPlaceholder('Выберите настройку...')
         .addOptions(
             new StringSelectMenuOptionBuilder()
-                .setLabel('Edit Panel Message')
-                .setDescription('Change the message displayed on the ticket creation panel')
+                .setLabel('Изменить сообщение панели')
+                .setDescription('Изменить сообщение, отображаемое на панели создания тикетов')
                 .setValue('panel_message')
                 .setEmoji('📝'),
             new StringSelectMenuOptionBuilder()
-                .setLabel('Edit Button Label')
-                .setDescription('Change the label on the Create Ticket button')
+                .setLabel('Изменить текст кнопки')
+                .setDescription('Изменить текст кнопки создания тикета')
                 .setValue('button_label')
                 .setEmoji('🏷️'),
             new StringSelectMenuOptionBuilder()
-                .setLabel('Change Open Tickets Category')
-                .setDescription('Category where new tickets are created')
+                .setLabel('Изменить категорию открытых тикетов')
+                .setDescription('Категория, в которой создаются новые тикеты')
                 .setValue('open_category')
                 .setEmoji('📁'),
             new StringSelectMenuOptionBuilder()
-                .setLabel('Change Closed Tickets Category')
-                .setDescription('Category where closed tickets are moved')
+                .setLabel('Изменить категорию закрытых тикетов')
+                .setDescription('Категория, в которую перемещаются закрытые тикеты')
                 .setValue('closed_category')
                 .setEmoji('📂'),
             new StringSelectMenuOptionBuilder()
-                .setLabel('Set Max Tickets per User')
-                .setDescription('Limit how many open tickets one user can have at once')
+                .setLabel('Установить лимит тикетов')
+                .setDescription('Ограничить количество одновременно открытых тикетов у одного пользователя')
                 .setValue('max_tickets')
                 .setEmoji('🔢'),
             new StringSelectMenuOptionBuilder()
-                .setLabel('Set Ticket Logs Channel')
-                .setDescription('Channel to receive ticket feedback, lifecycle events, and logs')
+                .setLabel('Установить канал логов')
+                .setDescription('Канал для отзывов, событий тикетов и других логов')
                 .setValue('logs_channel')
                 .setEmoji('🎫'),
             new StringSelectMenuOptionBuilder()
-                .setLabel('Set Transcript Channel')
-                .setDescription('Channel to receive auto-generated transcripts on deletion')
+                .setLabel('Установить канал транскриптов')
+                .setDescription('Канал для автоматических транскриптов при удалении тикетов')
                 .setValue('transcript_channel')
                 .setEmoji('📜'),
         );
@@ -250,7 +250,7 @@ async function updateLivePanel(client, guild, config, guildId) {
         });
         return true;
     } catch (error) {
-        logger.warn('Failed to update live ticket panel:', error.message);
+        logger.warn('Не удалось обновить активную панель тикетов:', error.message);
         return false;
     }
 }
@@ -264,9 +264,9 @@ export default {
 
             if (!guildConfig.ticketPanelChannelId) {
                 throw new TitanBotError(
-                    'Ticket system not configured',
+                    'Система тикетов не настроена',
                     ErrorTypes.CONFIGURATION,
-                    'The ticket system has not been set up yet. Run `/ticket setup` first to configure it.',
+                    'Система тикетов ещё не настроена. Сначала выполните `/ticket setup` для её настройки.',
                 );
             }
 
@@ -333,11 +333,11 @@ export default {
             });
         } catch (error) {
             if (error instanceof TitanBotError) throw error;
-            logger.error('Unexpected error in ticket_config:', error);
+            logger.error('Неожиданная ошибка в ticket_config:', error);
             throw new TitanBotError(
-                `Ticket config failed: ${error.message}`,
+                `Ошибка конфигурации тикетов: ${error.message}`,
                 ErrorTypes.UNKNOWN,
-                'Failed to open the ticket configuration dashboard.',
+                'Не удалось открыть панель управления настройками тикетов.',
             );
         }
     },
@@ -346,21 +346,21 @@ export default {
 async function handlePanelMessage(selectInteraction, rootInteraction, guildConfig, guildId, client) {
     const modal = new ModalBuilder()
         .setCustomId('ticket_cfg_panel_msg')
-        .setTitle('📝 Edit Panel Message')
+        .setTitle('📝 Изменить сообщение панели')
         .addComponents(
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
                     .setCustomId('panel_msg_input')
-                    .setLabel('Panel Message')
+                    .setLabel('Сообщение панели')
                     .setStyle(TextInputStyle.Paragraph)
                     .setValue(
                         guildConfig.ticketPanelMessage ||
-                            'Click the button below to create a support ticket.',
+                            'Нажмите кнопку ниже, чтобы создать тикет.',
                     )
                     .setMaxLength(2000)
                     .setMinLength(1)
                     .setRequired(true)
-                    .setPlaceholder('Click the button below to create a support ticket.'),
+                    .setPlaceholder('Нажмите кнопку ниже, чтобы создать тикет.'),
             ),
         );
 
@@ -385,11 +385,11 @@ async function handlePanelMessage(selectInteraction, rootInteraction, guildConfi
     await submitted.reply({
         embeds: [
             successEmbed(
-                '✅ Panel Message Updated',
-                `The panel message has been updated.${
+                '✅ Сообщение панели обновлено',
+                `Сообщение панели было обновлено.${
                     panelUpdated
-                        ? '\nThe live ticket panel has also been refreshed.'
-                        : '\n> **Note:** The live panel could not be located. Use **Repost Panel** on the dashboard to restore it.'
+                        ? '\nАктивная панель тикетов также была обновлена.'
+                        : '\n> **Примечание:** Активная панель не найдена. Используйте **Опубликовать панель** на панели управления, чтобы восстановить её.'
                 }`,
             ),
         ],
@@ -402,18 +402,18 @@ async function handlePanelMessage(selectInteraction, rootInteraction, guildConfi
 async function handleButtonLabel(selectInteraction, rootInteraction, guildConfig, guildId, client) {
     const modal = new ModalBuilder()
         .setCustomId('ticket_cfg_btn_label')
-        .setTitle('🏷️ Edit Button Label')
+        .setTitle('🏷️ Изменить текст кнопки')
         .addComponents(
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
                     .setCustomId('btn_label_input')
-                    .setLabel('Button Label (max 80 characters)')
+                    .setLabel('Текст кнопки (макс. 80 символов)')
                     .setStyle(TextInputStyle.Short)
-                    .setValue(guildConfig.ticketButtonLabel || 'Create Ticket')
+                    .setValue(guildConfig.ticketButtonLabel || 'Создать тикет')
                     .setMaxLength(80)
                     .setMinLength(1)
                     .setRequired(true)
-                    .setPlaceholder('Create Ticket'),
+                    .setPlaceholder('Создать тикет'),
             ),
         );
 
@@ -438,11 +438,11 @@ async function handleButtonLabel(selectInteraction, rootInteraction, guildConfig
     await submitted.reply({
         embeds: [
             successEmbed(
-                '✅ Button Label Updated',
-                `Button label changed to \`${newLabel}\`.${
+                '✅ Текст кнопки обновлён',
+                `Текст кнопки изменён на \`${newLabel}\`.${
                     panelUpdated
-                        ? '\nThe live ticket panel button has also been updated.'
-                        : '\n> **Note:** The live panel could not be located. Use **Repost Panel** on the dashboard to restore it.'
+                        ? '\nКнопка на активной панели тикетов также была обновлена.'
+                        : '\n> **Примечание:** Активная панель не найдена. Используйте **Опубликовать панель** на панели управления, чтобы восстановить её.'
                 }`,
             ),
         ],
@@ -457,7 +457,7 @@ async function handleStaffRole(selectInteraction, rootInteraction, guildConfig, 
 
     const roleSelect = new RoleSelectMenuBuilder()
         .setCustomId('ticket_cfg_staff_role')
-        .setPlaceholder('Select the staff role...')
+        .setPlaceholder('Выберите роль персонала...')
         .setMaxValues(1);
 
     const row = new ActionRowBuilder().addComponents(roleSelect);
@@ -465,9 +465,9 @@ async function handleStaffRole(selectInteraction, rootInteraction, guildConfig, 
     await selectInteraction.followUp({
         embeds: [
             new EmbedBuilder()
-                .setTitle('🛡️ Change Staff Role')
+                .setTitle('🛡️ Изменить роль персонала')
                 .setDescription(
-                    `**Current:** ${guildConfig.ticketStaffRoleId ? `<@&${guildConfig.ticketStaffRoleId}>` : '`Not set`'}\n\nSelect the role that should have staff access to manage tickets.`,
+                    `**Текущая:** ${guildConfig.ticketStaffRoleId ? `<@&${guildConfig.ticketStaffRoleId}>` : '`Не задана`'}\n\nВыберите роль, которая должна иметь доступ к управлению тикетами.`,
                 )
                 .setColor(getColor('info')),
         ],
@@ -491,7 +491,7 @@ async function handleStaffRole(selectInteraction, rootInteraction, guildConfig, 
         await setGuildConfig(client, guildId, guildConfig);
 
         await roleInteraction.followUp({
-            embeds: [successEmbed('Staff Role Updated', `Staff role set to ${role}.`)],
+            embeds: [successEmbed('Роль персонала обновлена', `Роль персонала установлена: ${role}.`)],
             flags: MessageFlags.Ephemeral,
         });
 
@@ -502,7 +502,7 @@ async function handleStaffRole(selectInteraction, rootInteraction, guildConfig, 
         if (reason === 'time' && collected.size === 0) {
             replyUserError(selectInteraction, {
                 type: ErrorTypes.RATE_LIMIT,
-                message: 'No role was selected. The staff role was not changed.',
+                message: 'Роль не была выбрана. Роль персонала не изменена.',
             }).catch(() => {});
         }
     });
@@ -513,16 +513,16 @@ async function handleOpenCategory(selectInteraction, rootInteraction, guildConfi
 
     const channelSelect = new ChannelSelectMenuBuilder()
         .setCustomId('ticket_cfg_open_cat')
-        .setPlaceholder('Select a category...')
+        .setPlaceholder('Выберите категорию...')
         .addChannelTypes(ChannelType.GuildCategory)
         .setMaxValues(1);
 
     await selectInteraction.followUp({
         embeds: [
             new EmbedBuilder()
-                .setTitle('📁 Change Open Tickets Category')
+                .setTitle('📁 Изменить категорию открытых тикетов')
                 .setDescription(
-                    `**Current:** ${guildConfig.ticketCategoryId ? `<#${guildConfig.ticketCategoryId}>` : '`Not set`'}\n\nSelect the category where new tickets will be created.`,
+                    `**Текущая:** ${guildConfig.ticketCategoryId ? `<#${guildConfig.ticketCategoryId}>` : '`Не задана`'}\n\nВыберите категорию, в которой будут создаваться новые тикеты.`,
                 )
                 .setColor(getColor('info')),
         ],
@@ -548,8 +548,8 @@ async function handleOpenCategory(selectInteraction, rootInteraction, guildConfi
         await catInteraction.followUp({
             embeds: [
                 successEmbed(
-                    'Open Category Updated',
-                    `New tickets will now be created in **${category.name}**.`,
+                    'Категория открытых тикетов обновлена',
+                    `Новые тикеты теперь будут создаваться в **${category.name}**.`,
                 ),
             ],
             flags: MessageFlags.Ephemeral,
@@ -562,7 +562,7 @@ async function handleOpenCategory(selectInteraction, rootInteraction, guildConfi
         if (reason === 'time' && collected.size === 0) {
             replyUserError(selectInteraction, {
                 type: ErrorTypes.RATE_LIMIT,
-                message: 'No category was selected. The setting was not changed.',
+                message: 'Категория не была выбрана. Настройка не изменена.',
             }).catch(() => {});
         }
     });
@@ -573,16 +573,16 @@ async function handleClosedCategory(selectInteraction, rootInteraction, guildCon
 
     const channelSelect = new ChannelSelectMenuBuilder()
         .setCustomId('ticket_cfg_closed_cat')
-        .setPlaceholder('Select a category...')
+        .setPlaceholder('Выберите категорию...')
         .addChannelTypes(ChannelType.GuildCategory)
         .setMaxValues(1);
 
     await selectInteraction.followUp({
         embeds: [
             new EmbedBuilder()
-                .setTitle('📂 Change Closed Tickets Category')
+                .setTitle('📂 Изменить категорию закрытых тикетов')
                 .setDescription(
-                    `**Current:** ${guildConfig.ticketClosedCategoryId ? `<#${guildConfig.ticketClosedCategoryId}>` : '`Not set`'}\n\nSelect the category where closed tickets will be moved.`,
+                    `**Текущая:** ${guildConfig.ticketClosedCategoryId ? `<#${guildConfig.ticketClosedCategoryId}>` : '`Не задана`'}\n\nВыберите категорию, в которую будут перемещаться закрытые тикеты.`,
                 )
                 .setColor(getColor('info')),
         ],
@@ -608,8 +608,8 @@ async function handleClosedCategory(selectInteraction, rootInteraction, guildCon
         await catInteraction.followUp({
             embeds: [
                 successEmbed(
-                    'Closed Category Updated',
-                    `Closed tickets will now be moved to **${category.name}**.`,
+                    'Категория закрытых тикетов обновлена',
+                    `Закрытые тикеты теперь будут перемещаться в **${category.name}**.`,
                 ),
             ],
             flags: MessageFlags.Ephemeral,
@@ -622,7 +622,7 @@ async function handleClosedCategory(selectInteraction, rootInteraction, guildCon
         if (reason === 'time' && collected.size === 0) {
             replyUserError(selectInteraction, {
                 type: ErrorTypes.RATE_LIMIT,
-                message: 'No category was selected. The setting was not changed.',
+                message: 'Категория не была выбрана. Настройка не изменена.',
             }).catch(() => {});
         }
     });
@@ -631,12 +631,12 @@ async function handleClosedCategory(selectInteraction, rootInteraction, guildCon
 async function handleMaxTickets(selectInteraction, rootInteraction, guildConfig, guildId, client) {
     const modal = new ModalBuilder()
         .setCustomId('ticket_cfg_max_tickets')
-        .setTitle('Set Max Tickets per User')
+        .setTitle('Установить лимит тикетов на пользователя')
         .addComponents(
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
                     .setCustomId('max_tickets_input')
-                    .setLabel('Max Open Tickets (1–10)')
+                    .setLabel('Макс. открытых тикетов (1–10)')
                     .setStyle(TextInputStyle.Short)
                     .setValue(String(guildConfig.maxTicketsPerUser || 3))
                     .setMaxLength(2)
@@ -664,7 +664,7 @@ async function handleMaxTickets(selectInteraction, rootInteraction, guildConfig,
     if (Number.isNaN(newMax) || newMax < 1 || newMax > 10) {
         await replyUserError(submitted, {
             type: ErrorTypes.VALIDATION,
-            message: 'Max tickets must be a whole number between **1** and **10**.',
+            message: 'Максимальное количество тикетов должно быть целым числом от **1** до **10**.',
         });
         return;
     }
@@ -675,8 +675,8 @@ async function handleMaxTickets(selectInteraction, rootInteraction, guildConfig,
     await submitted.reply({
         embeds: [
             successEmbed(
-                'Max Tickets Updated',
-                `Users can now have at most **${newMax}** open ticket${newMax !== 1 ? 's' : ''} at a time.`,
+                'Лимит тикетов обновлён',
+                `Теперь пользователи могут иметь не более **${newMax}** открытых тикетов одновременно.`,
             ),
         ],
         flags: MessageFlags.Ephemeral,
@@ -695,8 +695,8 @@ async function handleDmOnClose(btnInteraction, rootInteraction, guildConfig, gui
     await btnInteraction.followUp({
         embeds: [
             successEmbed(
-                'DM on Close Updated',
-                `Users will **${newState ? 'now' : 'no longer'}** receive a DM when their ticket is closed.`,
+                'Настройка ЛС при закрытии обновлена',
+                `Пользователи **${newState ? 'теперь' : 'больше не будут'}** получать ЛС при закрытии их тикета.`,
             ),
         ],
         flags: MessageFlags.Ephemeral,
@@ -710,15 +710,15 @@ async function handleLogsChannel(selectInteraction, rootInteraction, guildConfig
 
     const channelSelect = new ChannelSelectMenuBuilder()
         .setCustomId('ticket_cfg_logs_channel')
-        .setPlaceholder('Select a channel...')
+        .setPlaceholder('Выберите канал...')
         .addChannelTypes(ChannelType.GuildText)
         .setMaxValues(1);
 
     await selectInteraction.followUp({
         embeds: [
             new EmbedBuilder()
-                .setTitle('🎫 Select Ticket Logs Channel')
-                .setDescription('Choose where ticket feedback, lifecycle events (open, close, claim, etc.), and other logs will be sent.')
+                .setTitle('🎫 Выберите канал логов тикетов')
+                .setDescription('Выберите канал, куда будут отправляться отзывы о тикетах, события жизненного цикла (открытие, закрытие, назначение и т. д.) и другие логи.')
                 .setColor(getColor('info')),
         ],
         components: [new ActionRowBuilder().addComponents(channelSelect)],
@@ -740,7 +740,7 @@ async function handleLogsChannel(selectInteraction, rootInteraction, guildConfig
         await setGuildConfig(client, guildId, guildConfig);
 
         await channelInteraction.followUp({
-            embeds: [successEmbed('Logs Channel Updated', `Ticket logs will be sent to ${channel}`)],
+            embeds: [successEmbed('Канал логов обновлён', `Логи тикетов будут отправляться в ${channel}`)],
             flags: MessageFlags.Ephemeral,
         });
 
@@ -751,7 +751,7 @@ async function handleLogsChannel(selectInteraction, rootInteraction, guildConfig
         if (reason === 'time' && collected.size === 0) {
             replyUserError(selectInteraction, {
                 type: ErrorTypes.RATE_LIMIT,
-                message: 'No channel selected. No changes were made.',
+                message: 'Канал не был выбран. Изменения не внесены.',
             }).catch(() => {});
         }
     });
@@ -762,15 +762,15 @@ async function handleTranscriptChannel(selectInteraction, rootInteraction, guild
 
     const channelSelect = new ChannelSelectMenuBuilder()
         .setCustomId('ticket_cfg_transcript_channel')
-        .setPlaceholder('Select a channel...')
+        .setPlaceholder('Выберите канал...')
         .addChannelTypes(ChannelType.GuildText)
         .setMaxValues(1);
 
     await selectInteraction.followUp({
         embeds: [
             new EmbedBuilder()
-                .setTitle('📜 Select Transcript Channel')
-                .setDescription('Choose where auto-generated transcripts will be sent when tickets are deleted.')
+                .setTitle('📜 Выберите канал транскриптов')
+                .setDescription('Выберите канал, куда будут отправляться автоматически созданные транскрипты при удалении тикетов.')
                 .setColor(getColor('info'))
         ],
         components: [new ActionRowBuilder().addComponents(channelSelect)],
@@ -792,7 +792,7 @@ async function handleTranscriptChannel(selectInteraction, rootInteraction, guild
         await setGuildConfig(client, guildId, guildConfig);
 
         await channelInteraction.followUp({
-            embeds: [successEmbed('Transcript Channel Updated', `Transcripts will be sent to ${channel}`)],
+            embeds: [successEmbed('Канал транскриптов обновлён', `Транскрипты будут отправляться в ${channel}`)],
             flags: MessageFlags.Ephemeral
         });
 
@@ -803,7 +803,7 @@ async function handleTranscriptChannel(selectInteraction, rootInteraction, guild
         if (reason === 'time' && collected.size === 0) {
             replyUserError(selectInteraction, {
                 type: ErrorTypes.RATE_LIMIT,
-                message: 'No channel selected. No changes were made.',
+                message: 'Канал не был выбран. Изменения не внесены.',
             }).catch(() => {});
         }
     });
@@ -814,7 +814,7 @@ async function handleCheckUser(selectInteraction, rootInteraction, guildConfig, 
 
     const userSelect = new UserSelectMenuBuilder()
         .setCustomId('ticket_cfg_check_user')
-        .setPlaceholder('Select a user to check...')
+        .setPlaceholder('Выберите пользователя для проверки...')
         .setMaxValues(1);
 
     const row = new ActionRowBuilder().addComponents(userSelect);
@@ -822,8 +822,8 @@ async function handleCheckUser(selectInteraction, rootInteraction, guildConfig, 
     await selectInteraction.followUp({
         embeds: [
             new EmbedBuilder()
-                .setTitle('Check User Tickets')
-                .setDescription('Select a user to view their current open ticket count.')
+                .setTitle('Проверка тикетов пользователя')
+                .setDescription('Выберите пользователя, чтобы посмотреть количество его открытых тикетов.')
                 .setColor(getColor('info')),
         ],
         components: [row],
@@ -848,13 +848,13 @@ async function handleCheckUser(selectInteraction, rootInteraction, guildConfig, 
         await userInteraction.followUp({
             embeds: [
                 new EmbedBuilder()
-                    .setTitle(`Ticket Check — ${targetUser.username}`)
+                    .setTitle(`Проверка тикетов — ${targetUser.username}`)
                     .setDescription(
-                        `**Open Tickets:** ${openCount} / ${maxTickets}\n` +
-                            `**Remaining:** ${Math.max(0, maxTickets - openCount)}\n\n` +
+                        `**Открытые тикеты:** ${openCount} / ${maxTickets}\n` +
+                            `**Осталось:** ${Math.max(0, maxTickets - openCount)}\n\n` +
                             (atLimit
-                                ? '⚠️ This user has reached their ticket limit.'
-                                : '✅ This user can still open more tickets.'),
+                                ? '⚠️ Пользователь достиг лимита тикетов.'
+                                : '✅ Пользователь может открыть ещё тикеты.'),
                     )
                     .setColor(atLimit ? getColor('error') : getColor('success'))
                     .setThumbnail(targetUser.displayAvatarURL({ size: 64 }))
@@ -868,7 +868,7 @@ async function handleCheckUser(selectInteraction, rootInteraction, guildConfig, 
         if (reason === 'time' && collected.size === 0) {
             replyUserError(selectInteraction, {
                 type: ErrorTypes.RATE_LIMIT,
-                message: 'No user was selected.',
+                message: 'Пользователь не был выбран.',
             }).catch(() => {});
         }
     });
@@ -880,7 +880,7 @@ async function handleRepostPanel(btnInteraction, rootInteraction, guildConfig, g
     const panelStatus = await getTicketPanelStatus(client, rootInteraction.guild, guildConfig);
     if (panelStatus.exists) {
         await btnInteraction.followUp({
-            embeds: [infoEmbed('Panel Already Active', 'The ticket panel is already posted in the configured channel.')],
+            embeds: [infoEmbed('Панель уже активна', 'Панель тикетов уже опубликована в настроенном канале.')],
             flags: MessageFlags.Ephemeral,
         }).catch(() => {});
         await refreshDashboard(rootInteraction, guildConfig, guildId, client);
@@ -892,9 +892,9 @@ async function handleRepostPanel(btnInteraction, rootInteraction, guildConfig, g
     await btnInteraction.followUp({
         embeds: [
             successEmbed(
-                'Panel Reposted',
-                `A new ticket panel was posted in <#${guildConfig.ticketPanelChannelId}>.${
-                    sentPanel.url ? `\n[Open panel message](${sentPanel.url})` : ''
+                'Панель опубликована',
+                `Новая панель тикетов была опубликована в <#${guildConfig.ticketPanelChannelId}>.${
+                    sentPanel.url ? `\n[Открыть сообщение панели](${sentPanel.url})` : ''
                 }`,
             ),
         ],
@@ -907,12 +907,12 @@ async function handleRepostPanel(btnInteraction, rootInteraction, guildConfig, g
 async function handleDeleteSystem(btnInteraction, rootInteraction, guildConfig, guildId, client) {
     const deleteModal = new ModalBuilder()
         .setCustomId('ticket_delete_confirm_modal')
-        .setTitle('Delete Ticket System')
+        .setTitle('Удаление системы тикетов')
         .addComponents(
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
                     .setCustomId('delete_confirmation')
-                    .setLabel('Type "DELETE" to confirm')
+                    .setLabel('Введите "DELETE" для подтверждения')
                     .setStyle(TextInputStyle.Short)
                     .setPlaceholder('DELETE')
                     .setMaxLength(6)
@@ -938,7 +938,7 @@ async function handleDeleteSystem(btnInteraction, rootInteraction, guildConfig, 
     const confirmation = submitted.fields.getTextInputValue('delete_confirmation').trim();
 
     if (confirmation !== 'DELETE') {
-        await replyUserError(submitted, { type: ErrorTypes.UNKNOWN, message: 'You must type "DELETE" exactly to confirm deletion.' });
+        await replyUserError(submitted, { type: ErrorTypes.UNKNOWN, message: 'Для подтверждения удаления необходимо ввести "DELETE" без изменений.' });
         await refreshDashboard(rootInteraction, guildConfig, guildId, client);
         return;
     }
@@ -965,7 +965,6 @@ async function handleDeleteSystem(btnInteraction, rootInteraction, guildConfig, 
                     const panelMessage = await panelChannel.messages.fetch(guildConfig.ticketPanelMessageId).catch(() => null);
                     if (panelMessage) await panelMessage.delete().catch(() => {});
                 } else {
-                    
                     const messages = await panelChannel.messages.fetch({ limit: 50 }).catch(() => null);
                     if (messages) {
                         const found = messages.find(
@@ -976,7 +975,7 @@ async function handleDeleteSystem(btnInteraction, rootInteraction, guildConfig, 
                 }
             }
         } catch (panelDeleteError) {
-            logger.warn('Could not delete ticket panel message:', panelDeleteError.message);
+            logger.warn('Не удалось удалить сообщение панели тикетов:', panelDeleteError.message);
         }
     }
 
@@ -989,7 +988,7 @@ async function handleDeleteSystem(btnInteraction, rootInteraction, guildConfig, 
             );
         }
     } catch (ticketDeleteError) {
-        logger.warn('Could not clear ticket records from database:', ticketDeleteError.message);
+        logger.warn('Не удалось очистить записи тикетов из базы данных:', ticketDeleteError.message);
     }
 
     for (const key of keysToDelete) {
@@ -1000,8 +999,8 @@ async function handleDeleteSystem(btnInteraction, rootInteraction, guildConfig, 
     await submitted.followUp({
         embeds: [
             successEmbed(
-                '✅ Ticket System Deleted',
-                'All ticket system configuration has been cleared. Run `/ticket setup` to set it up again.',
+                '✅ Система тикетов удалена',
+                'Вся конфигурация системы тикетов была очищена. Выполните `/ticket setup`, чтобы настроить её снова.',
             ),
         ],
         flags: MessageFlags.Ephemeral,
@@ -1010,8 +1009,8 @@ async function handleDeleteSystem(btnInteraction, rootInteraction, guildConfig, 
     await InteractionHelper.safeEditReply(rootInteraction, {
         embeds: [
             new EmbedBuilder()
-                .setTitle('Ticket System Deleted')
-                .setDescription('The ticket system configuration has been cleared.')
+                .setTitle('Система тикетов удалена')
+                .setDescription('Конфигурация системы тикетов была очищена.')
                 .setColor(getColor('error'))
                 .setTimestamp(),
         ],
