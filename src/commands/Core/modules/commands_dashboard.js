@@ -86,7 +86,7 @@ export function buildOverviewEmbed(snapshot, guild) {
 
   const fields = [
     {
-      name: '📊 Summary',
+      name: '📊 Суммарно',
       value: [
         `**${snapshot.enabledTotal}/${snapshot.totalCommands}** entries enabled`,
         `${STATUS.enabled} ${fullyEnabled} fully on · ${STATUS.partial} ${partial} partial · ${STATUS.disabled} ${disabled} off`,
@@ -103,24 +103,24 @@ export function buildOverviewEmbed(snapshot, guild) {
   const chunks = chunkLines(categoryLines);
   chunks.forEach((chunk, index) => {
     fields.push({
-      name: index === 0 ? '📁 Categories' : '📁 Categories (cont.)',
+      name: index === 0 ? '📁 Категории' : '📁 Категории',
       value: chunk,
       inline: false,
     });
   });
 
   fields.push({
-    name: 'How to Use',
+    name: 'Как использовать',
     value: [
-      '• Select a category below to manage commands and subcommands',
-      '• `/commands disable` — turn off a category or specific command',
-      '• `/commands enable` — turn something back on',
+      '• Выберите категорию/команду для изменения',
+      '• `/commands disable` — Выключает категорию или команду',
+      '• `/commands enable` — Включает категорию или команду',
     ].join('\n'),
   });
 
   return createEmbed({
-    title: '⚙️ Command Access',
-    description: `Manage slash and prefix commands for **${guild.name}**. Subcommands (e.g. \`birthday list\`) are listed separately.`,
+    title: '⚙️ Команда доступа',
+    description: `Управление с помощью слеша и префикса командами на сервере **${guild.name}**.`,
     color: 'info',
     fields,
     footer: '🔒 commands & configwizard always stay available',
