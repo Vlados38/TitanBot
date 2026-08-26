@@ -30,9 +30,9 @@ const ALLOWED_TEMPLATE_PLACEHOLDERS = new Set([
 export function validateChannelNameTemplate(template) {
     if (!template || typeof template !== 'string') {
         throw new TitanBotError(
-            'Invalid channel template: must be a non-empty string',
+            'Некорректный шаблон канала: должно быть непустое значение',
             ErrorTypes.VALIDATION,
-            'Channel name template must be valid text.'
+            'Шаблон названия канала должен содержать корректный текст.'
         );
     }
 
@@ -40,17 +40,17 @@ export function validateChannelNameTemplate(template) {
 
     if (normalizedTemplate.length > CHANNEL_NAME_MAX_LENGTH) {
         throw new TitanBotError(
-            'Channel template exceeds maximum length',
+            'Шаблон названия канала превышает максимальную длину',
             ErrorTypes.VALIDATION,
-            `Channel name template cannot exceed ${CHANNEL_NAME_MAX_LENGTH} characters.`
+            `Шаблон названия канала не может содержать более ${CHANNEL_NAME_MAX_LENGTH} символов.`
         );
     }
 
     if (/[@#:`]/.test(normalizedTemplate)) {
         throw new TitanBotError(
-            'Channel template contains forbidden characters',
+            'Шаблон названия канала содержит запрещённые символы',
             ErrorTypes.VALIDATION,
-            'Channel template cannot contain @, #, :, or backtick characters.'
+            'Шаблон названия канала не может содержать символы @, #, : или обратный апостроф.'
         );
     }
 
@@ -58,9 +58,9 @@ export function validateChannelNameTemplate(template) {
     for (const placeholder of placeholders) {
         if (!ALLOWED_TEMPLATE_PLACEHOLDERS.has(placeholder)) {
             throw new TitanBotError(
-                'Channel template contains unknown placeholders',
+                'Шаблон названия канала содержит неизвестные плейсхолдеры',
                 ErrorTypes.VALIDATION,
-                `Unknown placeholder: ${placeholder}. Allowed placeholders are ${Array.from(ALLOWED_TEMPLATE_PLACEHOLDERS).join(', ')}`
+                `Неизвестный плейсхолдер: ${placeholder}. Разрешённые плейсхолдеры: ${Array.from(ALLOWED_TEMPLATE_PLACEHOLDERS).join(', ')}`
             );
         }
     }
@@ -73,17 +73,17 @@ export function validateBitrate(bitrate) {
 
     if (isNaN(bitrateNum)) {
         throw new TitanBotError(
-            'Bitrate must be a valid number',
+            'Битрейт должен быть корректным числом',
             ErrorTypes.VALIDATION,
-            'Please enter a valid number for bitrate.'
+            'Пожалуйста, введите корректное значение битрейта.'
         );
     }
 
     if (bitrateNum < 8 || bitrateNum > 384) {
         throw new TitanBotError(
-            'Bitrate out of valid range',
+            'Битрейт находится вне допустимого диапазона',
             ErrorTypes.VALIDATION,
-            'Bitrate must be between 8 and 384 kbps.'
+            'Битрейт должен быть от 8 до 384 кбит/с.'
         );
     }
 
@@ -95,17 +95,17 @@ export function validateUserLimit(limit) {
 
     if (isNaN(limitNum)) {
         throw new TitanBotError(
-            'User limit must be a valid number',
+            'Лимит пользователей должен быть корректным числом',
             ErrorTypes.VALIDATION,
-            'Please enter a valid number for user limit.'
+            'Пожалуйста, введите корректное значение лимита пользователей.'
         );
     }
 
     if (limitNum < 0 || limitNum > 99) {
         throw new TitanBotError(
-            'User limit out of valid range',
+            'Лимит пользователей находится вне допустимого диапазона',
             ErrorTypes.VALIDATION,
-            'User limit must be between 0 (no limit) and 99.'
+            'Лимит пользователей должен быть от 0 (без ограничений) до 99.'
         );
     }
 
@@ -119,7 +119,7 @@ export function formatChannelName(template, variables) {
 
         if (!variables || typeof variables !== 'object') {
             throw new TitanBotError(
-                'Invalid variables object for channel formatting',
+                'Некорректный объект переменных для форматирования названия канала',
                 ErrorTypes.VALIDATION
             );
         }
@@ -127,27 +127,26 @@ export function formatChannelName(template, variables) {
         const sanitized = {};
         for (const [key, value] of Object.entries(variables)) {
             if (value === null || value === undefined) {
-                sanitized[key] = 'Unknown';
+                sanitized[key] = 'Неизвестно';
             } else {
-                
                 sanitized[key] = String(value)
                     .normalize('NFKC')
                     .replace(CONTROL_AND_INVISIBLE_CHARS_REGEX, '')
-                    .replace(/[@#:`\n\r\t]/g, '') 
+                    .replace(/[@#:`\n\r\t]/g, '')
                     .trim()
                     .substring(0, CHANNEL_VARIABLE_MAX_LENGTH);
             }
         }
 
         const replacements = {
-            '{username}': sanitized.username || 'User',
-            '{user_tag}': sanitized.userTag || 'User#0000',
-            '{displayName}': sanitized.displayName || 'User',
-            '{display_name}': sanitized.displayName || 'User',
-            '{guildName}': sanitized.guildName || 'Server',
-            '{guild_name}': sanitized.guildName || 'Server',
-            '{channelName}': sanitized.channelName || 'Voice Channel',
-            '{channel_name}': sanitized.channelName || 'Voice Channel',
+            '{username}': sanitized.username || 'Пользователь',
+            '{user_tag}': sanitized.userTag || 'Пользователь#0000',
+            '{displayName}': sanitized.displayName || 'Пользователь',
+            '{display_name}': sanitized.displayName || 'Пользователь',
+            '{guildName}': sanitized.guildName || 'Сервер',
+            '{guild_name}': sanitized.guildName || 'Сервер',
+            '{channelName}': sanitized.channelName || 'Голосовой канал',
+            '{channel_name}': sanitized.channelName || 'Голосовой канал',
         };
 
         let formatted = safeTemplate;
@@ -158,21 +157,21 @@ export function formatChannelName(template, variables) {
         formatted = formatted
             .normalize('NFKC')
             .replace(CONTROL_AND_INVISIBLE_CHARS_REGEX, '')
-            .replace(/[@#:`\n\r\t]/g, '') 
+            .replace(/[@#:`\n\r\t]/g, '')
             .replace(/\s+/g, ' ')
             .trim();
 
         if (formatted.length === 0) {
-            formatted = 'Voice Channel';
+            formatted = 'Голосовой канал';
         } else if (formatted.length > CHANNEL_NAME_MAX_LENGTH) {
             formatted = formatted.substring(0, CHANNEL_NAME_MAX_LENGTH);
         }
 
-        logger.debug(`Formatted channel name: "${formatted}" from template "${template}"`);
+        logger.debug(`Сформировано название канала: "${formatted}" из шаблона "${template}"`);
         return formatted;
 
     } catch (error) {
-        logger.error('Error formatting channel name:', error);
+        logger.error('Ошибка при форматировании названия канала:', error);
         throw error;
     }
 }
@@ -181,17 +180,17 @@ export async function initializeJoinToCreate(client, guildId, channelId, options
     try {
         if (!client || !client.db) {
             throw new TitanBotError(
-                'Database service not available',
+                'Сервис базы данных недоступен',
                 ErrorTypes.DATABASE,
-                'System error occurred. Please try again.'
+                'Произошла системная ошибка. Пожалуйста, попробуйте ещё раз.'
             );
         }
 
         if (!guildId || !channelId) {
             throw new TitanBotError(
-                'Missing required guild or channel ID',
+                'Отсутствует обязательный ID сервера или канала',
                 ErrorTypes.VALIDATION,
-                'Invalid guild or channel information provided.'
+                'Предоставлена некорректная информация о сервере или канале.'
             );
         }
 
@@ -199,7 +198,7 @@ export async function initializeJoinToCreate(client, guildId, channelId, options
             validateChannelNameTemplate(options.nameTemplate);
         }
         if (options.bitrate) {
-            validateBitrate(options.bitrate / 1000); 
+            validateBitrate(options.bitrate / 1000);
         }
         if (options.userLimit !== undefined) {
             validateUserLimit(options.userLimit);
@@ -209,17 +208,17 @@ export async function initializeJoinToCreate(client, guildId, channelId, options
 
         if (config.triggerChannels.includes(channelId)) {
             throw new TitanBotError(
-                'Channel already configured as Join to Create trigger',
+                'Канал уже настроен как триггер Join to Create',
                 ErrorTypes.VALIDATION,
-                'This channel is already set up as a Join to Create trigger.'
+                'Этот канал уже настроен как триггер Join to Create.'
             );
         }
 
         if (Array.isArray(config.triggerChannels) && config.triggerChannels.length > 0) {
             throw new TitanBotError(
-                'Guild already has a Join to Create trigger configured',
+                'На сервере уже настроен триггер Join to Create',
                 ErrorTypes.VALIDATION,
-                'This server already has a Join to Create channel configured. Use `/jointocreate dashboard` to modify it, or remove it before creating a new one.',
+                'На этом сервере уже настроен канал Join to Create. Используйте `/jointocreate dashboard`, чтобы изменить его, или удалите существующий канал перед созданием нового.',
                 {
                     guildId,
                     existingTriggerChannelId: config.triggerChannels[0],
@@ -248,13 +247,13 @@ export async function initializeJoinToCreate(client, guildId, channelId, options
         const saveResult = await saveJoinToCreateConfig(client, guildId, config);
         if (!saveResult) {
             throw new TitanBotError(
-                'Failed to save Join to Create configuration',
+                'Не удалось сохранить конфигурацию Join to Create',
                 ErrorTypes.DATABASE,
-                'Failed to set up Join to Create system. Please try again.'
+                'Не удалось настроить систему Join to Create. Пожалуйста, попробуйте ещё раз.'
             );
         }
 
-        logger.info(`Initialized Join to Create for guild ${guildId} with trigger channel ${channelId}`);
+        logger.info(`Инициализирован Join to Create для сервера ${guildId} с каналом-триггером ${channelId}`);
 
         return config;
 
@@ -263,9 +262,9 @@ export async function initializeJoinToCreate(client, guildId, channelId, options
             throw error;
         }
         throw new TitanBotError(
-            `Failed to initialize Join to Create: ${error.message}`,
+            `Не удалось инициализировать Join to Create: ${error.message}`,
             ErrorTypes.DATABASE,
-            'Failed to set up Join to Create system.'
+            'Не удалось настроить систему Join to Create.'
         );
     }
 }
@@ -274,9 +273,9 @@ export async function updateChannelConfig(client, guildId, channelId, updates) {
     try {
         if (!client || !client.db) {
             throw new TitanBotError(
-                'Database service not available',
+                'Сервис базы данных недоступен',
                 ErrorTypes.DATABASE,
-                'Database service is currently unavailable. Please try again later.'
+                'Сервис базы данных сейчас недоступен. Пожалуйста, попробуйте позже.'
             );
         }
 
@@ -284,9 +283,9 @@ export async function updateChannelConfig(client, guildId, channelId, updates) {
 
         if (!config.triggerChannels.includes(channelId)) {
             throw new TitanBotError(
-                'Channel is not configured as a Join to Create trigger',
+                'Канал не настроен как триггер Join to Create',
                 ErrorTypes.VALIDATION,
-                'This channel is not set up as a Join to Create trigger.'
+                'Этот канал не настроен как триггер Join to Create.'
             );
         }
 
@@ -312,7 +311,7 @@ export async function updateChannelConfig(client, guildId, channelId, updates) {
 
         await saveJoinToCreateConfig(client, guildId, config);
 
-        logger.info(`Updated Join to Create config for channel ${channelId} in guild ${guildId}`, {
+        logger.info(`Обновлена конфигурация Join to Create для канала ${channelId} на сервере ${guildId}`, {
             updates: Object.keys(updates)
         });
 
@@ -323,9 +322,9 @@ export async function updateChannelConfig(client, guildId, channelId, updates) {
             throw error;
         }
         throw new TitanBotError(
-            `Failed to update channel config: ${error.message}`,
+            `Не удалось обновить конфигурацию канала: ${error.message}`,
             ErrorTypes.DATABASE,
-            'Failed to update configuration.'
+            'Не удалось обновить конфигурацию.'
         );
     }
 }
@@ -334,9 +333,9 @@ export async function removeTriggerChannel(client, guildId, channelId) {
     try {
         if (!client || !client.db) {
             throw new TitanBotError(
-                'Database service not available',
+                'Сервис базы данных недоступен',
                 ErrorTypes.DATABASE,
-                'Database service is currently unavailable. Please try again later.'
+                'Сервис базы данных сейчас недоступен. Пожалуйста, попробуйте позже.'
             );
         }
 
@@ -345,9 +344,9 @@ export async function removeTriggerChannel(client, guildId, channelId) {
         const index = config.triggerChannels.indexOf(channelId);
         if (index === -1) {
             throw new TitanBotError(
-                'Channel not found in Join to Create triggers',
+                'Канал не найден среди триггеров Join to Create',
                 ErrorTypes.VALIDATION,
-                'This channel is not configured as a Join to Create trigger.'
+                'Этот канал не настроен как триггер Join to Create.'
             );
         }
 
@@ -368,7 +367,7 @@ export async function removeTriggerChannel(client, guildId, channelId) {
 
         await saveJoinToCreateConfig(client, guildId, config);
 
-        logger.info(`Removed Join to Create trigger channel ${channelId} from guild ${guildId}`);
+        logger.info(`Удалён канал-триггер Join to Create ${channelId} с сервера ${guildId}`);
 
         return true;
 
@@ -377,9 +376,9 @@ export async function removeTriggerChannel(client, guildId, channelId) {
             throw error;
         }
         throw new TitanBotError(
-            `Failed to remove trigger channel: ${error.message}`,
+            `Не удалось удалить канал-триггер: ${error.message}`,
             ErrorTypes.DATABASE,
-            'Failed to remove trigger channel.'
+            'Не удалось удалить канал-триггер.'
         );
     }
 }
@@ -388,9 +387,9 @@ export async function getConfiguration(client, guildId) {
     try {
         if (!client || !client.db) {
             throw new TitanBotError(
-                'Database service not available',
+                'Сервис базы данных недоступен',
                 ErrorTypes.DATABASE,
-                'Database service is currently unavailable. Please try again later.'
+                'Сервис базы данных сейчас недоступен. Пожалуйста, попробуйте позже.'
             );
         }
 
@@ -401,9 +400,9 @@ export async function getConfiguration(client, guildId) {
             throw error;
         }
         throw new TitanBotError(
-            `Failed to retrieve configuration: ${error.message}`,
+            `Не удалось получить конфигурацию: ${error.message}`,
             ErrorTypes.DATABASE,
-            'Failed to retrieve settings.'
+            'Не удалось получить настройки.'
         );
     }
 }
@@ -413,7 +412,7 @@ export async function isTriggerChannel(client, guildId, channelId) {
         const config = await getConfiguration(client, guildId);
         return config.triggerChannels.includes(channelId);
     } catch (error) {
-        logger.error(`Error checking if channel is trigger: ${error.message}`);
+        logger.error(`Ошибка при проверке канала-триггера: ${error.message}`);
         return false;
     }
 }
@@ -424,9 +423,9 @@ export async function getChannelConfiguration(client, guildId, channelId) {
 
         if (!config.triggerChannels || !Array.isArray(config.triggerChannels) || !config.triggerChannels.includes(channelId)) {
             throw new TitanBotError(
-                'Channel is not a valid Join to Create trigger',
+                'Канал не является корректным триггером Join to Create',
                 ErrorTypes.VALIDATION,
-                'This channel is not set up as a Join to Create trigger.'
+                'Этот канал не настроен как триггер Join to Create.'
             );
         }
 
@@ -440,9 +439,9 @@ export async function getChannelConfiguration(client, guildId, channelId) {
             throw error;
         }
         throw new TitanBotError(
-            `Failed to get channel configuration: ${error.message}`,
+            `Не удалось получить конфигурацию канала: ${error.message}`,
             ErrorTypes.DATABASE,
-            'Failed to retrieve channel configuration. Please try again.'
+            'Не удалось получить конфигурацию канала. Пожалуйста, попробуйте ещё раз.'
         );
     }
 }
@@ -454,7 +453,7 @@ export function hasManageGuildPermission(member) {
         }
         return member.permissions.has(PermissionFlagsBits.ManageGuild);
     } catch (error) {
-        logger.error('Error checking ManageGuild permission:', error);
+        logger.error('Ошибка при проверке разрешения ManageGuild:', error);
         return false;
     }
 }
@@ -466,16 +465,16 @@ export async function logConfigurationChange(client, guildId, userId, action, de
             guildId,
             eventType: EVENT_TYPES.COUNTER_CONFIG,
             data: {
-                title: 'Join to Create Updated',
+                title: 'Обновлён Join to Create',
                 lines: [
-                    formatLogLine('Action', action),
-                    formatLogLine('Details', typeof details === 'string' ? details : JSON.stringify(details)),
+                    formatLogLine('Действие', action),
+                    formatLogLine('Подробности', typeof details === 'string' ? details : JSON.stringify(details)),
                 ],
                 userId,
             },
         });
     } catch (error) {
-        logger.warn(`Failed to log Join to Create configuration change: ${error.message}`);
+        logger.warn(`Не удалось записать изменение конфигурации Join to Create в журнал: ${error.message}`);
     }
 }
 
@@ -483,7 +482,7 @@ export async function createTemporaryChannel(guild, member, options = {}) {
     try {
         if (!guild || !member) {
             throw new TitanBotError(
-                'Invalid guild or member',
+                'Некорректный сервер или участник',
                 ErrorTypes.VALIDATION
             );
         }
@@ -530,7 +529,7 @@ export async function createTemporaryChannel(guild, member, options = {}) {
             ]
         });
 
-        logger.info(`Created temporary voice channel ${tempChannel.name} (${tempChannel.id}) for user ${member.user.tag}`);
+        logger.info(`Создан временный голосовой канал ${tempChannel.name} (${tempChannel.id}) для пользователя ${member.user.tag}`);
 
         return {
             id: tempChannel.id,
@@ -543,9 +542,9 @@ export async function createTemporaryChannel(guild, member, options = {}) {
             throw error;
         }
         throw new TitanBotError(
-            `Failed to create temporary channel: ${error.message}`,
+            `Не удалось создать временный канал: ${error.message}`,
             ErrorTypes.DISCORD_API,
-            'Failed to create your temporary voice channel. Please contact an administrator.'
+            'Не удалось создать ваш временный голосовой канал. Пожалуйста, обратитесь к администратору.'
         );
     }
 }
