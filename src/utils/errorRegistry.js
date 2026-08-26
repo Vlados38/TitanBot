@@ -22,77 +22,77 @@ const ErrorCodeRegistry = Object.freeze({
   [ErrorCodes.VALIDATION_FAILED]: {
     severity: 'low',
     retryable: false,
-    remediation: 'Validate command inputs before processing and return field-specific guidance.'
+    remediation: 'Проверяйте входные данные команд перед обработкой и предоставляйте подсказки по каждому конкретному полю.'
   },
   [ErrorCodes.PERMISSION_DENIED]: {
     severity: 'low',
     retryable: false,
-    remediation: 'Review bot/user role permissions and required Discord permissions for this command.'
+    remediation: 'Проверьте права ролей бота/пользователя и необходимые разрешения Discord для этой команды.'
   },
   [ErrorCodes.CONFIGURATION_ERROR]: {
     severity: 'medium',
     retryable: false,
-    remediation: 'Check required environment variables and guild feature configuration.'
+    remediation: 'Проверьте необходимые переменные окружения и конфигурацию функций сервера.'
   },
   [ErrorCodes.DATABASE_ERROR]: {
     severity: 'high',
     retryable: true,
-    remediation: 'Check Postgres connectivity, pool saturation, statement timeouts, and recent migrations.'
+    remediation: 'Проверьте подключение к Postgres, загрузку пула соединений, тайм-ауты запросов и последние миграции.'
   },
   [ErrorCodes.NETWORK_ERROR]: {
     severity: 'medium',
     retryable: true,
-    remediation: 'Check network reachability, upstream service status, and retry/backoff behavior.'
+    remediation: 'Проверьте доступность сети, статус внешнего сервиса и корректность механизма повторных попыток с задержкой.'
   },
   [ErrorCodes.DISCORD_API_ERROR]: {
     severity: 'high',
     retryable: true,
-    remediation: 'Check Discord API status, rate-limit response patterns, and bot token validity.'
+    remediation: 'Проверьте состояние API Discord, ответы с ограничениями частоты запросов и действительность токена бота.'
   },
   [ErrorCodes.USER_INPUT_ERROR]: {
     severity: 'low',
     retryable: false,
-    remediation: 'Validate user-provided IDs/mentions and return clearer input examples.'
+    remediation: 'Проверяйте ID/упоминания, введённые пользователем, и предоставляйте более понятные примеры ввода.'
   },
   [ErrorCodes.RATE_LIMITED]: {
     severity: 'low',
     retryable: true,
-    remediation: 'Apply cooldown-aware retries and reduce bursty command execution.'
+    remediation: 'Используйте повторные попытки с учётом задержек и уменьшайте количество одновременных выполнений команд.'
   },
   [ErrorCodes.INTERACTION_INVALID]: {
     severity: 'medium',
     retryable: false,
-    remediation: 'Ensure interaction object is available and valid before replying.'
+    remediation: 'Убедитесь, что объект взаимодействия существует и является действительным перед отправкой ответа.'
   },
   [ErrorCodes.INTERACTION_EXPIRED]: {
     severity: 'medium',
     retryable: false,
-    remediation: 'Defer or reply to interactions earlier to avoid 15-minute expiry windows.'
+    remediation: 'Откладывайте или отправляйте ответы на взаимодействия раньше, чтобы избежать истечения 15-минутного срока.'
   },
   [ErrorCodes.INTERACTION_RESPONSE_FAILED]: {
     severity: 'medium',
     retryable: false,
-    remediation: 'Check interaction acknowledgement state and Discord response error codes.'
+    remediation: 'Проверьте состояние подтверждения взаимодействия и коды ошибок ответа Discord.'
   },
   [ErrorCodes.INTERACTION_UNHANDLED]: {
     severity: 'high',
     retryable: false,
-    remediation: 'Add a handler for this interaction type or register the missing button/modal/select handler.'
+    remediation: 'Добавьте обработчик для этого типа взаимодействия или зарегистрируйте отсутствующий обработчик кнопки, модального окна или меню выбора.'
   },
   [ErrorCodes.TASK_ERROR]: {
     severity: 'high',
     retryable: true,
-    remediation: 'Inspect the named background task for thrown errors or unawaited promises.'
+    remediation: 'Проверьте указанную фоновую задачу на наличие выброшенных ошибок или промисов без await.'
   },
   [ErrorCodes.UNHANDLED_REJECTION]: {
     severity: 'high',
     retryable: false,
-    remediation: 'Find the promise that rejected without a catch handler and route it through runSafeTask or an explicit catch.'
+    remediation: 'Найдите промис, который был отклонён без обработчика catch, и передайте его через runSafeTask или явный catch.'
   },
   [ErrorCodes.UNKNOWN_ERROR]: {
     severity: 'high',
     retryable: false,
-    remediation: 'Capture trace context and stack, then classify this failure under a specific error code.'
+    remediation: 'Сохраните контекст трассировки и стек вызовов, а затем классифицируйте эту ошибку под конкретным кодом.'
   }
 });
 
