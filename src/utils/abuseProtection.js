@@ -95,7 +95,7 @@ function recordBlockedAttempt(key, commandName, interaction, command, remainingM
 
   if (current.count >= anomalyPolicy.threshold && !current.thresholdReachedAt) {
     current.thresholdReachedAt = now;
-    logger.warn('Abuse anomaly detected for risky command cooldown breaches', {
+    logger.warn('Обнаружена аномалия злоупотребления: превышение кулдауна рискованной команды', {
       event: 'interaction.command.abuse_anomaly',
       guildId: interaction.guildId,
       userId: interaction.user?.id,
@@ -109,7 +109,7 @@ function recordBlockedAttempt(key, commandName, interaction, command, remainingM
 
 export function formatCooldownDuration(ms) {
   if (!Number.isFinite(ms) || ms <= 0) {
-    return 'a moment';
+    return 'момент';
   }
 
   const totalSeconds = Math.ceil(ms / 1000);
@@ -117,14 +117,14 @@ export function formatCooldownDuration(ms) {
   const seconds = totalSeconds % 60;
 
   if (minutes > 0 && seconds > 0) {
-    return `${minutes}m ${seconds}s`;
+    return `${minutes} мин. ${seconds} сек.`;
   }
 
   if (minutes > 0) {
-    return `${minutes}m`;
+    return `${minutes} мин.`;
   }
 
-  return `${seconds}s`;
+  return `${seconds} сек.`;
 }
 
 export function isRiskyCommand(command, commandName) {
@@ -172,7 +172,7 @@ export async function enforceAbuseProtection(interaction, command, commandName) 
   const status = getRateLimitStatus(key, policy.windowMs);
   const remainingMs = Math.max(0, status?.remaining || 0);
 
-  logger.info('Risky command blocked by cooldown policy', {
+  logger.info('Рискованная команда заблокирована политикой кулдауна', {
     event: 'interaction.command.abuse_blocked',
     guildId: interaction.guildId,
     userId: interaction.user?.id,
