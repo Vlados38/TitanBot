@@ -6,25 +6,26 @@ import { ModerationService } from '../../services/moderation/moderationService.j
 import { TitanBotError, replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
 
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+
 export default {
     data: new SlashCommandBuilder()
         .setName("massban")
-        .setDescription("Ban multiple users from the server at once")
+        .setDescription("Одновременно заблокировать нескольких пользователей на сервере")
         .addStringOption(option =>
             option
                 .setName("users")
-                .setDescription("User IDs or mentions to ban (separated by spaces or commas)")
+                .setDescription("ID или упоминания пользователей для блокировки (через пробел или запятую)")
                 .setRequired(true)
         )
         .addStringOption(option =>
             option.setName("reason")
-                .setDescription("Reason for the mass ban")
+                .setDescription("Причина массовой блокировки")
                 .setRequired(false)
         )
         .addIntegerOption(option =>
             option
                 .setName("delete_days")
-                .setDescription("Number of days of messages to delete (0-7)")
+                .setDescription("Количество дней сообщений для удаления (0–7)")
                 .setMinValue(0)
                 .setMaxValue(7)
                 .setRequired(false)
@@ -45,26 +46,35 @@ export default {
         }
 
         const usersInput = interaction.options.getString("users");
-        const reason = interaction.options.getString("reason") || "Mass ban - No reason provided";
+        const reason = interaction.options.getString("reason") || "Массовая блокировка — причина не указана";
         const deleteDays = interaction.options.getInteger("delete_days") || 0;
 
         try {
             const userIds = usersInput
-.replace(/<@!?(\d+)>/g, '$1')
-.split(/[\s,]+/)
-.filter(id => id && /^\d+$/.test(id))
-.slice(0, 20);
+                .replace(/<@!?(\d+)>/g, '$1')
+                .split(/[\s,]+/)
+                .filter(id => id && /^\d+$/.test(id))
+                .slice(0, 20);
 
             if (userIds.length === 0) {
-                return await replyUserError(interaction, { type: ErrorTypes.VALIDATION, message: 'Please provide valid user IDs or mentions. Maximum 20 users at once.' });
+                return await replyUserError(interaction, {
+                    type: ErrorTypes.VALIDATION,
+                    message: 'Укажите действительные ID или упоминания пользователей. Максимум — 20 пользователей за раз.'
+                });
             }
 
             if (userIds.includes(interaction.user.id)) {
-                return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'You cannot include yourself in a mass ban.' });
+                return await replyUserError(interaction, {
+                    type: ErrorTypes.UNKNOWN,
+                    message: 'Вы не можете включить себя в массовую блокировку.'
+                });
             }
 
             if (userIds.includes(client.user.id)) {
-                return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'You cannot include the bot in a mass ban.' });
+                return await replyUserError(interaction, {
+                    type: ErrorTypes.UNKNOWN,
+                    message: 'Вы не можете включить бота в массовую блокировку.'
+                });
             }
 
             const results = {
@@ -78,7 +88,7 @@ export default {
                     const user = await client.users.fetch(userId).catch(() => null);
                     
                     if (!user) {
-                        results.failed.push({ userId, reason: "User not found" });
+                        results.failed.push({ userId, reason: "Пользователь не найден" });
                         continue;
                     }
 
@@ -137,7 +147,7 @@ export default {
                     logger.error(`Failed to ban user ${userId}:`, error);
                     const reason = error instanceof TitanBotError
                         ? (error.userMessage || error.message)
-                        : (error.message || "Unknown error");
+                        : (error.message || "Неизвестная ошибка");
                     results.failed.push({ 
                         userId, 
                         reason,
@@ -145,10 +155,10 @@ export default {
                 }
             }
 
-            let description = `**Mass Ban Results:**\n\n`;
+            let description = `**Результаты массовой блокировки:**\n\n`;
             
             if (results.successful.length > 0) {
-                description += `✅ **Successfully Banned (${results.successful.length}):**\n`;
+                description += `✅ **Успешно заблокировано (${results.successful.length}):**\n`;
                 results.successful.forEach(result => {
                     description += `• ${result.user} (${result.userId})\n`;
                 });
@@ -156,17 +166,17 @@ export default {
             }
 
             if (results.skipped.length > 0) {
-                description += `⚠️ **Skipped (${results.skipped.length}):**\n`;
+                description += `⚠️ **Пропущено (${results.skipped.length}):**\n`;
                 results.skipped.forEach(result => {
-                    description += `• ${result.user} - ${result.reason}\n`;
+                    description += `• ${result.user} — ${result.reason}\n`;
                 });
                 description += '\n';
             }
 
             if (results.failed.length > 0) {
-                description += `❌ **Failed (${results.failed.length}):**\n`;
+                description += `❌ **Не удалось заблокировать (${results.failed.length}):**\n`;
                 results.failed.forEach(result => {
-                    description += `• ${result.userId} - ${result.reason}\n`;
+                    description += `• ${result.userId} — ${result.reason}\n`;
                 });
             }
 
@@ -175,7 +185,7 @@ export default {
             return await InteractionHelper.safeEditReply(interaction, {
                 embeds: [
                     embed(
-                        `🔨 Mass Ban Completed`,
+                        `🔨 Массовая блокировка завершена`,
                         description
                     )
                 ]
@@ -183,7 +193,10 @@ export default {
 
         } catch (error) {
             logger.error("Error in massban command:", error);
-            return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'An error occurred while processing the mass ban. Please try again later.' });
+            return await replyUserError(interaction, {
+                type: ErrorTypes.UNKNOWN,
+                message: 'Произошла ошибка при выполнении массовой блокировки. Пожалуйста, попробуйте позже.'
+            });
         }
     }
 };
