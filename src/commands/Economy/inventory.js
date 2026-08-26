@@ -1,5 +1,7 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
-import { createEmbed, errorEmbed, successEmbed, infoEmbed, warningEmbed } from '../../utils/embeds.js';
+// Переведённый файл: inventory.js
+
+import { SlashCommandBuilder } from 'discord.js';
+import { createEmbed } from '../../utils/embeds.js';
 import { shopItems } from '../../config/shop/items.js';
 import { getEconomyData } from '../../utils/economy.js';
 import { withErrorHandling, createError, ErrorTypes } from '../../utils/errorHandler.js';
@@ -11,60 +13,56 @@ const SHOP_ITEMS = shopItems;
 export default {
     data: new SlashCommandBuilder()
         .setName('inventory')
-        .setDescription('View your economy inventory'),
+        .setDescription('Просмотреть свой инвентарь'),
 
     execute: withErrorHandling(async (interaction, config, client) => {
         const deferred = await InteractionHelper.safeDefer(interaction);
         if (!deferred) return;
 
-            const userId = interaction.user.id;
-            const guildId = interaction.guildId;
+        const userId = interaction.user.id;
+        const guildId = interaction.guildId;
 
-            logger.debug(`[ECONOMY] Inventory requested for ${userId}`, { userId, guildId });
+        logger.debug(`[ECONOMY] Inventory requested for ${userId}`, { userId, guildId });
 
-            const userData = await getEconomyData(client, guildId, userId);
+        const userData = await getEconomyData(client, guildId, userId);
 
-            if (!userData) {
-                throw createError(
-                    "Failed to load economy data for inventory",
-                    ErrorTypes.DATABASE,
-                    "Failed to load your economy data. Please try again later.",
-                    { userId, guildId }
-                );
-            }
+        if (!userData) {
+            throw createError(
+                "Не удалось загрузить данные экономики для инвентаря",
+                ErrorTypes.DATABASE,
+                "Не удалось загрузить данные вашей экономики. Пожалуйста, попробуйте позже.",
+                { userId, guildId }
+            );
+        }
 
-            const inventory = userData.inventory || {};
+        const inventory = userData.inventory || {};
 
-            let inventoryDescription = "Your inventory is currently empty.";
+        let inventoryDescription = "Ваш инвентарь в данный момент пуст.";
 
-            if (Object.keys(inventory).length > 0) {
-                inventoryDescription = Object.entries(inventory)
-                    .filter(
-                        ([itemId, quantity]) => {
-                            const item = SHOP_ITEMS.find(i => i.id === itemId);
-                            return quantity > 0 && item;
-                        }
-                    )
-                    .map(
-                        ([itemId, quantity]) => {
-                            const item = SHOP_ITEMS.find(i => i.id === itemId);
-                            return `**${item.name}:** ${quantity}x`;
-                        }
-                    )
-                    .join("\n");
-            }
+        if (Object.keys(inventory).length > 0) {
+            inventoryDescription = Object.entries(inventory)
+                .filter(([itemId, quantity]) => {
+                    const item = SHOP_ITEMS.find(i => i.id === itemId);
+                    return quantity > 0 && item;
+                })
+                .map(([itemId, quantity]) => {
+                    const item = SHOP_ITEMS.find(i => i.id === itemId);
+                    return `**${item.name}:** ${quantity}x`;
+                })
+                .join("\n");
+        }
 
-            logger.info(`[ECONOMY] Inventory retrieved`, { 
-                userId, 
-                guildId,
-                itemCount: Object.keys(inventory).length
-            });
+        logger.info(`[ECONOMY] Inventory retrieved`, {
+            userId,
+            guildId,
+            itemCount: Object.keys(inventory).length
+        });
 
-            const embed = createEmbed({ 
-                title: `🎒 ${interaction.user.username}'s Inventory`, 
-                description: inventoryDescription, 
-            }).setThumbnail(interaction.user.displayAvatarURL());
+        const embed = createEmbed({
+            title: `🎒 Инвентарь ${interaction.user.username}`,
+            description: inventoryDescription,
+        }).setThumbnail(interaction.user.displayAvatarURL());
 
-            await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+        await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
     }, { command: 'inventory' })
 };
