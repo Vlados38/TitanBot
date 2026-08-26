@@ -17,13 +17,20 @@ class WarningService {
     const warnings = await getFromDb(key, []);
 
     if (!Array.isArray(warnings)) {
-      logger.warn(`Warnings for ${userId} in ${guildId} corrupted, resetting`);
+      logger.warn(`Предупреждения пользователя ${userId} на сервере ${guildId} повреждены, выполняется сброс`);
+
       await setInDb(key, []);
+
       throw createError(
-        'Corrupted warning data',
+        'Повреждённые данные предупреждений',
         ErrorTypes.DATABASE,
-        'Warning data was corrupted and has been reset. Please try again.',
-        { guildId, userId, service: 'warningService', operation: 'addWarning' }
+        'Данные предупреждений были повреждены и сброшены. Пожалуйста, попробуйте снова.',
+        {
+          guildId,
+          userId,
+          service: 'warningService',
+          operation: 'addWarning'
+        }
       );
     }
 
@@ -40,7 +47,7 @@ class WarningService {
     warnings.push(warning);
     await setInDb(key, warnings);
 
-    logger.info(`Warning added: ${userId} in ${guildId} by ${moderatorId}`);
+    logger.info(`Добавлено предупреждение: ${userId} на сервере ${guildId} модератором ${moderatorId}`);
 
     return {
       id: warning.id,
@@ -67,19 +74,27 @@ class WarningService {
     const warnings = await getFromDb(key, []);
 
     const index = warnings.findIndex(w => w.id === warningId);
+
     if (index === -1) {
       throw createError(
-        'Warning not found',
+        'Предупреждение не найдено',
         ErrorTypes.USER_INPUT,
-        'That warning could not be found. It may have already been removed.',
-        { guildId, userId, warningId, service: 'warningService', operation: 'removeWarning' }
+        'Это предупреждение не удалось найти. Возможно, оно уже было удалено.',
+        {
+          guildId,
+          userId,
+          warningId,
+          service: 'warningService',
+          operation: 'removeWarning'
+        }
       );
     }
 
     warnings[index].status = 'deleted';
     await setInDb(key, warnings);
 
-    logger.info(`Warning removed: ${warningId} for ${userId} in ${guildId}`);
+    logger.info(`Предупреждение ${warningId} удалено для пользователя ${userId} на сервере ${guildId}`);
+
     return { removed: true };
   }
 
@@ -90,7 +105,8 @@ class WarningService {
 
     await setInDb(key, []);
 
-    logger.info(`Warnings cleared for ${userId} in ${guildId} (${count} removed)`);
+    logger.info(`Все предупреждения пользователя ${userId} на сервере ${guildId} очищены (${count} удалено)`);
+
     return { count };
   }
 
@@ -103,18 +119,23 @@ class WarningService {
 
     for (const key of Array.isArray(keys) ? keys : []) {
       const warnings = await getFromDb(key, []);
+
       if (!Array.isArray(warnings)) continue;
 
       for (const warning of warnings) {
         if (!warning || warning.status === 'deleted') continue;
         if (moderatorId && warning.moderatorId !== moderatorId) continue;
+
         allWarnings.push(warning);
       }
     }
 
     allWarnings.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-    logger.debug(`Fetched guild warnings for ${guildId} with ${allWarnings.length} total`);
+    logger.debug(
+      `Получены предупреждения сервера ${guildId}. Всего активных предупреждений: ${allWarnings.length}`
+    );
+
     return allWarnings.slice(0, limit);
   }
 }
