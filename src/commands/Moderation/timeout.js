@@ -6,35 +6,35 @@ import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { ModerationService } from '../../services/moderation/moderationService.js';
 
 const durationChoices = [
-    { name: "5 minutes", value: 5 },
-    { name: "10 minutes", value: 10 },
-    { name: "30 minutes", value: 30 },
-    { name: "1 hour", value: 60 },
-    { name: "6 hours", value: 360 },
-    { name: "1 day", value: 1440 },
-    { name: "1 week", value: 10080 },
+    { name: "5 минут", value: 5 },
+    { name: "10 минут", value: 10 },
+    { name: "30 минут", value: 30 },
+    { name: "1 час", value: 60 },
+    { name: "6 часов", value: 360 },
+    { name: "1 день", value: 1440 },
+    { name: "1 неделя", value: 10080 },
 ];
 
 export default {
     data: new SlashCommandBuilder()
         .setName("timeout")
-        .setDescription("Timeout a user for a specific duration.")
+        .setDescription("Выдать пользователю тайм-аут на определённый срок.")
         .addUserOption((option) =>
             option
                 .setName("target")
-                .setDescription("User to timeout")
+                .setDescription("Пользователь, которому нужно выдать тайм-аут")
                 .setRequired(true),
         )
         .addIntegerOption(
             (option) =>
                 option
                     .setName("duration")
-                    .setDescription("Duration of the timeout")
+                    .setDescription("Продолжительность тайм-аута")
                     .setRequired(true)
                     .addChoices(...durationChoices),
         )
         .addStringOption((option) =>
-            option.setName("reason").setDescription("Reason for the timeout"),
+            option.setName("reason").setDescription("Причина выдачи тайм-аута"),
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
     category: "moderation",
@@ -53,13 +53,13 @@ export default {
         const targetUser = interaction.options.getUser("target");
         const member = interaction.options.getMember("target");
         const durationMinutes = interaction.options.getInteger("duration");
-        const reason = interaction.options.getString("reason") || "No reason provided";
+        const reason = interaction.options.getString("reason") || "Причина не указана";
 
         if (!targetUser) {
             throw new TitanBotError(
                 'Missing target user',
                 ErrorTypes.USER_INPUT,
-                'You must specify a user to timeout.',
+                'Вы должны указать пользователя, которому нужно выдать тайм-аут.',
                 { subtype: 'invalid_user' },
             );
         }
@@ -68,21 +68,23 @@ export default {
             throw new TitanBotError(
                 "Cannot timeout self",
                 ErrorTypes.VALIDATION,
-                "You cannot timeout yourself.",
+                "Вы не можете выдать тайм-аут самому себе.",
             );
         }
+
         if (targetUser.id === client.user.id) {
             throw new TitanBotError(
                 "Cannot timeout bot",
                 ErrorTypes.VALIDATION,
-                "You cannot timeout the bot.",
+                "Вы не можете выдать тайм-аут боту.",
             );
         }
+
         if (!member) {
             throw new TitanBotError(
                 "Target not found",
                 ErrorTypes.USER_INPUT,
-                "The target user is not currently in this server.",
+                "Указанный пользователь в данный момент не находится на этом сервере.",
             );
         }
 
@@ -97,13 +99,13 @@ export default {
 
         const durationDisplay =
             durationChoices.find((c) => c.value === durationMinutes)
-                ?.name || `${durationMinutes} minutes`;
+                ?.name || `${durationMinutes} минут`;
 
         await InteractionHelper.safeEditReply(interaction, {
             embeds: [
                 successEmbed(
-                    `⏳ **Timed out** ${targetUser.tag} for ${durationDisplay}.`,
-                    `**Reason:** ${reason}\n**Case ID:** #${result.caseId}`,
+                    `⏳ **Тайм-аут выдан** ${targetUser.tag} на ${durationDisplay}.`,
+                    `**Причина:** ${reason}\n**ID случая:** #${result.caseId}`,
                 ),
             ],
         });
