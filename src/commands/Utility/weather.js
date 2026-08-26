@@ -3,24 +3,25 @@ import { createEmbed, successEmbed, infoEmbed, warningEmbed } from '../../utils/
 import { logger } from '../../utils/logger.js';
 import { replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+
 const GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search";
 const WEATHER_URL = "https://api.open-meteo.com/v1/forecast";
 
 export default {
     data: new SlashCommandBuilder()
         .setName("weather")
-        .setDescription("Get real-time weather information for a location")
+        .setDescription("Получить актуальную информацию о погоде в указанном месте")
         .addStringOption((option) =>
             option
                 .setName("city")
-                .setDescription("The city name, e.g., 'London' or 'Tokyo'")
+                .setDescription("Название города, например: «Лондон» или «Токио»")
                 .setRequired(true),
         ),
 
     async execute(interaction) {
         const deferSuccess = await InteractionHelper.safeDefer(interaction);
         if (!deferSuccess) {
-            logger.warn(`Weather interaction defer failed`, {
+            logger.warn(`Не удалось отложить взаимодействие Weather`, {
                 userId: interaction.user.id,
                 guildId: interaction.guildId,
                 commandName: 'weather'
@@ -36,12 +37,16 @@ export default {
         const geoData = await geoResponse.json();
 
         if (!geoData.results || geoData.results.length === 0) {
-            logger.info(`Weather command - city not found`, {
+            logger.info(`Команда Weather — город не найден`, {
                 userId: interaction.user.id,
                 city: city,
                 guildId: interaction.guildId
             });
-            await replyUserError(interaction, { type: ErrorTypes.USER_INPUT, message: `Could not find a location for **${city}**. Please check the spelling.` });
+
+            await replyUserError(interaction, {
+                type: ErrorTypes.USER_INPUT,
+                message: `Не удалось найти местоположение **${city}**. Проверьте правильность написания.`,
+            });
             return;
         }
 
@@ -54,48 +59,74 @@ export default {
         const weatherData = await weatherResponse.json();
 
         if (weatherData.error) {
-            logger.error(`Weather API error`, {
+            logger.error(`Ошибка Weather API`, {
                 error: weatherData.reason,
                 city: city,
                 userId: interaction.user.id,
                 guildId: interaction.guildId
             });
-            await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'A weather service error occurred.' });
+
+            await replyUserError(interaction, {
+                type: ErrorTypes.UNKNOWN,
+                message: 'Произошла ошибка сервиса погоды.',
+            });
             return;
         }
 
         const current = weatherData.current || weatherData.current_weather || {};
-        const temperature = current.temperature != null ? Math.round(current.temperature) : "N/A";
-        const humidity = current.relativehumidity ?? current.relative_humidity_2m ?? "N/A";
-        const windSpeed = current.windspeed != null ? Math.round(current.windspeed) : "N/A";
-        const weatherCode = current.weathercode ?? current.weather_code ?? null;
+
+        const temperature =
+            current.temperature != null
+                ? Math.round(current.temperature)
+                : "Н/Д";
+
+        const humidity =
+            current.relativehumidity ??
+            current.relative_humidity_2m ??
+            "Н/Д";
+
+        const windSpeed =
+            current.windspeed != null
+                ? Math.round(current.windspeed)
+                : "Н/Д";
+
+        const weatherCode =
+            current.weathercode ??
+            current.weather_code ??
+            null;
 
         const condition = getWeatherDescription(weatherCode);
 
-        const embed = createEmbed({ title: `Weather in ${cityDisplay}, ${country}`, description: condition.description })
+        const embed = createEmbed({
+            title: `Погода в ${cityDisplay}, ${country}`,
+            description: condition.description
+        })
             .addFields(
                 {
-                    name: "Temperature",
+                    name: "Температура",
                     value: `${temperature}°C`,
                     inline: true,
                 },
                 {
-                    name: "Humidity",
+                    name: "Влажность",
                     value: `${humidity}%`,
                     inline: true,
                 },
                 {
-                    name: "Wind Speed",
-                    value: `${windSpeed} km/h`,
+                    name: "Скорость ветра",
+                    value: `${windSpeed} км/ч`,
                     inline: true,
                 },
             )
             .setFooter({
-                text: `Latitude: ${latitude.toFixed(2)} | Longitude: ${longitude.toFixed(2)}`,
+                text: `Широта: ${latitude.toFixed(2)} | Долгота: ${longitude.toFixed(2)}`,
             });
 
-        await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
-        logger.info(`Weather command executed`, {
+        await InteractionHelper.safeEditReply(interaction, {
+            embeds: [embed]
+        });
+
+        logger.info(`Команда Weather выполнена`, {
             userId: interaction.user.id,
             city: cityDisplay,
             country: country,
@@ -107,17 +138,39 @@ export default {
 
 function getWeatherDescription(code) {
     if (code >= 0 && code <= 3) {
-        return { description: "Clear sky / Partly cloudy", emoji: "" };
+        return {
+            description: "Ясное небо / Переменная облачность",
+            emoji: ""
+        };
     } else if (code >= 45 && code <= 48) {
-        return { description: "Fog and Rime fog", emoji: "" };
+        return {
+            description: "Туман и изморозь",
+            emoji: ""
+        };
     } else if (code >= 51 && code <= 67) {
-        return { description: "Drizzle or Rain", emoji: "" };
+        return {
+            description: "Морось или дождь",
+            emoji: ""
+        };
     } else if (code >= 71 && code <= 75) {
-        return { description: "Snow fall", emoji: "" };
+        return {
+            description: "Снегопад",
+            emoji: ""
+        };
     } else if (code >= 80 && code <= 86) {
-        return { description: "Showers (Rain/Snow)", emoji: "" };
+        return {
+            description: "Ливни (дождь/снег)",
+            emoji: ""
+        };
     } else if (code >= 95 && code <= 99) {
-        return { description: "Thunderstorm", emoji: "" };
+        return {
+            description: "Гроза",
+            emoji: ""
+        };
     }
-    return { description: "Unknown conditions.", emoji: "" };
+
+    return {
+        description: "Неизвестные погодные условия.",
+        emoji: ""
+    };
 }
