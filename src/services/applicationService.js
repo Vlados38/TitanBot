@@ -21,25 +21,28 @@ const applicationCooldowns = new Map();
 const APPLICATION_SUBMIT_COOLDOWN = (botConfig.applications?.applicationCooldown ?? 24) * 60 * 60 * 1000;
 
 class ApplicationService {
+
+    // Очищает и ограничивает текст заявки по длине
     static sanitizeApplicationText(value, maxLength) {
         return sanitizeMarkdown(sanitizeInput(String(value ?? ''), maxLength));
     }
 
+    // Проверяет данные перед отправкой заявки
     static validateApplicationSubmission(data) {
         if (!data.guildId || !data.userId || !data.roleId) {
             throw createError(
-                'Missing required fields for application submission',
+                'Отсутствуют обязательные поля для отправки заявки',
                 ErrorTypes.VALIDATION,
-                'Invalid application data. Please try again.',
+                'Некорректные данные заявки. Пожалуйста, попробуйте ещё раз.',
                 { data }
             );
         }
 
         if (!data.answers || !Array.isArray(data.answers) || data.answers.length === 0) {
             throw createError(
-                'Application must have answers',
+                'В заявке должны быть ответы',
                 ErrorTypes.VALIDATION,
-                'You must answer all application questions.',
+                'Вы должны ответить на все вопросы заявки.',
                 { data }
             );
         }
@@ -50,27 +53,27 @@ class ApplicationService {
 
             if (!sanitizedQuestion || !sanitizedAnswer) {
                 throw createError(
-                    'Invalid answer format',
+                    'Некорректный формат ответа',
                     ErrorTypes.VALIDATION,
-                    'All questions must have answers.',
+                    'На все вопросы должны быть даны ответы.',
                     { answer }
                 );
             }
 
             if (sanitizedAnswer.length > 1000) {
                 throw createError(
-                    'Answer too long',
+                    'Ответ слишком длинный',
                     ErrorTypes.VALIDATION,
-                    'Each answer must be less than 1000 characters.',
+                    'Каждый ответ должен содержать менее 1000 символов.',
                     { length: sanitizedAnswer.length }
                 );
             }
 
             if (sanitizedAnswer.trim().length < 10) {
                 throw createError(
-                    'Answer too short',
+                    'Ответ слишком короткий',
                     ErrorTypes.VALIDATION,
-                    'Please provide meaningful answers (at least 10 characters).',
+                    'Пожалуйста, напишите содержательные ответы (не менее 10 символов).',
                     { length: sanitizedAnswer.length }
                 );
             }
@@ -79,6 +82,7 @@ class ApplicationService {
         return true;
     }
 
+    // Проверяет задержку между отправками заявок
     static checkApplicationCooldown(userId) {
         const now = Date.now();
         const cooldownKey = `submit_${userId}`;
@@ -86,10 +90,11 @@ class ApplicationService {
 
         if (lastSubmit && now - lastSubmit < APPLICATION_SUBMIT_COOLDOWN) {
             const remainingTime = Math.ceil((APPLICATION_SUBMIT_COOLDOWN - (now - lastSubmit)) / 1000);
+
             throw createError(
-                'Application submission on cooldown',
+                'Отправка заявки временно недоступна',
                 ErrorTypes.RATE_LIMIT,
-                `Please wait ${Math.ceil(remainingTime / 60)} minute(s) before submitting another application.`,
+                `Пожалуйста, подождите ${Math.ceil(remainingTime / 60)} мин. перед отправкой следующей заявки.`,
                 { remainingTime, userId }
             );
         }
@@ -98,19 +103,20 @@ class ApplicationService {
         return true;
     }
 
+    // Проверяет, есть ли у пользователя права на управление заявками
     static async checkManagerPermission(client, guildId, member) {
         const settings = await getApplicationSettings(client, guildId);
-        
-        const isManager = 
+
+        const isManager =
             member.permissions.has(PermissionFlagsBits.ManageGuild) ||
-            (settings.managerRoles && 
+            (settings.managerRoles &&
              settings.managerRoles.some(roleId => member.roles.cache.has(roleId)));
 
         if (!isManager) {
             throw createError(
-                'User lacks permission to manage applications',
+                'У пользователя нет прав на управление заявками',
                 ErrorTypes.PERMISSION,
-                'You do not have permission to manage applications.',
+                'У вас нет прав на управление заявками.',
                 { userId: member.id, guildId }
             );
         }
@@ -118,19 +124,21 @@ class ApplicationService {
         return true;
     }
 
+    // Отправляет новую заявку
     static async submitApplication(client, data) {
         try {
-            
+
             this.validateApplicationSubmission(data);
 
             this.checkApplicationCooldown(data.userId);
 
             const settings = await getApplicationSettings(client, data.guildId);
+
             if (!settings.enabled) {
                 throw createError(
-                    'Applications are disabled',
+                    'Заявки отключены',
                     ErrorTypes.CONFIGURATION,
-                    'Applications are currently disabled in this server.',
+                    'Заявки в настоящее время отключены на этом сервере.',
                     { guildId: data.guildId }
                 );
             }
@@ -140,9 +148,9 @@ class ApplicationService {
 
             if (pendingApp) {
                 throw createError(
-                    'User already has pending application',
+                    'У пользователя уже есть активная заявка',
                     ErrorTypes.VALIDATION,
-                    'You already have a pending application. Please wait for it to be reviewed.',
+                    'У вас уже есть заявка на рассмотрении. Пожалуйста, дождитесь её проверки.',
                     { userId: data.userId, pendingAppId: pendingApp.id }
                 );
             }
@@ -157,7 +165,7 @@ class ApplicationService {
 
             const application = await createApplication(client, sanitizedData);
 
-            logger.info('Application submitted', {
+            logger.info('Заявка отправлена', {
                 applicationId: application.id,
                 userId: data.userId,
                 guildId: data.guildId,
@@ -167,59 +175,69 @@ class ApplicationService {
 
             return application;
         } catch (error) {
-            logger.error('Error submitting application', {
+            logger.error('Ошибка при отправке заявки', {
                 error: error.message,
                 userId: data.userId,
                 guildId: data.guildId,
                 stack: error.stack
             });
+
             throw error;
         }
     }
 
+    // Проверяет заявку и принимает или отклоняет её
     static async reviewApplication(client, guildId, applicationId, reviewData) {
         try {
             const { action, reason, reviewerId } = reviewData;
 
             if (!['approve', 'deny'].includes(action)) {
                 throw createError(
-                    'Invalid review action',
+                    'Некорректное действие при проверке',
                     ErrorTypes.VALIDATION,
-                    'Review action must be either approve or deny.',
+                    'Действие при проверке должно быть либо approve, либо deny.',
                     { action }
                 );
             }
 
             const application = await getApplication(client, guildId, applicationId);
+
             if (!application) {
                 throw createError(
-                    'Application not found',
+                    'Заявка не найдена',
                     ErrorTypes.CONFIGURATION,
-                    'The application you are trying to review does not exist.',
+                    'Заявка, которую вы пытаетесь проверить, не существует.',
                     { applicationId, guildId }
                 );
             }
 
             if (application.status !== 'pending') {
                 throw createError(
-                    'Application already processed',
+                    'Заявка уже обработана',
                     ErrorTypes.VALIDATION,
-                    'This application has already been reviewed.',
+                    'Эта заявка уже была проверена.',
                     { applicationId, status: application.status }
                 );
             }
 
             const status = action === 'approve' ? 'approved' : 'denied';
-            const sanitizedReason = reason ? reason.trim().substring(0, 500) : 'No reason provided.';
+            const sanitizedReason = reason
+                ? reason.trim().substring(0, 500)
+                : 'Причина не указана.';
 
-            const updatedApplication = await updateApplication(client, guildId, applicationId, {
-                status,
-                reviewer: reviewerId,
-                reviewMessage: sanitizedReason,
-                reviewedAt: new Date().toISOString()
-            });
+            const updatedApplication = await updateApplication(
+                client,
+                guildId,
+                applicationId,
+                {
+                    status,
+                    reviewer: reviewerId,
+                    reviewMessage: sanitizedReason,
+                    reviewedAt: new Date().toISOString()
+                }
+            );
 
-            logger.info('Application reviewed', {
+            logger.info('Заявка проверена', {
                 applicationId,
                 guildId,
                 status,
@@ -229,21 +247,23 @@ class ApplicationService {
 
             return updatedApplication;
         } catch (error) {
-            logger.error('Error reviewing application', {
+            logger.error('Ошибка при проверке заявки', {
                 error: error.message,
                 applicationId,
                 guildId,
                 stack: error.stack
             });
+
             throw error;
         }
     }
 
+    // Получает список заявок
     static async getApplicationsList(client, guildId, filters = {}) {
         try {
             const applications = await getApplications(client, guildId, filters);
 
-            logger.debug('Applications retrieved', {
+            logger.debug('Заявки получены', {
                 guildId,
                 count: applications.length,
                 filters
@@ -251,38 +271,40 @@ class ApplicationService {
 
             return applications;
         } catch (error) {
-            logger.error('Error getting applications list', {
+            logger.error('Ошибка при получении списка заявок', {
                 error: error.message,
                 guildId,
                 filters,
                 stack: error.stack
             });
+
             throw createError(
-                'Failed to retrieve applications',
+                'Не удалось получить заявки',
                 ErrorTypes.DATABASE,
-                'An error occurred while retrieving applications.',
+                'Произошла ошибка при получении заявок.',
                 { guildId, filters }
             );
         }
     }
 
+    // Обновляет настройки системы заявок
     static async updateSettings(client, guildId, updates) {
         try {
-            
+
             if (updates.logChannelId && typeof updates.logChannelId !== 'string') {
                 throw createError(
-                    'Invalid log channel ID',
+                    'Некорректный ID канала для логов',
                     ErrorTypes.VALIDATION,
-                    'Invalid channel ID provided.',
+                    'Указан некорректный ID канала.',
                     { logChannelId: updates.logChannelId }
                 );
             }
 
             if (updates.managerRoles && !Array.isArray(updates.managerRoles)) {
                 throw createError(
-                    'Invalid manager roles format',
+                    'Некорректный формат ролей менеджеров',
                     ErrorTypes.VALIDATION,
-                    'Manager roles must be an array.',
+                    'Роли менеджеров должны быть указаны в виде массива.',
                     { managerRoles: updates.managerRoles }
                 );
             }
@@ -290,38 +312,42 @@ class ApplicationService {
             if (updates.questions) {
                 if (!Array.isArray(updates.questions) || updates.questions.length === 0) {
                     throw createError(
-                        'Invalid questions format',
+                        'Некорректный формат вопросов',
                         ErrorTypes.VALIDATION,
-                        'Questions must be a non-empty array.',
+                        'Вопросы должны быть указаны в виде непустого массива.',
                         { questions: updates.questions }
                     );
                 }
 
-                updates.questions = updates.questions.map(q => 
-                    typeof q === 'string' ? q.trim().substring(0, 100) : q
+                updates.questions = updates.questions.map(q =>
+                    typeof q === 'string'
+                        ? q.trim().substring(0, 100)
+                        : q
                 );
             }
 
             await saveApplicationSettings(client, guildId, updates);
             const updatedSettings = await getApplicationSettings(client, guildId);
 
-            logger.info('Application settings updated', {
+            logger.info('Настройки заявок обновлены', {
                 guildId,
                 updates: Object.keys(updates)
             });
 
             return updatedSettings;
         } catch (error) {
-            logger.error('Error updating application settings', {
+            logger.error('Ошибка при обновлении настроек заявок', {
                 error: error.message,
                 guildId,
                 updates,
                 stack: error.stack
             });
+
             throw error;
         }
     }
 
+    // Управляет ролями, связанными с заявками
     static async manageApplicationRoles(client, guildId, data) {
         try {
             const { action, roleId, name } = data;
@@ -331,30 +357,32 @@ class ApplicationService {
             if (action === 'add') {
                 if (!roleId) {
                     throw createError(
-                        'Missing role ID',
+                        'Отсутствует ID роли',
                         ErrorTypes.VALIDATION,
-                        'You must specify a role to add.',
+                        'Вы должны указать роль для добавления.',
                         { action }
                     );
                 }
 
                 if (currentRoles.some(appRole => appRole.roleId === roleId)) {
                     throw createError(
-                        'Role already configured',
+                        'Роль уже настроена',
                         ErrorTypes.VALIDATION,
-                        'This role is already configured for applications.',
+                        'Эта роль уже настроена для системы заявок.',
                         { roleId }
                     );
                 }
 
                 currentRoles.push({
                     roleId,
-                    name: name ? name.trim().substring(0, 50) : 'Application Role'
+                    name: name
+                        ? name.trim().substring(0, 50)
+                        : 'Роль для заявок'
                 });
 
                 await saveApplicationRoles(client, guildId, currentRoles);
 
-                logger.info('Application role added', {
+                logger.info('Роль для заявок добавлена', {
                     guildId,
                     roleId,
                     name
@@ -362,19 +390,22 @@ class ApplicationService {
             } else if (action === 'remove') {
                 if (!roleId) {
                     throw createError(
-                        'Missing role ID',
+                        'Отсутствует ID роли',
                         ErrorTypes.VALIDATION,
-                        'You must specify a role to remove.',
+                        'Вы должны указать роль для удаления.',
                         { action }
                     );
                 }
 
-                const roleIndex = currentRoles.findIndex(appRole => appRole.roleId === roleId);
+                const roleIndex = currentRoles.findIndex(
+                    appRole => appRole.roleId === roleId
+                );
+
                 if (roleIndex === -1) {
                     throw createError(
-                        'Role not configured',
+                        'Роль не настроена',
                         ErrorTypes.VALIDATION,
-                        'This role is not configured for applications.',
+                        'Эта роль не настроена для системы заявок.',
                         { roleId }
                     );
                 }
@@ -382,7 +413,7 @@ class ApplicationService {
                 currentRoles.splice(roleIndex, 1);
                 await saveApplicationRoles(client, guildId, currentRoles);
 
-                logger.info('Application role removed', {
+                logger.info('Роль для заявок удалена', {
                     guildId,
                     roleId
                 });
@@ -390,21 +421,23 @@ class ApplicationService {
 
             return currentRoles;
         } catch (error) {
-            logger.error('Error managing application roles', {
+            logger.error('Ошибка при управлении ролями заявок', {
                 error: error.message,
                 guildId,
                 data,
                 stack: error.stack
             });
+
             throw error;
         }
     }
 
+    // Получает заявки конкретного пользователя
     static async getUserApplications(client, guildId, userId) {
         try {
             const applications = await getUserApplications(client, guildId, userId);
 
-            logger.debug('User applications retrieved', {
+            logger.debug('Заявки пользователя получены', {
                 guildId,
                 userId,
                 count: applications.length
@@ -412,42 +445,49 @@ class ApplicationService {
 
             return applications;
         } catch (error) {
-            logger.error('Error getting user applications', {
+            logger.error('Ошибка при получении заявок пользователя', {
                 error: error.message,
                 guildId,
                 userId,
                 stack: error.stack
             });
+
             throw createError(
-                'Failed to retrieve your applications',
+                'Не удалось получить ваши заявки',
                 ErrorTypes.DATABASE,
-                'An error occurred while retrieving your applications.',
+                'Произошла ошибка при получении ваших заявок.',
                 { guildId, userId }
             );
         }
     }
 
+    // Получает одну конкретную заявку
     static async getSingleApplication(client, guildId, applicationId) {
         try {
-            const application = await getApplication(client, guildId, applicationId);
+            const application = await getApplication(
+                client,
+                guildId,
+                applicationId
+            );
 
             if (!application) {
                 throw createError(
-                    'Application not found',
+                    'Заявка не найдена',
                     ErrorTypes.CONFIGURATION,
-                    'The application you are looking for does not exist.',
+                    'Заявка, которую вы ищете, не существует.',
                     { applicationId, guildId }
                 );
             }
 
             return application;
         } catch (error) {
-            logger.error('Error getting application', {
+            logger.error('Ошибка при получении заявки', {
                 error: error.message,
                 applicationId,
                 guildId,
                 stack: error.stack
             });
+
             throw error;
         }
     }
