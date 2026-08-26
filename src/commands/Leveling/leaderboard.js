@@ -34,10 +34,7 @@ export default {
       interaction.guildId
     );
 
-    // ─────────────────────────────────────────────
-    // Система отключена
-    // ─────────────────────────────────────────────
-
+    // Система уровней выключена
     if (!levelingConfig?.enabled) {
       await InteractionHelper.safeEditReply(interaction, {
         embeds: [
@@ -54,10 +51,7 @@ export default {
       return;
     }
 
-    // ─────────────────────────────────────────────
-    // Получаем топ
-    // ─────────────────────────────────────────────
-
+    // Получаем TOP-10
     const leaderboard = await getLeaderboard(
       client,
       interaction.guildId,
@@ -72,10 +66,6 @@ export default {
       );
     }
 
-    // ─────────────────────────────────────────────
-    // Основная информация
-    // ─────────────────────────────────────────────
-
     const guild = interaction.guild;
 
     const guildIcon = guild.iconURL({
@@ -83,26 +73,30 @@ export default {
       size: 128
     });
 
-    const embed = new EmbedBuilder()
-      .setColor('#5865F2')
-      .setTitle('🏆  Рейтинг сервера')
+    // ─────────────────────────────────────
+    // Заголовок
+    // ─────────────────────────────────────
+
+const embed = new EmbedBuilder()
+  .setColor(config.primary)
+      .setTitle('🏆 РЕЙТИНГ СЕРВЕРА')
       .setDescription(
         [
           `**${guild.name}**`,
           '',
-          'Топ самых активных участников по количеству XP.'
+          'Самые активные участники сервера'
         ].join('\n')
       )
       .setThumbnail(guildIcon || null)
       .setTimestamp();
 
-    // ─────────────────────────────────────────────
-    // Формируем рейтинг
-    // ─────────────────────────────────────────────
+    // ─────────────────────────────────────
+    // Формируем TOP-10
+    // ─────────────────────────────────────
 
     const leaderboardText = await Promise.all(
       leaderboard.map(async (user, index) => {
-        const rank = index + 1;
+        const place = index + 1;
 
         try {
           const member = await interaction.guild.members
@@ -120,53 +114,58 @@ export default {
           const xp = Number(user.xp) || 0;
           const totalXp = Number(user.totalXp) || 0;
 
-          const xpForNextLevel = Math.max(
+          const xpNeeded = Math.max(
             0,
             getXpForLevel(level + 1)
           );
 
-          const progress = xpForNextLevel > 0
+          const progress = xpNeeded > 0
             ? Math.min(
                 100,
-                Math.floor((xp / xpForNextLevel) * 100)
+                Math.floor((xp / xpNeeded) * 100)
               )
             : 100;
 
-          const progressBar = createProgressBar(progress, 10);
+          const progressBar = createProgressBar(
+            progress,
+            10
+          );
 
-          const rankIcon = getRankIcon(rank);
+          const rank = getRank(place);
 
-          const highlight = isCurrentUser
+          const crown = isCurrentUser
             ? ' 👑'
             : '';
 
           return [
-            `${rankIcon} **${escapeMarkdown(username)}**${highlight}`,
-            `> **LVL ${level}**  •  ${formatNumber(totalXp)} XP`,
-            `> ${progressBar} ${progress}%`
+            `${rank.icon}  **#${place}  ${escapeMarkdown(username)}**${crown}`,
+            `    ⭐ **LEVEL ${level}**`,
+            `    💎 **${formatNumber(totalXp)} XP**`,
+            `    ${progressBar} **${progress}%**`
           ].join('\n');
         } catch {
           return [
-            `${getRankIcon(rank)} **Пользователь**`,
-            `> **LVL ${Number(user.level) || 0}**  •  ${formatNumber(Number(user.totalXp) || 0)} XP`
+            `${getRankIcon(place)}  **#${place}  Пользователь**`,
+            `    ⭐ **LEVEL ${Number(user.level) || 0}**`,
+            `    💎 **${formatNumber(Number(user.totalXp) || 0)} XP**`
           ].join('\n');
         }
       })
     );
 
-    // ─────────────────────────────────────────────
-    // Добавляем рейтинг
-    // ─────────────────────────────────────────────
+    // ─────────────────────────────────────
+    // Рейтинг
+    // ─────────────────────────────────────
 
     embed.addFields({
-      name: '📊 TOP 10',
+      name: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
       value: leaderboardText.join('\n\n'),
       inline: false
     });
 
-    // ─────────────────────────────────────────────
-    // Информация внизу
-    // ─────────────────────────────────────────────
+    // ─────────────────────────────────────
+    // Текущий пользователь
+    // ─────────────────────────────────────
 
     const currentUserIndex = leaderboard.findIndex(
       (user) => user.userId === interaction.user.id
@@ -175,23 +174,35 @@ export default {
     if (currentUserIndex !== -1) {
       const currentUser = leaderboard[currentUserIndex];
 
+      const currentLevel =
+        Number(currentUser.level) || 0;
+
+      const currentTotalXp =
+        Number(currentUser.totalXp) || 0;
+
       embed.addFields({
-        name: '👑 Твоя позиция',
+        name: '👑 ТВОЙ РЕЙТИНГ',
         value: [
-          `**#${currentUserIndex + 1}** место`,
-          `**LVL ${Number(currentUser.level) || 0}** • ${formatNumber(Number(currentUser.totalXp) || 0)} XP`
-        ].join('  ')
+          `**#${currentUserIndex + 1} место**`,
+          `⭐ LEVEL ${currentLevel}  •  💎 ${formatNumber(currentTotalXp)} XP`
+        ].join('\n'),
+        inline: false
       });
     } else {
       embed.addFields({
-        name: '💡 Хочешь попасть в рейтинг?',
+        name: '💡 Хочешь попасть в TOP-10?',
         value:
-          'Общайся на сервере и получай XP, чтобы попасть в **TOP 10**!'
+          'Общайся на сервере и получай XP, чтобы попасть в рейтинг!',
+        inline: false
       });
     }
 
+    // ─────────────────────────────────────
+    // Footer
+    // ─────────────────────────────────────
+
     embed.setFooter({
-      text: `${guild.name} • Top ${leaderboard.length}`,
+      text: `${guild.name} • TOP ${leaderboard.length}`,
       iconURL: guildIcon || undefined
     });
 
@@ -205,29 +216,58 @@ export default {
   }
 };
 
+// ═══════════════════════════════════════════
+// Вспомогательные функции
+// ═══════════════════════════════════════════
+
 /**
- * Иконка позиции
+ * Возвращает оформление места.
  */
-function getRankIcon(rank) {
-  switch (rank) {
+function getRank(place) {
+  switch (place) {
     case 1:
-      return '🥇';
+      return {
+        icon: '🥇',
+        color: '#FFD700'
+      };
 
     case 2:
-      return '🥈';
+      return {
+        icon: '🥈',
+        color: '#C0C0C0'
+      };
 
     case 3:
-      return '🥉';
+      return {
+        icon: '🥉',
+        color: '#CD7F32'
+      };
 
     default:
-      return `**${rank}.**`;
+      return {
+        icon: '🏅',
+        color: '#5865F2'
+      };
   }
 }
 
 /**
- * Progress bar
+ * Получает только иконку места.
  */
-function createProgressBar(percentage, length = 10) {
+function getRankIcon(place) {
+  return getRank(place).icon;
+}
+
+/**
+ * Progress bar.
+ *
+ * Пример:
+ * ▰▰▰▰▰▰▰▱▱▱
+ */
+function createProgressBar(
+  percentage,
+  length = 10
+) {
   const safePercentage = Math.max(
     0,
     Math.min(100, Number(percentage) || 0)
@@ -246,9 +286,10 @@ function createProgressBar(percentage, length = 10) {
 }
 
 /**
- * Форматирование больших чисел.
+ * Форматирование чисел.
  *
  * 12540 → 12 540
+ * 1250000 → 1 250 000
  */
 function formatNumber(number) {
   return Number(number || 0).toLocaleString('ru-RU');
