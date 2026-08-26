@@ -25,8 +25,8 @@ function wrapHandler(handler, interactionLabel = 'dashboard') {
 
             const errorMessage =
                 error instanceof TitanBotError
-                    ? error.userMessage || 'An error occurred while processing your selection.'
-                    : 'An unexpected error occurred while updating the configuration.';
+                    ? error.userMessage || 'Произошла ошибка при обработке вашего выбора.'
+                    : 'Произошла непредвиденная ошибка при обновлении конфигурации.';
 
             if (!componentInteraction.replied && !componentInteraction.deferred) {
                 await componentInteraction.deferUpdate().catch(() => {});
@@ -41,7 +41,7 @@ function wrapHandler(handler, interactionLabel = 'dashboard') {
 }
 
 /**
- * Shared select + button collector lifecycle for admin dashboards.
+ * Общий жизненный цикл коллектора select-меню и кнопок для административных панелей.
  */
 export async function startDashboardSession({
     interaction,
@@ -73,7 +73,7 @@ export async function startDashboardSession({
             time: timeoutMs,
         });
 
-        selectCollector.on('collect', wrapHandler(onSelect, 'dashboard select'));
+        selectCollector.on('collect', wrapHandler(onSelect, 'выбор в панели'));
         collectors.push(selectCollector);
     }
 
@@ -84,7 +84,7 @@ export async function startDashboardSession({
             time: timeoutMs,
         });
 
-        buttonCollector.on('collect', wrapHandler(onButton, 'dashboard button'));
+        buttonCollector.on('collect', wrapHandler(onButton, 'кнопка панели'));
         collectors.push(buttonCollector);
     }
 
@@ -101,9 +101,9 @@ export async function startDashboardSession({
             }
 
             const timeoutEmbed = new EmbedBuilder()
-                .setTitle('Dashboard Timed Out')
+                .setTitle('Панель закрыта')
                 .setDescription(
-                    'This dashboard has been closed due to inactivity. Please run the command again to continue.',
+                    'Эта панель была закрыта из-за отсутствия активности. Пожалуйста, выполните команду снова, чтобы продолжить.',
                 )
                 .setColor(getColor('error'));
 
