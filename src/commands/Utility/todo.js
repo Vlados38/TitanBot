@@ -13,119 +13,119 @@ function generateShareId() {
 export default {
     data: new SlashCommandBuilder()
         .setName("todo")
-        .setDescription("Manage your personal to-do list")
+        .setDescription("Управление вашим личным списком дел")
         .addSubcommand(subcommand =>
             subcommand
                 .setName("add")
-                .setDescription("Add a task to your to-do list")
+                .setDescription("Добавить задачу в список дел")
                 .addStringOption(option =>
                     option
                         .setName("task")
-                        .setDescription("The task to add")
+                        .setDescription("Задача для добавления")
                         .setRequired(true)
                 )
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName("list")
-                .setDescription("View your to-do list")
+                .setDescription("Просмотреть ваш список дел")
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName("complete")
-                .setDescription("Mark a task as complete")
+                .setDescription("Отметить задачу как выполненную")
                 .addIntegerOption(option =>
                     option
                         .setName("number")
-                        .setDescription("The number of the task to complete")
+                        .setDescription("Номер задачи, которую нужно выполнить")
                         .setRequired(true)
                 )
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName("remove")
-                .setDescription("Remove a task from your to-do list")
+                .setDescription("Удалить задачу из вашего списка дел")
                 .addIntegerOption(option =>
                     option
                         .setName("number")
-                        .setDescription("The number of the task to remove")
+                        .setDescription("Номер задачи, которую нужно удалить")
                         .setRequired(true)
                 )
         )
         .addSubcommandGroup(group => 
             group
                 .setName("share")
-                .setDescription("Manage shared to-do lists")
+                .setDescription("Управление общими списками дел")
                 .addSubcommand(subcommand =>
                     subcommand
                         .setName("create")
-                        .setDescription("Create a new shared to-do list")
+                        .setDescription("Создать новый общий список дел")
                         .addStringOption(option =>
                             option
                                 .setName("name")
-                                .setDescription("Name for the shared list")
+                                .setDescription("Название общего списка")
                                 .setRequired(true)
                         )
                 )
                 .addSubcommand(subcommand =>
                     subcommand
                         .setName("add")
-                        .setDescription("Add a member to a shared list")
+                        .setDescription("Добавить участника в общий список")
                         .addStringOption(option =>
                             option
                                 .setName("list_id")
-                                .setDescription("ID of the shared list")
+                                .setDescription("ID общего списка")
                                 .setRequired(true)
                         )
                         .addUserOption(option =>
                             option
                                 .setName("user")
-                                .setDescription("User to add to the list")
+                                .setDescription("Пользователь для добавления в список")
                                 .setRequired(true)
                         )
                 )
                 .addSubcommand(subcommand =>
                     subcommand
                         .setName("view")
-                        .setDescription("View a shared to-do list")
+                        .setDescription("Просмотреть общий список дел")
                         .addStringOption(option =>
                             option
                                 .setName("list_id")
-                                .setDescription("ID of the shared list")
+                                .setDescription("ID общего списка")
                                 .setRequired(true)
                         )
                 )
                 .addSubcommand(subcommand =>
                     subcommand
                         .setName("addtask")
-                        .setDescription("Add a task to a shared to-do list")
+                        .setDescription("Добавить задачу в общий список дел")
                         .addStringOption(option =>
                             option
                                 .setName("list_id")
-                                .setDescription("ID of the shared list")
+                                .setDescription("ID общего списка")
                                 .setRequired(true)
                         )
                         .addStringOption(option =>
                             option
                                 .setName("task")
-                                .setDescription("The task to add")
+                                .setDescription("Задача для добавления")
                                 .setRequired(true)
                         )
                 )
                 .addSubcommand(subcommand =>
                     subcommand
                         .setName("remove")
-                        .setDescription("Remove a task from a shared to-do list")
+                        .setDescription("Удалить задачу из общего списка дел")
                         .addStringOption(option =>
                             option
                                 .setName("list_id")
-                                .setDescription("ID of the shared list")
+                                .setDescription("ID общего списка")
                                 .setRequired(true)
                         )
                         .addIntegerOption(option =>
                             option
                                 .setName("number")
-                                .setDescription("The number of the task to remove")
+                                .setDescription("Номер задачи, которую нужно удалить")
                                 .setRequired(true)
                         )
                 )
@@ -136,8 +136,10 @@ export default {
 
     async execute(interaction, config, client) {
         const userId = interaction.user.id;
-                const subcommand = interaction.options.getSubcommand();
-                const shareSubcommand = interaction.options.getSubcommandGroup() === 'share' ? interaction.options.getSubcommand() : null;
+        const subcommand = interaction.options.getSubcommand();
+        const shareSubcommand = interaction.options.getSubcommandGroup() === 'share'
+            ? interaction.options.getSubcommand()
+            : null;
 
         async function getOrCreateSharedList(listId, creatorId = null, listName = null) {
             const listKey = `shared_todo_${listId}`;
@@ -171,7 +173,7 @@ export default {
 
         const deferSuccess = await InteractionHelper.safeDefer(interaction);
         if (!deferSuccess) {
-            logger.warn(`Todo interaction defer failed`, {
+            logger.warn(`Ошибка отложенного ответа взаимодействия Todo`, {
                 userId: interaction.user.id,
                 guildId: interaction.guildId,
                 commandName: 'todo'
@@ -189,6 +191,7 @@ export default {
 
                     const userSharedLists = await getFromDb(`user_shared_lists_${userId}`, []);
                     const sharedListsArray = Array.isArray(userSharedLists) ? userSharedLists : [];
+
                     if (!sharedListsArray.includes(listId)) {
                         sharedListsArray.push(listId);
                         await setInDb(`user_shared_lists_${userId}`, sharedListsArray);
@@ -197,9 +200,9 @@ export default {
                     return await InteractionHelper.safeEditReply(interaction, {
                         embeds: [
                             successEmbed(
-                                "Shared List Created",
-                                `Created shared list "${listName}" with ID: \`${listId}\`\n` +
-                                `Use \`/todo share add list_id:${listId} user:@username\` to add members.`
+                                "Общий список создан",
+                                `Создан общий список "${listName}" с ID: \`${listId}\`\n` +
+                                `Используйте \`/todo share add list_id:${listId} user:@username\`, чтобы добавить участников.`
                             )
                         ]
                     });
@@ -210,12 +213,19 @@ export default {
                     const memberToAdd = interaction.options.getUser('user');
 
                     const listData = await getOrCreateSharedList(listId);
+
                     if (!listData) {
-                        return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'Shared list not found.' });
+                        return await replyUserError(interaction, {
+                            type: ErrorTypes.UNKNOWN,
+                            message: 'Общий список не найден.'
+                        });
                     }
 
                     if (listData.creatorId !== userId) {
-                        return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'Only the list creator can add members.' });
+                        return await replyUserError(interaction, {
+                            type: ErrorTypes.UNKNOWN,
+                            message: 'Только создатель списка может добавлять участников.'
+                        });
                     }
 
                     if (!listData.members.includes(memberToAdd.id)) {
@@ -224,6 +234,7 @@ export default {
 
                         const memberLists = await getFromDb(`user_shared_lists_${memberToAdd.id}`, []);
                         const memberListsArray = Array.isArray(memberLists) ? memberLists : [];
+
                         if (!memberListsArray.includes(listId)) {
                             memberListsArray.push(listId);
                             await setInDb(`user_shared_lists_${memberToAdd.id}`, memberListsArray);
@@ -231,13 +242,17 @@ export default {
 
                         return await InteractionHelper.safeEditReply(interaction, {
                             embeds: [
-                                successEmbed('Member Added', 
-                                    `Added ${memberToAdd.username} to the shared list "${listData.name}"`
+                                successEmbed(
+                                    'Участник добавлен',
+                                    `Пользователь ${memberToAdd.username} добавлен в общий список "${listData.name}"`
                                 )
                             ]
                         });
                     } else {
-                        return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'User is already a member of this list.' });
+                        return await replyUserError(interaction, {
+                            type: ErrorTypes.UNKNOWN,
+                            message: 'Пользователь уже является участником этого списка.'
+                        });
                     }
                 }
 
@@ -246,11 +261,17 @@ export default {
                     const listData = await getOrCreateSharedList(listId);
 
                     if (!listData) {
-                        return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'Shared list not found.' });
+                        return await replyUserError(interaction, {
+                            type: ErrorTypes.UNKNOWN,
+                            message: 'Общий список не найден.'
+                        });
                     }
 
                     if (!listData.members.includes(userId)) {
-                        return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'You don\'t have access to this list.' });
+                        return await replyUserError(interaction, {
+                            type: ErrorTypes.UNKNOWN,
+                            message: 'У вас нет доступа к этому списку.'
+                        });
                     }
 
                     if (listData.tasks.length === 0) {
@@ -260,42 +281,48 @@ export default {
                         }).join(',');
 
                         const owner = interaction.guild.members.cache.get(listData.creatorId);
-                        const ownerName = owner ? owner.user.username : `<@${listData.creatorId}>`;
+                        const ownerName = owner
+                            ? owner.user.username
+                            : `<@${listData.creatorId}>`;
 
                         return await InteractionHelper.safeEditReply(interaction, {
-                                embeds: [
-                                    successEmbed(
-                                        `📋 **${listData.name}**\n\n` +
-                                        `👑 **Owner:** ${ownerName}\n` +
-                                        `👥 **Members:** ${memberList}\n\n` +
-                                        `*This list is currently empty. Use the "Add Task" button to add tasks!*`,
-                                        `Shared List (ID: \`${listId}\`)`
-                                    )
-                                ],
-                                components: [
-                                    new ActionRowBuilder().addComponents(
-                                        new ButtonBuilder()
-                                            .setCustomId(`shared_todo_add_${listId}`)
-                                            .setLabel('Add Task')
-                                            .setStyle(ButtonStyle.Primary),
-                                        new ButtonBuilder()
-                                            .setCustomId(`shared_todo_complete_${listId}`)
-                                            .setLabel('Complete Task')
-                                            .setStyle(ButtonStyle.Success),
-                                        new ButtonBuilder()
-                                            .setCustomId(`shared_todo_remove_${listId}`)
-                                            .setLabel('Remove Task')
-                                            .setStyle(ButtonStyle.Danger)
-                                    )
-                                ]
-                            });
+                            embeds: [
+                                successEmbed(
+                                    `📋 **${listData.name}**\n\n` +
+                                    `👑 **Владелец:** ${ownerName}\n` +
+                                    `👥 **Участники:** ${memberList}\n\n` +
+                                    `*Этот список пока пуст. Используйте кнопку «Добавить задачу», чтобы добавить задачи!*`,
+                                    `Общий список (ID: \`${listId}\`)`
+                                )
+                            ],
+                            components: [
+                                new ActionRowBuilder().addComponents(
+                                    new ButtonBuilder()
+                                        .setCustomId(`shared_todo_add_${listId}`)
+                                        .setLabel('Добавить задачу')
+                                        .setStyle(ButtonStyle.Primary),
+
+                                    new ButtonBuilder()
+                                        .setCustomId(`shared_todo_complete_${listId}`)
+                                        .setLabel('Выполнить задачу')
+                                        .setStyle(ButtonStyle.Success),
+
+                                    new ButtonBuilder()
+                                        .setCustomId(`shared_todo_remove_${listId}`)
+                                        .setLabel('Удалить задачу')
+                                        .setStyle(ButtonStyle.Danger)
+                                )
+                            ]
+                        });
                     }
 
                     const taskList = listData.tasks
-                        .map(task => 
+                        .map(task =>
                             `${task.completed ? '✅' : '📝'} #${task.id} ${task.text}` +
                             `\`[${new Date(task.createdAt).toLocaleDateString()}]` +
-                            (task.completed ? `• Completed by ${task.completedBy}` : '') + '`'
+                            (task.completed
+                                ? `• Выполнено: ${task.completedBy}`
+                                : '') + '`'
                         )
                         .join('\n');
 
@@ -305,30 +332,38 @@ export default {
                     }).join(',');
 
                     const owner = interaction.guild.members.cache.get(listData.creatorId);
-                    const ownerName = owner ? owner.user.username : `<@${listData.creatorId}>`;
+                    const ownerName = owner
+                        ? owner.user.username
+                        : `<@${listData.creatorId}>`;
 
-                    const fullListDisplay = `📋 **${listData.name}**\n\n` +
-                        `👑 **Owner:** ${ownerName}\n` +
-                        `👥 **Members:** ${memberList}\n\n` +
-                        `**Tasks:**\n${taskList}`;
+                    const fullListDisplay =
+                        `📋 **${listData.name}**\n\n` +
+                        `👑 **Владелец:** ${ownerName}\n` +
+                        `👥 **Участники:** ${memberList}\n\n` +
+                        `**Задачи:**\n${taskList}`;
 
                     return await InteractionHelper.safeEditReply(interaction, {
                         embeds: [
-                            successEmbed(`Shared List (ID: \`${listId}\`)`, fullListDisplay)
+                            successEmbed(
+                                `Общий список (ID: \`${listId}\`)`,
+                                fullListDisplay
+                            )
                         ],
                         components: [
                             new ActionRowBuilder().addComponents(
                                 new ButtonBuilder()
                                     .setCustomId(`shared_todo_add_${listId}`)
-                                    .setLabel('Add Task')
+                                    .setLabel('Добавить задачу')
                                     .setStyle(ButtonStyle.Primary),
+
                                 new ButtonBuilder()
                                     .setCustomId(`shared_todo_complete_${listId}`)
-                                    .setLabel('Complete Task')
+                                    .setLabel('Выполнить задачу')
                                     .setStyle(ButtonStyle.Success),
+
                                 new ButtonBuilder()
                                     .setCustomId(`shared_todo_remove_${listId}`)
-                                    .setLabel('Remove Task')
+                                    .setLabel('Удалить задачу')
                                     .setStyle(ButtonStyle.Danger)
                             )
                         ]
@@ -342,11 +377,17 @@ export default {
                     const listData = await getOrCreateSharedList(listId);
 
                     if (!listData) {
-                        return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'Shared list not found.' });
+                        return await replyUserError(interaction, {
+                            type: ErrorTypes.UNKNOWN,
+                            message: 'Общий список не найден.'
+                        });
                     }
 
                     if (!listData.members.includes(userId)) {
-                        return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'You don\'t have access to this list.' });
+                        return await replyUserError(interaction, {
+                            type: ErrorTypes.UNKNOWN,
+                            message: 'У вас нет доступа к этому списку.'
+                        });
                     }
 
                     const newTask = {
@@ -362,7 +403,10 @@ export default {
 
                     return await InteractionHelper.safeEditReply(interaction, {
                         embeds: [
-                            successEmbed('Task Added', `Added "${taskText}" to the shared list "${listData.name}"`)
+                            successEmbed(
+                                'Задача добавлена',
+                                `Задача "${taskText}" добавлена в общий список "${listData.name}"`
+                            )
                         ]
                     });
                 }
@@ -374,16 +418,28 @@ export default {
                     const listData = await getOrCreateSharedList(listId);
 
                     if (!listData) {
-                        return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'Shared list not found.' });
+                        return await replyUserError(interaction, {
+                            type: ErrorTypes.UNKNOWN,
+                            message: 'Общий список не найден.'
+                        });
                     }
 
                     if (!listData.members.includes(userId)) {
-                        return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'You don\'t have access to this list.' });
+                        return await replyUserError(interaction, {
+                            type: ErrorTypes.UNKNOWN,
+                            message: 'У вас нет доступа к этому списку.'
+                        });
                     }
 
-                    const taskIndex = listData.tasks.findIndex(task => task.id === taskNumber);
+                    const taskIndex = listData.tasks.findIndex(
+                        task => task.id === taskNumber
+                    );
+
                     if (taskIndex === -1) {
-                        return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'Task not found.' });
+                        return await replyUserError(interaction, {
+                            type: ErrorTypes.UNKNOWN,
+                            message: 'Задача не найдена.'
+                        });
                     }
 
                     const [removedTask] = listData.tasks.splice(taskIndex, 1);
@@ -391,11 +447,15 @@ export default {
 
                     return await InteractionHelper.safeEditReply(interaction, {
                         embeds: [
-                            successEmbed('Task Removed', `Removed "${removedTask.text}" from the shared list "${listData.name}".`)
+                            successEmbed(
+                                'Задача удалена',
+                                `Задача "${removedTask.text}" удалена из общего списка "${listData.name}".`
+                            )
                         ]
                     });
                 }
             }
+
             return;
         }
 
@@ -426,8 +486,8 @@ export default {
                 return await InteractionHelper.safeEditReply(interaction, {
                     embeds: [
                         successEmbed(
-                            "Task Added",
-                            `Added "${taskText}" to your to-do list.`
+                            "Задача добавлена",
+                            `Задача "${taskText}" добавлена в ваш список дел.`
                         ),
                     ],
                 });
@@ -436,12 +496,17 @@ export default {
             case 'list': {
                 if (userData.tasks.length === 0) {
                     return await InteractionHelper.safeEditReply(interaction, {
-                        embeds: [successEmbed('Your to-do list is empty!', "Your To-Do List")],
+                        embeds: [
+                            successEmbed(
+                                'Ваш список дел пуст!',
+                                "Ваш список дел"
+                            )
+                        ],
                     });
                 }
 
                 const taskList = userData.tasks
-                    .map(task => 
+                    .map(task =>
                         `${task.completed ? '✅' : '📝'} #${task.id} ${task.text}` +
                         `\`[${new Date(task.createdAt).toLocaleDateString()}\``
                     )
@@ -449,7 +514,10 @@ export default {
 
                 return await InteractionHelper.safeEditReply(interaction, {
                     embeds: [
-                        successEmbed('Your To-Do List', taskList)
+                        successEmbed(
+                            'Ваш список дел',
+                            taskList
+                        )
                     ],
                 });
             }
@@ -459,11 +527,17 @@ export default {
                 const task = userData.tasks.find(t => t.id === taskNumber);
 
                 if (!task) {
-                    return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'Task not found.' });
+                    return await replyUserError(interaction, {
+                        type: ErrorTypes.UNKNOWN,
+                        message: 'Задача не найдена.'
+                    });
                 }
 
                 if (task.completed) {
-                    return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: `Task #${task.id} is already completed.` });
+                    return await replyUserError(interaction, {
+                        type: ErrorTypes.UNKNOWN,
+                        message: `Задача №${task.id} уже выполнена.`
+                    });
                 }
 
                 task.completed = true;
@@ -471,17 +545,25 @@ export default {
 
                 return await InteractionHelper.safeEditReply(interaction, {
                     embeds: [
-                        successEmbed('Task Completed', `Marked "${task.text}" as complete!`)
+                        successEmbed(
+                            'Задача выполнена',
+                            `Задача "${task.text}" отмечена как выполненная!`
+                        )
                     ],
                 });
             }
 
             case 'remove': {
                 const taskNumber = interaction.options.getInteger('number');
-                const taskIndex = userData.tasks.findIndex(t => t.id === taskNumber);
+                const taskIndex = userData.tasks.findIndex(
+                    t => t.id === taskNumber
+                );
 
                 if (taskIndex === -1) {
-                    return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'Task not found.' });
+                    return await replyUserError(interaction, {
+                        type: ErrorTypes.UNKNOWN,
+                        message: 'Задача не найдена.'
+                    });
                 }
 
                 const [removedTask] = userData.tasks.splice(taskIndex, 1);
@@ -489,13 +571,19 @@ export default {
 
                 return await InteractionHelper.safeEditReply(interaction, {
                     embeds: [
-                        successEmbed('Task Removed', `Removed "${removedTask.text}" from your to-do list.`)
+                        successEmbed(
+                            'Задача удалена',
+                            `Задача "${removedTask.text}" удалена из вашего списка дел.`
+                        )
                     ],
                 });
             }
 
             default:
-                return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'Invalid subcommand.' });
+                return await replyUserError(interaction, {
+                    type: ErrorTypes.UNKNOWN,
+                    message: 'Недопустимая подкоманда.'
+                });
         }
     },
 };
