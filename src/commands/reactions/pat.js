@@ -11,7 +11,6 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Основная папка реакции
 const reactionsPath = path.join(
     __dirname,
     '../../../assets/reactions/pat'
@@ -21,9 +20,8 @@ const reactionsPath = path.join(
 // СООБЩЕНИЯ
 // ============================================================
 
-// Погладить другого пользователя
 const normalMessages = [
-    '🥰 {author} нежно погладил(а) {target} по голове...',
+    '🥰 {author} нежно погладил(а) {target} по голове!',
     '🫳 {author} ласково погладил(а) {target} по голове.',
     '💕 {author} потрепал(а) {target} по голове.',
     '🥺 {author} решил(а) немного приласкать {target}.',
@@ -35,7 +33,6 @@ const normalMessages = [
     '🥰 {author} решил(а), что {target} сегодня заслужил(а) немного ласки.'
 ];
 
-// Погладить себя
 const selfMessages = [
     '🫳 {author} погладил(а) себя по голове. Молодец! 😌',
     '🥰 {author} решил(а) немного себя похвалить.',
@@ -49,23 +46,22 @@ const selfMessages = [
     '😌 {author} получил(а) заслуженное поглаживание от самого себя.'
 ];
 
-// Погладить бота
 const botMessages = [
     '🫳 {author} погладил(а) {target} по голове! 🤖💕',
     '🥰 {author} нежно погладил(а) {target}. Кажется, бот немного смутился.',
     '🫳 {author} потрепал(а) {target} по голове! 😳 Бот пытается не показывать эмоции.',
     '🤖💕 {target} получил(а) поглаживание и явно не знает, как на это реагировать.',
-    
+
     '😳 «Эй! Я вообще-то не домашний питомец!» — возмутился(ась) {target}, но не отстранился(ась).',
     '😤 «Я не нуждаюсь в твоих поглаживаниях!» — заявил(а) {target}, заметно покраснев.',
     '😳 «Н-не думай, что мне это нравится!» — пробормотал(а) {target}, пока {author} продолжал(а) гладить его(её).',
     '😤 {target}: «Хватит меня гладить!» ...через секунду: «...можешь ещё немного.»',
-    
+
     '🥰 {author} погладил(а) {target} по голове. 🤖 *система обнаружила неизвестное чувство: комфорт*',
     '🫳 {author} погладил(а) {target}! 🤖 Ошибка: уровень милоты превышен.',
     '😳 {target} покраснел(а) от поглаживания и сделал(а) вид, что ничего не произошло.',
-    '🤖 *{target} тихо мурлычет...* 😳 «Я ничего не говорил(а!»',
-    
+    '🤖 *{target} тихо мурлычет...* 😳 «Я ничего не говорил(а)!»',
+
     '😤 «Это только потому, что ты попросил(а)!» — сказал(а) {target}, явно наслаждаясь поглаживанием.',
     '💕 {author} погладил(а) {target}. Кажется, бот уже ждёт следующего поглаживания.',
     '😳 «Только не прекращай так внезапно...» — тихо сказал(а) {target}.'
@@ -119,10 +115,6 @@ export default {
             let gifsFolder;
             let messageList;
 
-            // ================================================
-            // ПОГЛАДИТЬ СЕБЯ
-            // ================================================
-
             if (target.id === interaction.user.id) {
                 gifsFolder = path.join(
                     reactionsPath,
@@ -131,10 +123,6 @@ export default {
 
                 messageList = selfMessages;
 
-            // ================================================
-            // ПОГЛАДИТЬ БОТА
-            // ================================================
-
             } else if (target.bot) {
                 gifsFolder = path.join(
                     reactionsPath,
@@ -142,10 +130,6 @@ export default {
                 );
 
                 messageList = botMessages;
-
-            // ================================================
-            // ПОГЛАДИТЬ ПОЛЬЗОВАТЕЛЯ
-            // ================================================
 
             } else {
                 gifsFolder = path.join(
@@ -156,7 +140,6 @@ export default {
                 messageList = normalMessages;
             }
 
-            // Получаем GIF из нужной папки
             const gifs = getGifs(gifsFolder);
 
             if (gifs.length === 0) {
@@ -166,7 +149,6 @@ export default {
                 });
             }
 
-            // Случайный GIF
             const randomGif = randomItem(gifs);
 
             const gifPath = path.join(
@@ -174,14 +156,12 @@ export default {
                 randomGif
             );
 
-            // Случайное сообщение
             const message = formatMessage(
                 randomItem(messageList),
                 interaction.user,
                 target
             );
 
-            // Прикрепляем GIF
             const attachment = new AttachmentBuilder(
                 gifPath,
                 {
@@ -189,13 +169,11 @@ export default {
                 }
             );
 
-            // Создаём Embed
             const embed = new EmbedBuilder()
                 .setColor(0xffb6d9)
                 .setDescription(message)
                 .setImage('attachment://pat.gif');
 
-            // Отправляем сообщение
             await interaction.reply({
                 embeds: [embed],
                 files: [attachment]
