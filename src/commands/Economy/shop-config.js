@@ -6,15 +6,15 @@ export default {
 
     data: new SlashCommandBuilder()
         .setName('shop-config')
-        .setDescription('Configure shop settings. (Manage Server required)')
+        .setDescription('Настройка параметров магазина. (Требуется право «Управление сервером»)')
         .addSubcommand(subcommand =>
             subcommand
                 .setName('setrole')
-                .setDescription('Set the Discord role granted when the Premium Role shop item is purchased.')
+                .setDescription('Установить Discord-роль, которая будет выдаваться при покупке предмета Premium Role.')
                 .addRoleOption(option =>
                     option
                         .setName('role')
-                        .setDescription('The role to grant for Premium Role purchases.')
+                        .setDescription('Роль, которая будет выдаваться при покупке Premium Role.')
                         .setRequired(true),
                 ),
         ),
