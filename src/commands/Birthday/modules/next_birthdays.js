@@ -4,6 +4,7 @@ import { deleteBirthday } from '../../../utils/database.js';
 import { logger } from '../../../utils/logger.js';
 
 import { InteractionHelper } from '../../../utils/interactionHelper.js';
+
 export default {
     async execute(interaction, config, client) {
         await InteractionHelper.safeDefer(interaction);
@@ -13,68 +14,85 @@ export default {
         if (next5.length === 0) {
             const embed = new EmbedBuilder()
                 .setColor(0xFF0000)
-                .setTitle('No Birthdays Found')
-                .setDescription('No birthdays have been set up in this server yet. Use `/birthday set` to add birthdays!');
+                .setTitle('Дни рождения не найдены')
+                .setDescription('На этом сервере ещё не указаны дни рождения. Используйте `/birthday set`, чтобы добавить свой день рождения!');
+
             return await InteractionHelper.safeEditReply(interaction, {
                 embeds: [embed]
             });
         }
 
         let displayIndex = 0;
+
         for (const birthday of next5) {
             const member = await interaction.guild.members.fetch(birthday.userId).catch(() => null);
+
             if (!member) {
                 deleteBirthday(client, interaction.guildId, birthday.userId).catch(() => null);
                 continue;
             }
+
             displayIndex++;
 
             let timeUntil = '';
+
             if (birthday.daysUntil === 0) {
-                timeUntil = '🎉 **Today!**';
+                timeUntil = '🎉 **Сегодня!**';
             } else if (birthday.daysUntil === 1) {
-                timeUntil = '📅 **Tomorrow!**';
+                timeUntil = '📅 **Завтра!**';
             } else {
-                timeUntil = `In ${birthday.daysUntil} day${birthday.daysUntil > 1 ? 's' : ''}`;
+                timeUntil = `Через ${birthday.daysUntil} ${birthday.daysUntil > 1 ? 'дн.' : 'день'}`;
             }
         }
 
         if (displayIndex === 0) {
             const embed = new EmbedBuilder()
                 .setColor(0xFF0000)
-                .setTitle('No Upcoming Birthdays')
-                .setDescription('No upcoming birthdays found for current server members.');
+                .setTitle('Предстоящих дней рождения нет')
+                .setDescription('У текущих участников сервера нет предстоящих дней рождения.');
+
             return await InteractionHelper.safeEditReply(interaction, {
                 embeds: [embed]
             });
         }
 
-        let birthdayList = `🎂 **Next 5 Upcoming Birthdays**\n\nHere are the next 5 birthdays in ${interaction.guild.name}:\n\n`;
+        let birthdayList =
+            `🎂 **Ближайшие 5 дней рождения**\n\n` +
+            `Вот ближайшие 5 дней рождения на сервере ${interaction.guild.name}:\n\n`;
+
         displayIndex = 0;
+
         for (const birthday of next5) {
             const member = await interaction.guild.members.fetch(birthday.userId).catch(() => null);
+
             if (!member) {
                 continue;
             }
+
             displayIndex++;
 
             let timeUntil = '';
+
             if (birthday.daysUntil === 0) {
-                timeUntil = '🎉 **Today!**';
+                timeUntil = '🎉 **Сегодня!**';
             } else if (birthday.daysUntil === 1) {
-                timeUntil = '📅 **Tomorrow!**';
+                timeUntil = '📅 **Завтра!**';
             } else {
-                timeUntil = `In ${birthday.daysUntil} day${birthday.daysUntil > 1 ? 's' : ''}`;
+                timeUntil = `Через ${birthday.daysUntil} ${birthday.daysUntil > 1 ? 'дн.' : 'день'}`;
             }
 
-            birthdayList += `${displayIndex}. **${member.displayName}**\n<@${birthday.userId}>\n📅 **Date:** ${birthday.monthName} ${birthday.day}\n⏰ **Time:** ${timeUntil}\n\n`;
+            birthdayList +=
+                `${displayIndex}. **${member.displayName}**\n` +
+                `<@${birthday.userId}>\n` +
+                `📅 **Дата:** ${birthday.monthName} ${birthday.day}\n` +
+                `⏰ **Когда:** ${timeUntil}\n\n`;
         }
 
-        birthdayList += `Use /birthday set to add your birthday!`;
+        birthdayList += `Используйте /birthday set, чтобы добавить свой день рождения!`;
 
         const embed = new EmbedBuilder()
             .setColor(0x00FF00)
-            .setTitle('Next 5 Upcoming Birthdays')
+            .setTitle('Ближайшие 5 дней рождения')
             .setDescription(birthdayList);
 
         await InteractionHelper.safeEditReply(interaction, {
