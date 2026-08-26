@@ -19,20 +19,21 @@ export { calculationContexts };
 export default {
     data: new SlashCommandBuilder()
         .setName("calculate")
-        .setDescription("Evaluate a mathematical expression")
+        .setDescription("Вычислить математическое выражение")
         .addStringOption((option) =>
             option
                 .setName("expression")
                 .setDescription(
-                    "The mathematical expression to evaluate (e.g., 2+2*3, sin(45 deg), 16^0.5)",
+                    "Математическое выражение для вычисления (например: 2+2*3, sin(45 deg), 16^0.5)",
                 )
                 .setRequired(true),
         ),
 
     async execute(interaction) {
         const deferSuccess = await InteractionHelper.safeDefer(interaction);
+
         if (!deferSuccess) {
-            logger.warn(`Calculate interaction defer failed`, {
+            logger.warn(`Не удалось отложить взаимодействие Calculate`, {
                 userId: interaction.user.id,
                 guildId: interaction.guildId,
                 commandName: 'calculate'
@@ -47,9 +48,9 @@ export default {
         ) {
             return await replyUserError(interaction, {
                 type: ErrorTypes.VALIDATION,
-                message: '**Contains unsupported characters.**\n\n' +
-                    '✅ Supported: Numbers, decimals, + - * / ^ %, sin cos tan sqrt abs log exp, pi e, ()\n' +
-                    '❌ Not supported: Brackets, curly braces, and other symbols'
+                message: '**Содержит неподдерживаемые символы.**\n\n' +
+                    '✅ **Поддерживается:** числа, десятичные дроби, + - * / ^ %, sin cos tan sqrt abs log exp, pi e, ()\n' +
+                    '❌ **Не поддерживается:** квадратные скобки, фигурные скобки и другие символы'
             });
         }
 
@@ -66,20 +67,22 @@ export default {
             if (pattern.test(expression)) {
                 return await replyUserError(interaction, {
                     type: ErrorTypes.VALIDATION,
-                    message: '**Contains blocked code patterns.**\n\n' +
-                        '🚫 **Blocked:** import, require, eval, Function, setTimeout, setInterval, process, fs, document, window, fetch, loops, async/await\n\n' +
-                        'Code-like syntax is not allowed in calculations.'
+                    message: '**Обнаружены запрещённые конструкции кода.**\n\n' +
+                        '🚫 **Запрещено:** import, require, eval, Function, setTimeout, setInterval, process, fs, document, window, fetch, циклы, async/await\n\n' +
+                        'Синтаксис, похожий на программный код, не разрешён в вычислениях.'
                 });
             }
         }
 
         let result;
+
         try {
             result = evaluate(expression);
 
             let formattedResult;
+
             if (typeof result === "number") {
-                formattedResult = result.toLocaleString("en-US", {
+                formattedResult = result.toLocaleString("ru-RU", {
                     maximumFractionDigits: 10,
                 });
 
@@ -92,7 +95,7 @@ export default {
             } else if (typeof result === "boolean") {
                 formattedResult = result ? "true" : "false";
             } else if (result === null || result === undefined) {
-                formattedResult = "No result";
+                formattedResult = "Нет результата";
             } else if (
                 Array.isArray(result) ||
                 typeof result === "object"
@@ -104,11 +107,13 @@ export default {
             }
 
             const userId = interaction.user.id;
+
             if (!calculationHistory.has(userId)) {
                 calculationHistory.set(userId, []);
             }
 
             const history = calculationHistory.get(userId);
+
             history.unshift({
                 expression,
                 result: formattedResult,
@@ -124,29 +129,33 @@ export default {
                     .setCustomId(`calc_${interaction.id}_add`)
                     .setLabel("+")
                     .setStyle(ButtonStyle.Primary),
+
                 new ButtonBuilder()
                     .setCustomId(`calc_${interaction.id}_subtract`)
                     .setLabel("-")
                     .setStyle(ButtonStyle.Primary),
+
                 new ButtonBuilder()
                     .setCustomId(`calc_${interaction.id}_multiply`)
                     .setLabel("×")
                     .setStyle(ButtonStyle.Primary),
+
                 new ButtonBuilder()
                     .setCustomId(`calc_${interaction.id}_divide`)
                     .setLabel("÷")
                     .setStyle(ButtonStyle.Primary),
+
                 new ButtonBuilder()
                     .setCustomId(`calc_${interaction.id}_history`)
-                    .setLabel("History")
+                    .setLabel("История")
                     .setStyle(ButtonStyle.Secondary),
             );
 
             const embed = successEmbed(
-                "🧮 Calculation Result",
-                `**Expression:** \`${expression.replace(/`/g, "\`")}\`\n` +
-                    `**Result:** \`${formattedResult}\`\n\n` +
-                    `*Use the buttons below to perform operations with the result.*`,
+                "🧮 Результат вычисления",
+                `**Выражение:** \`${expression.replace(/`/g, "\`")}\`\n` +
+                    `**Результат:** \`${formattedResult}\`\n\n` +
+                    `*Используйте кнопки ниже, чтобы выполнить операции с результатом.*`,
             );
 
             await InteractionHelper.safeEditReply(interaction, {
@@ -157,7 +166,9 @@ export default {
             const filter = (i) =>
                 i.customId.startsWith(`calc_${interaction.id}`) &&
                 i.user.id === interaction.user.id;
+
             const BUTTON_TIMEOUT = 300000;
+
             const collector =
                 interaction.channel.createMessageComponentCollector({
                     filter,
@@ -178,7 +189,7 @@ export default {
 
                         if (userHistory.length === 0) {
                             await i.followUp({
-                                content: "No calculation history found.",
+                                content: "История вычислений не найдена.",
                                 flags: ["Ephemeral"],
                             });
                             return;
@@ -193,9 +204,10 @@ export default {
                             .join("\n\n");
 
                         await i.followUp({
-                            content: `📜 **Your Calculation History**\n\n${historyText}`,
+                            content: `📜 **Ваша история вычислений**\n\n${historyText}`,
                             flags: ["Ephemeral"],
                         });
+
                         return;
                     }
 
@@ -205,12 +217,15 @@ export default {
                         case "add":
                             operator = "+";
                             break;
+
                         case "subtract":
                             operator = "-";
                             break;
+
                         case "multiply":
                             operator = "*";
                             break;
+
                         case "divide":
                             operator = "/";
                             break;
@@ -218,6 +233,7 @@ export default {
 
                     try {
                         const contextKey = `${i.user.id}_${operation}`;
+
                         calculationContexts.set(contextKey, {
                             expression,
                             formattedResult,
@@ -229,7 +245,7 @@ export default {
 
                         await i.showModal({
                             customId: `calc_modal:${operation}`,
-                            title: `Enter a number to ${operation}`,
+                            title: `Введите число для операции ${operator}`,
                             components: [
                                 {
                                     type: 1,
@@ -237,8 +253,8 @@ export default {
                                         {
                                             type: 4,
                                             customId: `operand:${contextKey}`,
-                                            label: `Number to ${operator} with ${formattedResult}`,
-                                            placeholder: "Enter a number...",
+                                            label: `Число для операции ${operator} с ${formattedResult}`,
+                                            placeholder: "Введите число...",
                                             style: 1,
                                             required: true,
                                             maxLength: 50,
@@ -248,21 +264,24 @@ export default {
                             ],
                         });
                     } catch (modalError) {
-                        logger.error("Failed to show modal:", modalError);
+                        logger.error("Не удалось открыть модальное окно:", modalError);
+
                         if (!i.replied && !i.deferred) {
                             await i.reply({
-                                content: "Failed to open calculator. Please try again.",
+                                content: "Не удалось открыть калькулятор. Попробуйте ещё раз.",
                                 flags: ["Ephemeral"],
                             }).catch(console.error);
                         }
+
                         return;
                     }
 
                 } catch (error) {
-                    logger.error("Button interaction error:", error);
+                    logger.error("Ошибка взаимодействия с кнопкой:", error);
+
                     if (!i.deferred && !i.replied) {
                         await i.followUp({
-                            content: "An error occurred while processing your request.",
+                            content: "Произошла ошибка при обработке вашего запроса.",
                             flags: ["Ephemeral"],
                         }).catch(console.error);
                     }
@@ -277,7 +296,7 @@ export default {
                                 .setCustomId(
                                     `calc_${interaction.id}_expired`,
                                 )
-                                .setLabel("Calculator Expired")
+                                .setLabel("Калькулятор истёк")
                                 .setStyle(ButtonStyle.Secondary)
                                 .setDisabled(true),
                         );
@@ -286,7 +305,7 @@ export default {
                         .editReply({
                             components: [disabledRow],
                             content:
-                                "⏱️ This calculator has expired. Use the command again to perform more calculations.",
+                                "⏱️ Срок действия этого калькулятора истёк. Используйте команду снова, чтобы выполнить новые вычисления.",
                         })
                         .catch(console.error);
                 } else {
@@ -303,27 +322,28 @@ export default {
                         .catch(console.error);
                 }
             });
-        } catch (error) {
-            logger.error('Calculation error:', error);
 
-            let errorMessage = 'Failed to evaluate the expression.';
+        } catch (error) {
+            logger.error('Ошибка вычисления:', error);
+
+            let errorMessage = 'Не удалось вычислить выражение.';
 
             if (error.message.includes('Unexpected type')) {
                 errorMessage +=
-                    'The expression contains an unsupported operation or function.';
+                    ' Выражение содержит неподдерживаемую операцию или функцию.';
             } else if (error.message.includes('Undefined symbol')) {
                 errorMessage +=
-                    'The expression contains an undefined variable or function.';
+                    ' Выражение содержит неопределённую переменную или функцию.';
             } else if (error.message.includes('Brackets not balanced')) {
-                errorMessage += 'The expression has unbalanced brackets.';
+                errorMessage += ' В выражении неправильно расставлены скобки.';
             } else if (
                 error.message.includes('Unexpected operator') ||
                 error.message.includes('Unexpected character')
             ) {
                 errorMessage +=
-                    'The expression contains an invalid operator or character.';
+                    ' Выражение содержит недопустимый оператор или символ.';
             } else {
-                errorMessage += 'Please check the syntax and try again.';
+                errorMessage += ' Проверьте синтаксис и попробуйте ещё раз.';
             }
 
             await replyUserError(interaction, {
