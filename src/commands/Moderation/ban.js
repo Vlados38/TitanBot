@@ -6,36 +6,29 @@ import { TitanBotError, ErrorTypes } from '../../utils/errorHandler.js';
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('ban')
-        .setDescription('Ban a user from the server')
+        .setName("ban")
+        .setDescription("Заблокировать пользователя на сервере")
         .addUserOption((option) =>
             option
-                .setName('target')
-                .setDescription('The user to ban')
+                .setName("target")
+                .setDescription("Пользователь, которого нужно заблокировать")
                 .setRequired(true),
         )
         .addStringOption((option) =>
-            option
-                .setName('reason')
-                .setDescription('Reason for the ban')
-                .setMaxLength(512),
+            option.setName("reason").setDescription("Причина блокировки"),
         )
-        .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
-        .setDMPermission(false),
-
-    category: 'moderation',
+        .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
+    category: "moderation",
 
     async execute(interaction, config, client) {
-        const user = interaction.options.getUser('target');
-        const reason =
-            interaction.options.getString('reason')?.trim() ||
-            'No reason provided';
+        const user = interaction.options.getUser("target");
+        const reason = interaction.options.getString("reason") || "Причина не указана";
 
         if (!user) {
             throw new TitanBotError(
                 'Missing target user',
                 ErrorTypes.USER_INPUT,
-                'You must specify a user to ban.',
+                'Вы должны указать пользователя для блокировки.',
                 { subtype: 'invalid_user' },
             );
         }
@@ -44,15 +37,14 @@ export default {
             throw new TitanBotError(
                 'Cannot ban self',
                 ErrorTypes.VALIDATION,
-                'You cannot ban yourself.',
+                'Вы не можете заблокировать себя.',
             );
         }
-
         if (user.id === client.user.id) {
             throw new TitanBotError(
                 'Cannot ban bot',
                 ErrorTypes.VALIDATION,
-                'You cannot ban the bot.',
+                'Вы не можете заблокировать бота.',
             );
         }
 
@@ -66,8 +58,8 @@ export default {
         await InteractionHelper.universalReply(interaction, {
             embeds: [
                 successEmbed(
-                    `🚫 **Banned** ${user.tag}`,
-                    `**Reason:** ${reason}\n**Case ID:** #${result.caseId}`,
+                    `🚫 **Пользователь заблокирован** ${user.tag}`,
+                    `**Причина:** ${reason}\n**ID случая:** #${result.caseId}`,
                 ),
             ],
         });
