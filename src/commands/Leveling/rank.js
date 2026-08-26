@@ -1,7 +1,11 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from 'discord.js';
 import { logger } from '../../utils/logger.js';
 import { TitanBotError, ErrorTypes } from '../../utils/errorHandler.js';
-import { getUserLevelData, getLevelingConfig, getXpForLevel } from '../../services/leveling/leveling.js';
+import {
+  getUserLevelData,
+  getLevelingConfig,
+  getXpForLevel
+} from '../../services/leveling/leveling.js';
 
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 
@@ -22,14 +26,20 @@ export default {
   async execute(interaction, config, client) {
     await InteractionHelper.safeDefer(interaction);
 
-    const levelingConfig = await getLevelingConfig(client, interaction.guildId);
+    const levelingConfig = await getLevelingConfig(
+      client,
+      interaction.guildId
+    );
 
     if (!levelingConfig?.enabled) {
       await InteractionHelper.safeEditReply(interaction, {
         embeds: [
           new EmbedBuilder()
             .setColor('#f1c40f')
-            .setDescription('Система уровней в данный момент отключена на этом сервере.')
+            .setTitle('⚠️ Система уровней отключена')
+            .setDescription(
+              'Система уровней в данный момент отключена на этом сервере.'
+            )
         ],
         flags: MessageFlags.Ephemeral
       });
@@ -37,8 +47,11 @@ export default {
       return;
     }
 
-    const targetUser = interaction.options.getUser('user') || interaction.user;
+    // Пользователь из аргумента или автор команды
+    const targetUser =
+      interaction.options.getUser('user') || interaction.user;
 
+    // Получаем участника сервера
     const member = await interaction.guild.members
       .fetch(targetUser.id)
       .catch(() => null);
@@ -51,6 +64,7 @@ export default {
       );
     }
 
+    // Данные уровня
     const userData = await getUserLevelData(
       client,
       interaction.guildId,
@@ -63,38 +77,119 @@ export default {
       totalXp: userData?.totalXp ?? 0
     };
 
-    const xpNeeded = getXpForLevel(safeUserData.level + 1);
-    const progress = xpNeeded > 0
-      ? Math.floor((safeUserData.xp / xpNeeded) * 100)
-      : 0;
+    const currentLevel = safeUserData.level;
+    const nextLevel = currentLevel + 1;
+
+    // XP для следующего уровня
+    const xpNeeded = Math.max(0, getXpForLevel(nextLevel));
+
+    // Защита от некорректных данных
+    const currentXp = Math.max(0, safeUserData.xp);
+
+    const progress =
+      xpNeeded > 0
+        ? Math.min(100, Math.floor((currentXp / xpNeeded) * 100))
+        : 100;
 
     const progressBar = createProgressBar(progress, 20);
 
+    // Красивое отображение чисел
+    const formattedXp = currentXp.toLocaleString('ru-RU');
+    const formattedXpNeeded = xpNeeded.toLocaleString('ru-RU');
+    const formattedTotalXp = safeUserData.totalXp.toLocaleString('ru-RU');
+
+    // XP осталось до следующего уровня
+    const xpRemaining = Math.max(0, xpNeeded - currentXp);
+
+    // Если пользователь достиг максимума текущей системы
+    const isMaxLevel =
+      currentLevel >= 1000;
+
+    // Цвет карточки
+    const embedColor = getLevelColor(currentLevel);
+
     const embed = new EmbedBuilder()
-      .setTitle(`Ранг ${member.displayName}`)
-      .setThumbnail(member.displayAvatarURL({ dynamic: true }))
+      .setColor(embedColor)
+
+      /*
+       * Верхняя часть
+       */
+      .setAuthor({
+        name: `${member.displayName}`,
+        iconURL: member.displayAvatarURL({
+          extension: 'png',
+          size: 128
+        })
+      })
+
+      .setTitle(`✨ LEVEL ${currentLevel}`)
+
+      .setThumbnail(
+        member.displayAvatarURL({
+          extension: 'png',
+          size: 256
+        })
+      )
+
+      /*
+       * XP
+       */
+      .addFields({
+        name: '⭐ Опыт',
+        value: isMaxLevel
+          ? `**${formattedTotalXp} XP**\nМаксимальный уровень достигнут!`
+          : [
+              `**${formattedXp} / ${formattedXpNeeded} XP**`,
+              `${progressBar} **${progress}%**`
+            ].join('\n'),
+        inline: false
+      })
+
+      /*
+       * Статистика
+       */
       .addFields(
         {
-          name: 'Уровень',
-          value: safeUserData.level.toString(),
+          name: '🏆 Уровень',
+          value: `**${currentLevel}**`,
           inline: true
         },
         {
-          name: 'XP',
-          value: `${safeUserData.xp}/${xpNeeded}`,
+          name: '💎 Всего XP',
+          value: `**${formattedTotalXp}**`,
           inline: true
         },
         {
-          name: 'Всего XP',
-          value: safeUserData.totalXp.toString(),
+          name: '🚀 Следующий',
+          value: isMaxLevel
+            ? '**MAX**'
+            : `**${nextLevel}**`,
           inline: true
-        },
-        {
-          name: `Прогресс до уровня ${safeUserData.level + 1}`,
-          value: `${progressBar} ${progress}%`
         }
-      )
-      .setColor('#2ecc71')
+      );
+
+    /*
+     * XP до следующего уровня
+     */
+    if (!isMaxLevel) {
+      embed.addFields({
+        name: '📈 До следующего уровня',
+        value: `Осталось **${xpRemaining.toLocaleString('ru-RU')} XP**`,
+        inline: false
+      });
+    }
+
+    /*
+     * Footer
+     */
+    embed
+      .setFooter({
+        text: `${interaction.guild.name} • ${targetUser.username}`,
+        iconURL: interaction.guild.iconURL({
+          extension: 'png',
+          size: 64
+        }) || undefined
+      })
       .setTimestamp();
 
     await InteractionHelper.safeEditReply(interaction, {
@@ -107,12 +202,50 @@ export default {
   }
 };
 
-function createProgressBar(percentage, length = 10) {
-  if (percentage < 0 || percentage > 100) {
-    percentage = Math.max(0, Math.min(100, percentage));
+/**
+ * Создаёт красивый progress bar.
+ *
+ * Пример:
+ * ▰▰▰▰▰▰▰▰▱▱▱▱▱▱▱▱▱▱▱▱ 40%
+ */
+function createProgressBar(percentage, length = 20) {
+  const safePercentage = Math.max(
+    0,
+    Math.min(100, Number(percentage) || 0)
+  );
+
+  const filled = Math.round(
+    (safePercentage / 100) * length
+  );
+
+  const empty = length - filled;
+
+  return `▰`.repeat(filled) + `▱`.repeat(empty);
+}
+
+/**
+ * Цвет карточки в зависимости от уровня.
+ */
+function getLevelColor(level) {
+  if (level >= 100) {
+    return '#FFD700'; // Золото
   }
 
-  const filled = Math.round((percentage / 100) * length);
+  if (level >= 75) {
+    return '#FF7A00'; // Оранжевый
+  }
 
-  return '█'.repeat(filled) + '░'.repeat(length - filled);
+  if (level >= 50) {
+    return '#A855F7'; // Фиолетовый
+  }
+
+  if (level >= 25) {
+    return '#3B82F6'; // Синий
+  }
+
+  if (level >= 10) {
+    return '#22C55E'; // Зелёный
+  }
+
+  return '#5865F2'; // Discord Blurple
 }
