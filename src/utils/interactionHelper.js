@@ -119,7 +119,7 @@ export class InteractionHelper {
             }
 
             if (!this.isInteractionValid(interaction)) {
-                logger.warn(`Interaction ${interaction.id} has expired before defer, ignoring`);
+                logger.warn(`Взаимодействие ${interaction.id} истекло до defer, операция пропущена`);
                 return false;
             }
 
@@ -127,15 +127,15 @@ export class InteractionHelper {
             return true;
         } catch (error) {
             if (isInteractionUnavailableError(error)) {
-                logger.warn(`Interaction ${interaction.id} unavailable during defer:`, error.message);
+                logger.warn(`Взаимодействие ${interaction.id} недоступно во время defer:`, error.message);
                 return false;
             }
             if (error.name === 'InteractionAlreadyReplied' || error.code === 40060) {
-                logger.warn(`Interaction ${interaction.id} already acknowledged during defer:`, error.message);
+                logger.warn(`Взаимодействие ${interaction.id} уже было подтверждено во время defer:`, error.message);
                 interaction.replied = true;
                 return true;
             }
-            logger.error('Failed to defer reply:', error);
+            logger.error('Не удалось отложить ответ:', error);
             return false;
         }
     }
@@ -148,7 +148,7 @@ export class InteractionHelper {
             }
 
             if (!this.isInteractionValid(interaction)) {
-                logger.warn(`Interaction ${interaction.id} has expired before edit, ignoring`);
+                logger.warn(`Взаимодействие ${interaction.id} истекло до редактирования, операция пропущена`);
                 return false;
             }
 
@@ -158,7 +158,7 @@ export class InteractionHelper {
             }
 
             if (!interaction.replied && !interaction.deferred) {
-                logger.debug(`Interaction ${interaction.id} not deferred, using reply fallback instead of edit`);
+                logger.debug(`Взаимодействие ${interaction.id} не было отложено, используется reply вместо edit`);
                 return await this.safeReply(interaction, options);
             }
 
@@ -166,32 +166,32 @@ export class InteractionHelper {
             return true;
         } catch (error) {
             if (isInteractionUnavailableError(error)) {
-                logger.warn(`Interaction ${interaction.id} unavailable during edit:`, error.message);
+                logger.warn(`Взаимодействие ${interaction.id} недоступно во время редактирования:`, error.message);
                 return false;
             }
             if (error.code === 40060) {
-                logger.warn(`Interaction ${interaction.id} already acknowledged during edit:`, error.message);
+                logger.warn(`Взаимодействие ${interaction.id} уже было подтверждено во время редактирования:`, error.message);
                 return false;
             }
             if (error.name === 'InteractionNotReplied' || error.message.includes('not been sent or deferred')) {
-                logger.debug(`Interaction ${interaction.id} not replied, using reply fallback instead of edit:`, error.message);
+                logger.debug(`Взаимодействие ${interaction.id} не получило ответа, используется reply вместо edit:`, error.message);
                 return await this.safeReply(interaction, options);
             }
             if (error.code === 10008) {
-                logger.debug(`Interaction ${interaction.id} reply message deleted, using followUp fallback`);
+                logger.debug(`Сообщение ответа взаимодействия ${interaction.id} удалено, используется followUp`);
                 try {
                     await interaction.followUp(options);
                     return true;
                 } catch (followUpError) {
                     if (isInteractionUnavailableError(followUpError)) {
-                        logger.warn(`Interaction ${interaction.id} unavailable during followUp:`, followUpError.message);
+                        logger.warn(`Взаимодействие ${interaction.id} недоступно во время followUp:`, followUpError.message);
                         return false;
                     }
-                    logger.error('Failed to follow up after deleted reply:', followUpError);
+                    logger.error('Не удалось выполнить followUp после удаления сообщения ответа:', followUpError);
                     return false;
                 }
             }
-            logger.error('Failed to edit reply:', error);
+            logger.error('Не удалось отредактировать ответ:', error);
             return false;
         }
     }
@@ -204,7 +204,7 @@ export class InteractionHelper {
             }
 
             if (!this.isInteractionValid(interaction)) {
-                logger.warn(`Interaction ${interaction.id} has expired before reply, ignoring`);
+                logger.warn(`Взаимодействие ${interaction.id} истекло до отправки ответа, операция пропущена`);
                 return false;
             }
 
@@ -231,14 +231,14 @@ export class InteractionHelper {
             return true;
         } catch (error) {
             if (isInteractionUnavailableError(error)) {
-                logger.warn(`Interaction ${interaction.id} unavailable during reply:`, error.message);
+                logger.warn(`Взаимодействие ${interaction.id} недоступно во время отправки ответа:`, error.message);
                 return false;
             }
             if (error.code === 40060) {
-                logger.warn(`Interaction ${interaction.id} already acknowledged during reply:`, error.message);
+                logger.warn(`Взаимодействие ${interaction.id} уже было подтверждено во время отправки ответа:`, error.message);
                 return false;
             }
-            logger.error('Failed to reply:', error);
+            logger.error('Не удалось отправить ответ:', error);
             return false;
         }
     }
@@ -246,12 +246,12 @@ export class InteractionHelper {
     static async safeShowModal(interaction, modal) {
         try {
             if (!this.isInteractionValid(interaction)) {
-                logger.warn(`Interaction ${interaction.id} has expired before showModal, ignoring`);
+                logger.warn(`Взаимодействие ${interaction.id} истекло до открытия модального окна, операция пропущена`);
                 return false;
             }
 
             if (interaction.replied || interaction.deferred) {
-                logger.warn(`Interaction ${interaction.id} already acknowledged, cannot show modal`);
+                logger.warn(`Взаимодействие ${interaction.id} уже подтверждено, невозможно открыть модальное окно`);
                 return false;
             }
 
@@ -259,10 +259,10 @@ export class InteractionHelper {
             return true;
         } catch (error) {
             if (isInteractionUnavailableError(error)) {
-                logger.warn(`Interaction ${interaction.id} unavailable during showModal:`, error.message);
+                logger.warn(`Взаимодействие ${interaction.id} недоступно при открытии модального окна:`, error.message);
                 return false;
             }
-            logger.error('Failed to show modal:', error);
+            logger.error('Не удалось открыть модальное окно:', error);
             return false;
         }
     }
@@ -272,7 +272,7 @@ export class InteractionHelper {
         const { autoDefer = autoDeferDefault, deferOptions = { flags: MessageFlags.Ephemeral } } = options;
 
         if (!this.isInteractionValid(interaction)) {
-            logger.warn(`Interaction ${interaction.id} has expired, ignoring`);
+            logger.warn(`Взаимодействие ${interaction.id} истекло, операция пропущена`);
             return;
         }
 
@@ -286,11 +286,11 @@ export class InteractionHelper {
             const deferSuccess = await this.safeDefer(interaction, deferOptions);
 
             if (Date.now() - deferStartTime > 3000) {
-                logger.warn(`Interaction ${interaction.id} defer took too long (${Date.now() - deferStartTime}ms), command may expire`);
+                logger.warn(`Defer взаимодействия ${interaction.id} выполнялся слишком долго (${Date.now() - deferStartTime}мс), команда может истечь`);
             }
 
             if (!deferSuccess) {
-                logger.warn(`Interaction ${interaction.id} defer failed, skipping command execution`);
+                logger.warn(`Defer взаимодействия ${interaction.id} не удался, выполнение команды пропущено`);
                 return;
             }
         }
@@ -298,17 +298,26 @@ export class InteractionHelper {
         try {
             await commandFunction();
         } catch (error) {
-            logger.error('Error executing command:', error);
+            logger.error('Ошибка выполнения команды:', error);
 
             if (coordinator?.isUsageFinalized()) {
                 return;
             }
 
             const errorToHandle = typeof errorEmbed === 'string'
-                ? createError(error.message || 'Command failed', ErrorTypes.UNKNOWN, errorEmbed, { expected: true })
+                ? createError(
+                    error.message || 'Команда завершилась с ошибкой',
+                    ErrorTypes.UNKNOWN,
+                    errorEmbed,
+                    { expected: true }
+                )
                 : error;
 
-            await handleInteractionError(interaction, errorToHandle, { source: 'interactionHelper.safeExecute' });
+            await handleInteractionError(
+                interaction,
+                errorToHandle,
+                { source: 'interactionHelper.safeExecute' }
+            );
         }
     }
 
@@ -325,7 +334,11 @@ export class InteractionHelper {
             return await coordinator?.respond(options) ?? this.safeReply(interaction, options);
         }
 
-        const isReady = await this.ensureReady(interaction, options.flags ? { flags: options.flags } : {});
+        const isReady = await this.ensureReady(
+            interaction,
+            options.flags ? { flags: options.flags } : {}
+        );
+
         if (!isReady) {
             return false;
         }
