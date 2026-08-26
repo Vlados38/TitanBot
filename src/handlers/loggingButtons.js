@@ -31,12 +31,14 @@ import {
   refreshDashboardMessage,
 } from '../commands/Logging/modules/logging_dashboard.js';
 
-const LOGGING_CATEGORIES = [...new Set(Object.values(EVENT_TYPES).map((eventType) => eventType.split('.')[0]))];
+const LOGGING_CATEGORIES = [...new Set(
+  Object.values(EVENT_TYPES).map((eventType) => eventType.split('.')[0])
+)];
 
 const DESTINATION_LABELS = {
-  audit: 'Audit Log',
-  applications: 'Applications',
-  reports: 'Reports',
+  audit: 'Журнал аудита',
+  applications: 'Заявки',
+  reports: 'Отчёты',
 };
 
 export default {
@@ -52,7 +54,7 @@ export default {
     try {
       if (!interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
         return interaction.reply({
-          content: '❌ You need **Manage Server** permissions to use this.',
+          content: '❌ Для использования этой функции необходимо право **Управление сервером**.',
           ephemeral: true,
         });
       }
@@ -88,95 +90,188 @@ export default {
 
 async function handleRefresh(interaction) {
   if (isCategoriesView(interaction)) {
-    const { embed, components } = await buildLoggingCategoriesView(interaction, interaction.client);
-    return interaction.update({ embeds: [embed], components, content: null });
+    const { embed, components } = await buildLoggingCategoriesView(
+      interaction,
+      interaction.client
+    );
+
+    return interaction.update({
+      embeds: [embed],
+      components,
+      content: null,
+    });
   }
 
   if (isFilterView(interaction)) {
-    const { embed, components } = await buildLoggingFilterView(interaction, interaction.client);
-    return interaction.update({ embeds: [embed], components, content: null });
+    const { embed, components } = await buildLoggingFilterView(
+      interaction,
+      interaction.client
+    );
+
+    return interaction.update({
+      embeds: [embed],
+      components,
+      content: null,
+    });
   }
 
-  const { embed, components } = await buildLoggingDashboardView(interaction, interaction.client);
-  await interaction.update({ embeds: [embed], components, content: null });
+  const { embed, components } = await buildLoggingDashboardView(
+    interaction,
+    interaction.client
+  );
+
+  await interaction.update({
+    embeds: [embed],
+    components,
+    content: null,
+  });
 }
 
 async function handleBackToMain(interaction) {
-  const { embed, components } = await buildLoggingDashboardView(interaction, interaction.client);
-  await interaction.update({ embeds: [embed], components, content: null });
+  const { embed, components } = await buildLoggingDashboardView(
+    interaction,
+    interaction.client
+  );
+
+  await interaction.update({
+    embeds: [embed],
+    components,
+    content: null,
+  });
 }
 
 async function handleToggle(interaction) {
   const eventType = interaction.customId.replace('log_dash_toggle:', '');
+
   if (!eventType) {
-    return interaction.reply({ content: '❌ Invalid event type.', ephemeral: true });
+    return interaction.reply({
+      content: '❌ Недопустимый тип события.',
+      ephemeral: true,
+    });
   }
 
-  const status = await getLoggingStatus(interaction.client, interaction.guildId);
+  const status = await getLoggingStatus(
+    interaction.client,
+    interaction.guildId
+  );
+
   const onCategoriesView = isCategoriesView(interaction);
 
   if (eventType === 'audit_enabled') {
-    await setLoggingEnabled(interaction.client, interaction.guildId, !Boolean(status.enabled));
+    await setLoggingEnabled(
+      interaction.client,
+      interaction.guildId,
+      !Boolean(status.enabled)
+    );
   } else if (eventType === 'all') {
-    const newState = !Object.values(status.enabledEvents).every((v) => v !== false);
+    const newState = !Object.values(status.enabledEvents)
+      .every((v) => v !== false);
+
     const allTypes = Object.values(EVENT_TYPES);
     const categoryTypes = LOGGING_CATEGORIES.map((c) => `${c}.*`);
-    await toggleEventLogging(interaction.client, interaction.guildId, [...allTypes, ...categoryTypes], newState);
+
+    await toggleEventLogging(
+      interaction.client,
+      interaction.guildId,
+      [...allTypes, ...categoryTypes],
+      newState
+    );
   } else {
     const currentState = status.enabledEvents[eventType] !== false;
-    await toggleEventLogging(interaction.client, interaction.guildId, eventType, !currentState);
+
+    await toggleEventLogging(
+      interaction.client,
+      interaction.guildId,
+      eventType,
+      !currentState
+    );
   }
 
-  if (onCategoriesView || (eventType !== 'audit_enabled' && eventType.includes('.*'))) {
-    const { embed, components } = await buildLoggingCategoriesView(interaction, interaction.client);
-    return interaction.update({ embeds: [embed], components, content: null });
+  if (
+    onCategoriesView ||
+    (eventType !== 'audit_enabled' && eventType.includes('.*'))
+  ) {
+    const { embed, components } = await buildLoggingCategoriesView(
+      interaction,
+      interaction.client
+    );
+
+    return interaction.update({
+      embeds: [embed],
+      components,
+      content: null,
+    });
   }
 
-  const { embed, components } = await buildLoggingDashboardView(interaction, interaction.client);
-  await interaction.update({ embeds: [embed], components, content: null });
+  const { embed, components } = await buildLoggingDashboardView(
+    interaction,
+    interaction.client
+  );
+
+  await interaction.update({
+    embeds: [embed],
+    components,
+    content: null,
+  });
 }
 
 async function handleAddFilterModal(interaction) {
-  const filterType = interaction.customId.replace('log_dash_add_filter:', '');
+  const filterType = interaction.customId.replace(
+    'log_dash_add_filter:',
+    ''
+  );
+
   if (filterType !== 'user' && filterType !== 'channel') {
-    return interaction.reply({ content: '❌ Invalid filter type.', ephemeral: true });
+    return interaction.reply({
+      content: '❌ Недопустимый тип фильтра.',
+      ephemeral: true,
+    });
   }
 
   const modalCustomId = `log_dash_filter_modal:add:${filterType}`;
 
   let modal;
+
   if (filterType === 'user') {
     const userSelect = new UserSelectMenuBuilder()
       .setCustomId('ignore_user')
-      .setPlaceholder('Select a user to ignore…')
+      .setPlaceholder('Выберите пользователя, которого нужно игнорировать…')
       .setMinValues(1)
       .setMaxValues(1);
 
     const userLabel = new LabelBuilder()
-      .setLabel('User to Ignore')
-      .setDescription('Choose a user whose actions should not be logged')
+      .setLabel('Пользователь для игнорирования')
+      .setDescription(
+        'Выберите пользователя, действия которого не должны записываться в журнал'
+      )
       .setUserSelectMenuComponent(userSelect);
 
     modal = new ModalBuilder()
       .setCustomId(modalCustomId)
-      .setTitle('Add User Filter')
+      .setTitle('Добавить фильтр пользователя')
       .addLabelComponents(userLabel);
   } else {
     const channelSelect = new ChannelSelectMenuBuilder()
       .setCustomId('ignore_channel')
-      .setPlaceholder('Select a channel to ignore…')
+      .setPlaceholder('Выберите канал, который нужно игнорировать…')
       .setMinValues(1)
       .setMaxValues(1)
-      .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement, ChannelType.GuildVoice);
+      .addChannelTypes(
+        ChannelType.GuildText,
+        ChannelType.GuildAnnouncement,
+        ChannelType.GuildVoice
+      );
 
     const channelLabel = new LabelBuilder()
-      .setLabel('Channel to Ignore')
-      .setDescription('Choose a channel whose events should not be logged')
+      .setLabel('Канал для игнорирования')
+      .setDescription(
+        'Выберите канал, события которого не должны записываться в журнал'
+      )
       .setChannelSelectMenuComponent(channelSelect);
 
     modal = new ModalBuilder()
       .setCustomId(modalCustomId)
-      .setTitle('Add Channel Filter')
+      .setTitle('Добавить фильтр канала')
       .addLabelComponents(channelLabel);
   }
 
@@ -185,68 +280,96 @@ async function handleAddFilterModal(interaction) {
   try {
     const modalSubmission = await interaction.awaitModalSubmit({
       time: 5 * 60 * 1000,
-      filter: (i) => i.user.id === interaction.user.id && i.customId === modalCustomId,
+      filter: (i) =>
+        i.user.id === interaction.user.id &&
+        i.customId === modalCustomId,
     });
 
     let id;
+
     if (filterType === 'user') {
-      id = modalSubmission.fields.getField('ignore_user')?.values?.[0];
+      id = modalSubmission.fields
+        .getField('ignore_user')
+        ?.values?.[0];
     } else {
-      id = modalSubmission.fields.getField('ignore_channel')?.values?.[0];
+      id = modalSubmission.fields
+        .getField('ignore_channel')
+        ?.values?.[0];
     }
 
     if (!id) {
       return replyUserError(modalSubmission, {
         type: ErrorTypes.VALIDATION,
-        message: `Please select a ${filterType} to ignore.`,
+        message: `Пожалуйста, выберите ${filterType === 'user' ? 'пользователя' : 'канал'}, которого нужно игнорировать.`,
       });
     }
 
-    await updateIgnoreList(interaction.client, interaction.guildId, { action: 'add', type: filterType, id });
+    await updateIgnoreList(
+      interaction.client,
+      interaction.guildId,
+      {
+        action: 'add',
+        type: filterType,
+        id,
+      }
+    );
 
     await modalSubmission.reply({
-      embeds: [successEmbed('Filter Added', `${filterType === 'user' ? 'User' : 'Channel'} \`${id}\` will be ignored in audit logs.`)],
+      embeds: [
+        successEmbed(
+          'Фильтр добавлен',
+          `${filterType === 'user' ? 'Пользователь' : 'Канал'} \`${id}\` теперь будет игнорироваться в журнале аудита.`
+        ),
+      ],
       flags: MessageFlags.Ephemeral,
     });
 
     if (isFilterView(interaction)) {
-      await refreshDashboardMessage(interaction, interaction.client);
+      await refreshDashboardMessage(
+        interaction,
+        interaction.client
+      );
     }
   } catch (error) {
     if (error.code === 'INTERACTION_TIMEOUT') {
       return;
     }
+
     logger.error('Error in add filter modal:', error);
   }
 }
 
 async function handleRemoveFilterModal(interaction) {
-  const config = await getGuildConfig(interaction.client, interaction.guildId);
+  const config = await getGuildConfig(
+    interaction.client,
+    interaction.guildId
+  );
+
   const ignore = getIgnoreList(config);
   const options = [];
 
   for (const userId of ignore.users || []) {
     options.push(
       new StringSelectMenuOptionBuilder()
-        .setLabel(`User ${userId}`)
-        .setDescription('Remove this user from the ignore list')
-        .setValue(`user:${userId}`),
+        .setLabel(`Пользователь ${userId}`)
+        .setDescription('Удалить этого пользователя из списка игнорирования')
+        .setValue(`user:${userId}`)
     );
   }
 
   for (const channelId of ignore.channels || []) {
     options.push(
       new StringSelectMenuOptionBuilder()
-        .setLabel(`Channel ${channelId}`)
-        .setDescription('Remove this channel from the ignore list')
-        .setValue(`channel:${channelId}`),
+        .setLabel(`Канал ${channelId}`)
+        .setDescription('Удалить этот канал из списка игнорирования')
+        .setValue(`channel:${channelId}`)
     );
   }
 
   if (options.length === 0) {
     return replyUserError(interaction, {
       type: ErrorTypes.USER_INPUT,
-      message: 'There are no ignore filters to remove.',
+      message: 'Нет фильтров игнорирования, которые можно удалить.',
     });
   }
 
@@ -254,19 +377,21 @@ async function handleRemoveFilterModal(interaction) {
 
   const filterSelect = new StringSelectMenuBuilder()
     .setCustomId('filter_entry')
-    .setPlaceholder('Select a filter to remove…')
+    .setPlaceholder('Выберите фильтр для удаления…')
     .setMinValues(1)
     .setMaxValues(1)
     .addOptions(options.slice(0, 25));
 
   const filterLabel = new LabelBuilder()
-    .setLabel('Filter to Remove')
-    .setDescription('Choose a user or channel to un-ignore')
+    .setLabel('Фильтр для удаления')
+    .setDescription(
+      'Выберите пользователя или канал, который нужно перестать игнорировать'
+    )
     .setStringSelectMenuComponent(filterSelect);
 
   const modal = new ModalBuilder()
     .setCustomId(modalCustomId)
-    .setTitle('Remove Ignore Filter')
+    .setTitle('Удалить фильтр игнорирования')
     .addLabelComponents(filterLabel);
 
   await interaction.showModal(modal);
@@ -274,32 +399,55 @@ async function handleRemoveFilterModal(interaction) {
   try {
     const modalSubmission = await interaction.awaitModalSubmit({
       time: 5 * 60 * 1000,
-      filter: (i) => i.user.id === interaction.user.id && i.customId === modalCustomId,
+      filter: (i) =>
+        i.user.id === interaction.user.id &&
+        i.customId === modalCustomId,
     });
 
-    const entry = modalSubmission.fields.getField('filter_entry')?.values?.[0];
+    const entry = modalSubmission.fields
+      .getField('filter_entry')
+      ?.values?.[0];
+
     if (!entry) {
       return replyUserError(modalSubmission, {
         type: ErrorTypes.VALIDATION,
-        message: 'Please select a filter to remove.',
+        message: 'Пожалуйста, выберите фильтр для удаления.',
       });
     }
 
     const [type, id] = entry.split(':');
-    await updateIgnoreList(interaction.client, interaction.guildId, { action: 'remove', type, id });
+
+    await updateIgnoreList(
+      interaction.client,
+      interaction.guildId,
+      {
+        action: 'remove',
+        type,
+        id,
+      }
+    );
 
     await modalSubmission.reply({
-      embeds: [successEmbed('Filter Removed', `Removed ${type} \`${id}\` from the ignore list.`)],
+      embeds: [
+        successEmbed(
+          'Фильтр удалён',
+          `${type === 'user' ? 'Пользователь' : 'Канал'} \`${id}\` удалён из списка игнорирования.`
+        ),
+      ],
       flags: MessageFlags.Ephemeral,
     });
 
     if (isFilterView(interaction)) {
-      await refreshDashboardMessage(interaction, interaction.client);
+      await refreshDashboardMessage(
+        interaction,
+        interaction.client
+      );
     }
   } catch (error) {
     if (error.code === 'INTERACTION_TIMEOUT') {
       return;
     }
+
     logger.error('Error in remove filter modal:', error);
   }
 }
@@ -310,20 +458,25 @@ async function showChannelModal(interaction, destination) {
 
   const channelSelect = new ChannelSelectMenuBuilder()
     .setCustomId('log_channel')
-    .setPlaceholder('Select a text channel…')
+    .setPlaceholder('Выберите текстовый канал…')
     .setMinValues(1)
     .setMaxValues(1)
-    .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+    .addChannelTypes(
+      ChannelType.GuildText,
+      ChannelType.GuildAnnouncement
+    )
     .setRequired(true);
 
   const channelLabel = new LabelBuilder()
-    .setLabel(`${label} Channel`)
-    .setDescription(`Channel where ${label.toLowerCase()} logs will be sent`)
+    .setLabel(`Канал для ${label}`)
+    .setDescription(
+      `Канал, в который будут отправляться логи категории «${label.toLowerCase()}»`
+    )
     .setChannelSelectMenuComponent(channelSelect);
 
   const modal = new ModalBuilder()
     .setCustomId(modalCustomId)
-    .setTitle(`Set ${label} Channel`)
+    .setTitle(`Настроить канал: ${label}`)
     .addLabelComponents(channelLabel);
 
   await interaction.showModal(modal);
@@ -331,40 +484,69 @@ async function showChannelModal(interaction, destination) {
   try {
     const modalSubmission = await interaction.awaitModalSubmit({
       time: 5 * 60 * 1000,
-      filter: (i) => i.user.id === interaction.user.id && i.customId === modalCustomId,
+      filter: (i) =>
+        i.user.id === interaction.user.id &&
+        i.customId === modalCustomId,
     });
 
-    const channelId = modalSubmission.fields.getField('log_channel').values[0];
-    const channel = interaction.guild.channels.cache.get(channelId)
-      ?? await interaction.guild.channels.fetch(channelId).catch(() => null);
+    const channelId = modalSubmission.fields
+      .getField('log_channel')
+      .values[0];
+
+    const channel =
+      interaction.guild.channels.cache.get(channelId) ??
+      await interaction.guild.channels
+        .fetch(channelId)
+        .catch(() => null);
 
     if (!channel) {
       return modalSubmission.reply({
-        content: '❌ That channel could not be found.',
+        content: '❌ Этот канал не удалось найти.',
         flags: MessageFlags.Ephemeral,
       });
     }
 
-    const botPerms = channel.permissionsFor(interaction.guild.members.me);
-    if (!botPerms?.has(['ViewChannel', 'SendMessages', 'EmbedLinks'])) {
+    const botPerms = channel.permissionsFor(
+      interaction.guild.members.me
+    );
+
+    if (!botPerms?.has([
+      'ViewChannel',
+      'SendMessages',
+      'EmbedLinks',
+    ])) {
       return modalSubmission.reply({
-        content: '❌ I need View Channel, Send Messages, and Embed Links in that channel.',
+        content: '❌ Мне необходимы права «Просмотр канала», «Отправка сообщений» и «Встраивание ссылок» в этом канале.',
         flags: MessageFlags.Ephemeral,
       });
     }
 
-    await setLogChannel(interaction.client, interaction.guildId, destination, channel.id);
+    await setLogChannel(
+      interaction.client,
+      interaction.guildId,
+      destination,
+      channel.id
+    );
 
     await modalSubmission.reply({
-      embeds: [successEmbed('Channel Updated', `**${label}** logs will be sent to ${channel}.`)],
+      embeds: [
+        successEmbed(
+          'Канал обновлён',
+          `Логи категории **${label}** будут отправляться в ${channel}.`
+        ),
+      ],
       flags: MessageFlags.Ephemeral,
     });
 
-    await refreshDashboardMessage(interaction, interaction.client);
+    await refreshDashboardMessage(
+      interaction,
+      interaction.client
+    );
   } catch (error) {
     if (error.code === 'INTERACTION_TIMEOUT') {
       return;
     }
+
     await handleInteractionError(interaction, error, {
       type: 'modal',
       customId: interaction.customId,
@@ -376,7 +558,7 @@ async function showChannelModal(interaction, destination) {
 export async function handleLoggingMenuSelect(interaction) {
   if (!interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
     return interaction.reply({
-      content: '❌ You need **Manage Server** permissions to use this.',
+      content: '❌ Для использования этой функции необходимо право **Управление сервером**.',
       ephemeral: true,
     });
   }
@@ -390,8 +572,19 @@ export async function handleLoggingMenuSelect(interaction) {
 
   if (value.startsWith('clear:')) {
     const destination = value.replace('clear:', '');
-    await setLogChannel(interaction.client, interaction.guildId, destination, null);
-    const { embed, components } = await buildLoggingDashboardView(interaction, interaction.client);
+
+    await setLogChannel(
+      interaction.client,
+      interaction.guildId,
+      destination,
+      null
+    );
+
+    const { embed, components } = await buildLoggingDashboardView(
+      interaction,
+      interaction.client
+    );
+
     return interaction.update({
       embeds: [embed],
       components,
@@ -400,14 +593,33 @@ export async function handleLoggingMenuSelect(interaction) {
   }
 
   if (value === 'view:categories') {
-    const { embed, components } = await buildLoggingCategoriesView(interaction, interaction.client);
-    return interaction.update({ embeds: [embed], components, content: null });
+    const { embed, components } = await buildLoggingCategoriesView(
+      interaction,
+      interaction.client
+    );
+
+    return interaction.update({
+      embeds: [embed],
+      components,
+      content: null,
+    });
   }
 
   if (value === 'view:filters') {
-    const { embed, components } = await buildLoggingFilterView(interaction, interaction.client);
-    return interaction.update({ embeds: [embed], components, content: null });
+    const { embed, components } = await buildLoggingFilterView(
+      interaction,
+      interaction.client
+    );
+
+    return interaction.update({
+      embeds: [embed],
+      components,
+      content: null,
+    });
   }
 
-  return interaction.reply({ content: '❌ Unknown option.', ephemeral: true });
+  return interaction.reply({
+    content: '❌ Неизвестная опция.',
+    ephemeral: true,
+  });
 }
