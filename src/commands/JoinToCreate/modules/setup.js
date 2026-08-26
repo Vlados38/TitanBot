@@ -8,14 +8,14 @@ import { InteractionHelper } from '../../../utils/interactionHelper.js';
 export default {
     async execute(interaction, config, client) {
         const category = interaction.options.getChannel('category');
-        const nameTemplate = interaction.options.getString('channel_name') || "{username}'s Room";
+        const nameTemplate = interaction.options.getString('channel_name') || '{username} - Комната';
         const userLimit = interaction.options.getInteger('user_limit') || 0;
         const bitrate = interaction.options.getInteger('bitrate') || 64;
         const guildId = interaction.guild.id;
 
         try {
             const triggerChannel = await interaction.guild.channels.create({
-                name: 'Join to Create',
+                name: 'Создать комнату',
                 type: ChannelType.GuildVoice,
                 parent: category?.id,
                 userLimit: userLimit,
@@ -36,14 +36,14 @@ export default {
             });
 
             const embed = successEmbed(
-                '✅ Join to Create Setup Complete',
-                `Created trigger channel: ${triggerChannel}\n\n` +
-                `**Settings:**\n` +
-                `• Temporary Channel Name Template: \`${nameTemplate}\`\n` +
-                `• User Limit: ${userLimit === 0 ? 'No limit' : userLimit + ' users'}\n` +
-                `• Bitrate: ${bitrate} kbps\n` +
-                `${category ?`• Category: ${category.name}`: '• Category: None (root level)'}\n\n` +
-                `When users join this channel, a temporary voice channel will be created for them.`
+                '✅ Настройка «Создать комнату» завершена',
+                `Канал-триггер создан: ${triggerChannel}\n\n` +
+                `**Настройки:**\n` +
+                `• Шаблон имени временной комнаты: \`${nameTemplate}\`\n` +
+                `• Лимит пользователей: ${userLimit === 0 ? 'Без ограничений' : userLimit + ' пользователей'}\n` +
+                `• Битрейт: ${bitrate} кбит/с\n` +
+                `${category ? `• Категория: ${category.name}` : '• Категория: Нет (корневой уровень)'}\n\n` +
+                `Когда пользователь зайдёт в этот канал, для него автоматически будет создан временный голосовой канал.`
             );
 
             try {
@@ -53,25 +53,25 @@ export default {
                     await InteractionHelper.safeReply(interaction, { embeds: [embed], flags: MessageFlags.Ephemeral });
                 }
             } catch (responseError) {
-                logger.error('Error responding to interaction:', responseError);
+                logger.error('Ошибка при ответе на взаимодействие:', responseError);
                 
                 try {
                     if (!interaction.replied) {
                         await InteractionHelper.safeReply(interaction, { embeds: [embed], flags: MessageFlags.Ephemeral });
                     }
                 } catch (e) {
-                    logger.error('All response attempts failed:', e);
+                    logger.error('Не удалось выполнить ни одну попытку ответа:', e);
                 }
             }
         } catch (error) {
             if (error instanceof TitanBotError) {
                 throw error;
             }
-            logger.error('Error in JoinToCreate setup:', error);
+            logger.error('Ошибка при настройке «Создать комнату»:', error);
             throw new TitanBotError(
-                `Setup failed: ${error.message}`,
+                `Настройка завершилась с ошибкой: ${error.message}`,
                 ErrorTypes.DISCORD_API,
-                'Failed to set up Join to Create system.'
+                'Не удалось настроить систему автоматического создания голосовых комнат.'
             );
         }
     }
