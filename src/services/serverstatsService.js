@@ -8,26 +8,26 @@ import botConfig from '../config/bot.js';
 
 export const COUNTER_TYPE_CONFIG = {
   members: {
-    label: 'Members + Bots',
-    baseName: 'Members & Bots',
+    label: 'Участники + Боты',
+    baseName: 'Участники и боты',
     emoji: '👥'
   },
   members_only: {
-    label: 'Members Only',
-    baseName: 'Members',
+    label: 'Только участники',
+    baseName: 'Участники',
     emoji: '👤'
   },
   bots: {
-    label: 'Bots Only',
-    baseName: 'Bots',
+    label: 'Только боты',
+    baseName: 'Боты',
     emoji: '🤖'
   }
 };
 
 function getCounterConfig(type) {
   return COUNTER_TYPE_CONFIG[type] || {
-    label: 'Unknown',
-    baseName: 'Counter',
+    label: 'Неизвестный',
+    baseName: 'Счётчик',
     emoji: '❓'
   };
 }
@@ -71,7 +71,7 @@ export async function getGuildCounterStats(guild) {
     memberCollection = await guild.members.fetch();
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
-      logger.debug(`Failed to fetch all guild members for ${guild.id}, using cache only`, error);
+      logger.debug(`Не удалось получить всех участников сервера ${guild.id}, используется только кэш`, error);
     }
   }
 
@@ -143,7 +143,7 @@ function sanitizeCounters(counters, guildId) {
 export async function updateCounter(client, guild, counter) {
   try {
     if (!counter || !counter.type || !counter.channelId) {
-      logger.warn('Skipping invalid counter in updateCounter:', counter);
+      logger.warn('Пропуск недействительного счётчика в updateCounter:', counter);
       return false;
     }
     
@@ -157,31 +157,31 @@ export async function updateCounter(client, guild, counter) {
       }
     }
     if (!channel) {
-      logger.warn(`Counter channel ${channelId} not found in guild ${guild.id}, skipping update`);
+      logger.warn(`Канал счётчика ${channelId} не найден на сервере ${guild.id}, обновление пропущено`);
       return false;
     }
 
     const count = await getCounterCount(guild, type);
     if (count === null) {
-      logger.error('Unknown counter type:', type);
+      logger.error('Неизвестный тип счётчика:', type);
       return false;
     }
 
     const baseName = getCounterBaseName(type);
     if (process.env.NODE_ENV !== 'production') {
-      logger.debug(`Base name: "${baseName}", Current name: "${channel.name}"`);
+      logger.debug(`Базовое имя: "${baseName}", текущее имя: "${channel.name}"`);
     }
     
     const newName = formatCounterChannelName(type, count);
     if (process.env.NODE_ENV !== 'production') {
-      logger.debug(`New name would be: "${newName}"`);
+      logger.debug(`Новое имя будет: "${newName}"`);
     }
     
     if (channel.name !== newName) {
       try {
         await channel.setName(newName);
         if (process.env.NODE_ENV !== 'production') {
-          logger.debug(`Updated channel name to: "${newName}"`);
+          logger.debug(`Имя канала обновлено на: "${newName}"`);
         }
 
         try {
@@ -190,31 +190,31 @@ export async function updateCounter(client, guild, counter) {
             guildId: guild.id,
             eventType: EVENT_TYPES.COUNTER_UPDATE,
             data: {
-              title: 'Counter Updated',
+              title: 'Счётчик обновлён',
               lines: [
-                formatLogLine('Type', getCounterTypeLabel(type)),
-                formatLogLine('Count', count.toString()),
-                formatLogLine('Channel', channel.toString()),
+                formatLogLine('Тип', getCounterTypeLabel(type)),
+                formatLogLine('Количество', count.toString()),
+                formatLogLine('Канал', channel.toString()),
               ],
               channelId: channel.id,
             },
           });
         } catch (error) {
-          logger.debug('Error logging counter update:', error);
+          logger.debug('Ошибка записи обновления счётчика в лог:', error);
         }
 
       } catch (error) {
-        logger.error(`Failed to update channel name for ${channel.id}:`, error);
+        logger.error(`Не удалось обновить имя канала ${channel.id}:`, error);
         return false;
       }
     } else {
       if (process.env.NODE_ENV !== 'production') {
-        logger.debug('Channel name already correct, no update needed');
+        logger.debug('Имя канала уже корректное, обновление не требуется');
       }
     }
     return true;
   } catch (error) {
-    logger.error("Error updating counter:", error);
+    logger.error("Ошибка обновления счётчика:", error);
     return false;
   }
 }
@@ -222,7 +222,7 @@ export async function updateCounter(client, guild, counter) {
 export async function getServerCounters(client, guildId) {
   try {
     if (!client || !client.db) {
-      logger.warn('Database not available for getServerCounters');
+      logger.warn('База данных недоступна для getServerCounters');
       return [];
     }
     
@@ -245,14 +245,14 @@ export async function getServerCounters(client, guildId) {
       counters = [data];
     } else {
       if (process.env.NODE_ENV !== 'production') {
-        logger.debug('No counter data found, returning empty array');
+        logger.debug('Данные счётчиков не найдены, возвращается пустой массив');
       }
       return [];
     }
 
     return sanitizeCounters(counters, guildId);
   } catch (error) {
-    logger.error("Error getting server counters:", error);
+    logger.error("Ошибка получения счётчиков сервера:", error);
     return [];
   }
 }
@@ -260,23 +260,23 @@ export async function getServerCounters(client, guildId) {
 export async function saveServerCounters(client, guildId, counters) {
   try {
     if (!client || !client.db) {
-      logger.warn('Database not available for saveServerCounters');
+      logger.warn('База данных недоступна для saveServerCounters');
       return false;
     }
     
     const sanitizedCounters = sanitizeCounters(counters, guildId);
 
     if (process.env.NODE_ENV !== 'production') {
-      logger.debug(`Saving ${sanitizedCounters.length} counters for guild ${guildId}:`, sanitizedCounters);
+      logger.debug(`Сохранение ${sanitizedCounters.length} счётчиков для сервера ${guildId}:`, sanitizedCounters);
     }
 
     await client.db.set(getServerCountersKey(guildId), sanitizedCounters);
     if (process.env.NODE_ENV !== 'production') {
-      logger.debug('Counters saved successfully');
+      logger.debug('Счётчики успешно сохранены');
     }
     return true;
   } catch (error) {
-    logger.error("Error saving server counters:", error);
+    logger.error("Ошибка сохранения счётчиков сервера:", error);
     return false;
   }
 }
