@@ -6,25 +6,27 @@ import { setUserLevel, getLevelingConfig } from '../../services/leveling/levelin
 import { createEmbed } from '../../utils/embeds.js';
 
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+
 export default {
   data: new SlashCommandBuilder()
     .setName('levelset')
-    .setDescription("Set a user's level to a specific value")
+    .setDescription('Установить пользователю определённый уровень')
     .addUserOption((option) =>
       option
         .setName('user')
-        .setDescription('The user to set the level for')
+        .setDescription('Пользователь, которому нужно установить уровень')
         .setRequired(true)
     )
     .addIntegerOption((option) =>
       option
         .setName('level')
-        .setDescription('The level to set')
+        .setDescription('Уровень, который нужно установить')
         .setRequired(true)
         .setMinValue(0)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .setDMPermission(false),
+
   category: 'Leveling',
 
   async execute(interaction, config, client) {
@@ -33,49 +35,62 @@ export default {
     const hasPermission = await checkUserPermissions(
       interaction,
       PermissionFlagsBits.ManageGuild,
-      'You need ManageGuild permission to use this command.'
+      'Для использования этой команды вам необходимо право **Управление сервером**.'
     );
+
     if (!hasPermission) return;
 
     const levelingConfig = await getLevelingConfig(client, interaction.guildId);
+
     if (!levelingConfig?.enabled) {
       await InteractionHelper.safeEditReply(interaction, {
         embeds: [
           new EmbedBuilder()
             .setColor('#f1c40f')
-            .setDescription('The leveling system is currently disabled on this server.')
+            .setDescription('Система уровней в данный момент отключена на этом сервере.')
         ],
         flags: MessageFlags.Ephemeral
       });
+
       return;
     }
 
     const targetUser = interaction.options.getUser('user');
     const newLevel = interaction.options.getInteger('level');
 
-    const member = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
+    const member = await interaction.guild.members
+      .fetch(targetUser.id)
+      .catch(() => null);
+
     if (!member) {
       throw new TitanBotError(
-        `User ${targetUser.id} not found in this guild`,
+        `Пользователь ${targetUser.id} не найден на этом сервере`,
         ErrorTypes.USER_INPUT,
-        'The specified user is not in this server.'
+        'Указанный пользователь не находится на этом сервере.'
       );
     }
 
-    const userData = await setUserLevel(client, interaction.guildId, targetUser.id, newLevel);
+    const userData = await setUserLevel(
+      client,
+      interaction.guildId,
+      targetUser.id,
+      newLevel
+    );
 
     await InteractionHelper.safeEditReply(interaction, {
       embeds: [
         createEmbed({
-          title: 'Level Set',
-          description: `Successfully set ${targetUser.tag}'s level to **${newLevel}**.\n**Total XP:** ${userData.totalXp}`,
+          title: 'Уровень установлен',
+          description:
+            `Пользователю ${targetUser.tag} успешно установлен уровень **${newLevel}**.` +
+            `\n**Всего XP:** ${userData.totalXp}`,
           color: 'success'
         })
       ]
     });
 
     logger.info(
-      `[ADMIN] User ${interaction.user.tag} set ${targetUser.tag}'s level to ${newLevel} in guild ${interaction.guildId}`
+      `[ADMIN] Пользователь ${interaction.user.tag} установил ${targetUser.tag} уровень ${newLevel} на сервере ${interaction.guildId}`
     );
   }
 };
