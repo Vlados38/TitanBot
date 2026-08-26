@@ -247,5 +247,5 @@ function getLevelColor(level) {
     return '#22C55E'; // Зелёный
   }
 
-  return '#5865F2'; // Discord Blurple
+  return '#b48ced'; // Discord Blurple
 }
