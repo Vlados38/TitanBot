@@ -9,34 +9,34 @@ import { ErrorTypes, replyUserError } from '../../utils/errorHandler.js';
 export default {
     data: new SlashCommandBuilder()
         .setName('goodbye')
-        .setDescription('Configure the goodbye message system')
+        .setDescription('Настройка системы сообщений при выходе участников')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .addSubcommand(subcommand =>
             subcommand
                 .setName('setup')
-                .setDescription('Set up the goodbye message')
+                .setDescription('Настроить сообщение при выходе')
                 .addChannelOption(option =>
                     option.setName('channel')
-                        .setDescription('The channel to send goodbye messages to')
+                        .setDescription('Канал, в который будут отправляться сообщения при выходе')
                         .addChannelTypes(ChannelType.GuildText)
                         .setRequired(true))
                 .addStringOption(option =>
                     option.setName('message')
-                        .setDescription('Goodbye message. Variables: {user}, {username}, {server}, {memberCount}')
+                        .setDescription('Сообщение при выходе. Переменные: {user}, {username}, {server}, {memberCount}')
                         .setRequired(true))
                 .addStringOption(option =>
                     option.setName('image')
-                        .setDescription('URL of the image to include in the goodbye message')
+                        .setDescription('URL изображения, которое будет добавлено в сообщение при выходе')
                         .setRequired(false))
                 .addBooleanOption(option =>
                     option.setName('ping')
-                        .setDescription('Whether to ping the user in the goodbye message')
+                        .setDescription('Упоминать ли пользователя в сообщении при выходе')
                         .setRequired(false))),
 
     async execute(interaction) {
         const deferSuccess = await InteractionHelper.safeDefer(interaction);
         if (!deferSuccess) {
-            logger.warn(`Goodbye interaction defer failed`, {
+            logger.warn(`Не удалось отложить взаимодействие Goodbye`, {
                 userId: interaction.user.id,
                 guildId: interaction.guildId,
                 commandName: 'goodbye'
@@ -47,7 +47,10 @@ export default {
         const { options, guild, client } = interaction;
 
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-            return await replyUserError(interaction, { type: ErrorTypes.PERMISSION, message: 'You need the **Manage Server** permission to use `/goodbye`.' });
+            return await replyUserError(interaction, {
+                type: ErrorTypes.PERMISSION,
+                message: 'Для использования `/goodbye` необходимо право **Управление сервером**.'
+            });
         }
 
         const subcommand = options.getSubcommand();
@@ -59,22 +62,41 @@ export default {
             const ping = options.getBoolean('ping') ?? false;
 
             const existingConfig = await getWelcomeConfig(client, guild.id);
+
             if (existingConfig?.goodbyeChannelId) {
-                logger.info(`[Goodbye] Setup blocked because config already exists in channel ${existingConfig.goodbyeChannelId} for guild ${guild.id}`);
-                return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: `Goodbye is already configured for <#${existingConfig.goodbyeChannelId}>. Use **/greet dashboard** to customize channel, message, ping, or image.` });
+                logger.info(
+                    `[Goodbye] Настройка заблокирована, поскольку конфигурация уже существует в канале ${existingConfig.goodbyeChannelId} для сервера ${guild.id}`
+                );
+
+                return await replyUserError(interaction, {
+                    type: ErrorTypes.UNKNOWN,
+                    message: `Goodbye уже настроен для <#${existingConfig.goodbyeChannelId}>. Используйте **/greet dashboard**, чтобы изменить канал, сообщение, упоминание или изображение.`
+                });
             }
 
             if (!message || message.trim().length === 0) {
-                logger.warn(`[Goodbye] Empty message provided by ${interaction.user.tag} in ${guild.name}`);
-                return await replyUserError(interaction, { type: ErrorTypes.VALIDATION, message: 'Goodbye message cannot be empty' });
+                logger.warn(
+                    `[Goodbye] Пользователь ${interaction.user.tag} указал пустое сообщение на сервере ${guild.name}`
+                );
+
+                return await replyUserError(interaction, {
+                    type: ErrorTypes.VALIDATION,
+                    message: 'Сообщение при выходе не может быть пустым.'
+                });
             }
 
             if (image) {
                 try {
                     new URL(image);
                 } catch (e) {
-                    logger.warn(`[Goodbye] Invalid image URL provided by ${interaction.user.tag}: ${image}`);
-                    return await replyUserError(interaction, { type: ErrorTypes.VALIDATION, message: 'Please provide a valid image URL (must start with http:// or https://' });
+                    logger.warn(
+                        `[Goodbye] Пользователь ${interaction.user.tag} указал недействительный URL изображения: ${image}`
+                    );
+
+                    return await replyUserError(interaction, {
+                        type: ErrorTypes.VALIDATION,
+                        message: 'Пожалуйста, укажите действительный URL изображения (он должен начинаться с http:// или https://).'
+                    });
                 }
             }
 
@@ -85,15 +107,17 @@ export default {
                     leaveMessage: message,
                     goodbyePing: ping,
                     leaveEmbed: {
-                        title: "Goodbye {user.tag}",
+                        title: "Прощай, {user.tag}",
                         description: message,
                         color: getColor('error'),
-                        footer: `Goodbye from ${guild.name}!`,
+                        footer: `До свидания от ${guild.name}!`,
                         ...(image && { image: { url: image } })
                     }
                 });
 
-                logger.info(`[Goodbye] Setup configured by ${interaction.user.tag} for guild ${guild.name} (${guild.id})`);
+                logger.info(
+                    `[Goodbye] Настройка выполнена пользователем ${interaction.user.tag} для сервера ${guild.name} (${guild.id})`
+                );
 
                 const previewMessage = formatWelcomeMessage(message, {
                     user: interaction.user,
@@ -102,23 +126,44 @@ export default {
 
                 const embed = new EmbedBuilder()
                     .setColor(getColor('success'))
-                    .setTitle('Goodbye System Configured')
-                    .setDescription(`Goodbye messages will now be sent to ${channel}`)
+                    .setTitle('Система Goodbye настроена')
+                    .setDescription(`Сообщения при выходе теперь будут отправляться в ${channel}`)
                     .addFields(
-                        { name: 'Message Preview', value: truncateForEmbedField(previewMessage) },
-                        { name: 'Ping User', value: ping ? 'Yes' : 'No' },
-                        { name: 'Status', value: 'Enabled' }
+                        {
+                            name: 'Предпросмотр сообщения',
+                            value: truncateForEmbedField(previewMessage)
+                        },
+                        {
+                            name: 'Упоминать пользователя',
+                            value: ping ? 'Да' : 'Нет'
+                        },
+                        {
+                            name: 'Статус',
+                            value: 'Включено'
+                        }
                     )
-                    .setFooter({ text: 'Tip: Use /greet dashboard to customize goodbye settings' });
+                    .setFooter({
+                        text: 'Совет: используйте /greet dashboard для настройки параметров Goodbye'
+                    });
 
                 if (image) {
                     embed.setImage(image);
                 }
 
-                await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+                await InteractionHelper.safeEditReply(interaction, {
+                    embeds: [embed]
+                });
+
             } catch (error) {
-                logger.error(`[Goodbye] Failed to setup goodbye system for guild ${guild.id}:`, error);
-                await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'An error occurred while configuring the goodbye system. Please try again.' });
+                logger.error(
+                    `[Goodbye] Не удалось настроить систему Goodbye для сервера ${guild.id}:`,
+                    error
+                );
+
+                await replyUserError(interaction, {
+                    type: ErrorTypes.UNKNOWN,
+                    message: 'Произошла ошибка при настройке системы сообщений при выходе. Попробуйте ещё раз.'
+                });
             }
         }
     },
