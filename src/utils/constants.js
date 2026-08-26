@@ -42,40 +42,40 @@ export const DEFAULT_GUILD_CONFIG = {
 };
 
 export const INTERACTION_TIMEOUTS = {
-    EXPIRE: 15 * 60 * 1000,  
-    DEFER_TIMEOUT: 3000,      
-    REPLY_TIMEOUT: 3000       
+    EXPIRE: 15 * 60 * 1000,      // Время истечения: 15 минут
+    DEFER_TIMEOUT: 3000,         // Таймаут отложенного ответа: 3 секунды
+    REPLY_TIMEOUT: 3000          // Таймаут ответа: 3 секунды
 };
 
 export const STORAGE_LIMITS = {
-    MAX_EMBED_TITLE: 256,
-    MAX_EMBED_DESCRIPTION: 4096,
-    MAX_EMBED_FIELDS: 25,
-    MAX_EMBED_FIELD_NAME: 256,
-    MAX_EMBED_FIELD_VALUE: 1024,
-    MAX_BUTTON_LABEL: 80,
-    MAX_BUTTON_CUSTOM_ID: 100,
-    MAX_SELECT_PLACEHOLDER: 150,
-    MAX_USER_INPUT: 2000,
-    MAX_CUSTOM_ID_PATTERN: /^[a-zA-Z0-9_-]+$/,
-    MAX_BUTTONS_PER_ROW: 5
+    MAX_EMBED_TITLE: 256,                    // Максимальная длина заголовка Embed
+    MAX_EMBED_DESCRIPTION: 4096,             // Максимальная длина описания Embed
+    MAX_EMBED_FIELDS: 25,                    // Максимальное количество полей Embed
+    MAX_EMBED_FIELD_NAME: 256,               // Максимальная длина названия поля Embed
+    MAX_EMBED_FIELD_VALUE: 1024,             // Максимальная длина значения поля Embed
+    MAX_BUTTON_LABEL: 80,                    // Максимальная длина текста кнопки
+    MAX_BUTTON_CUSTOM_ID: 100,               // Максимальная длина custom ID кнопки
+    MAX_SELECT_PLACEHOLDER: 150,             // Максимальная длина текста-заполнителя меню
+    MAX_USER_INPUT: 2000,                    // Максимальная длина пользовательского ввода
+    MAX_CUSTOM_ID_PATTERN: /^[a-zA-Z0-9_-]+$/, // Допустимые символы custom ID
+    MAX_BUTTONS_PER_ROW: 5                   // Максимальное количество кнопок в строке
 };
 
 export const DEFAULTS = {
-    EMPTY_ARRAY: [],
-    EMPTY_OBJECT: {},
-    EMPTY_STRING: '',
-    ZERO: 0,
-    FALSE: false,
-    NULL: null
+    EMPTY_ARRAY: [],       // Пустой массив
+    EMPTY_OBJECT: {},      // Пустой объект
+    EMPTY_STRING: '',      // Пустая строка
+    ZERO: 0,               // Ноль
+    FALSE: false,          // Ложное значение
+    NULL: null             // Пустое значение
 };
 
 export const ERROR_DEFAULTS = {
-    INVALID_INPUT: 'Invalid input provided',
-    DATABASE_ERROR: 'Database operation failed',
-    NOT_FOUND: 'Not found',
-    INSUFFICIENT_PERMISSIONS: 'Insufficient permissions',
-    INVALID_FORMAT: 'Invalid format'
+    INVALID_INPUT: 'Предоставлены некорректные вводные данные',
+    DATABASE_ERROR: 'Ошибка операции с базой данных',
+    NOT_FOUND: 'Не найдено',
+    INSUFFICIENT_PERMISSIONS: 'Недостаточно прав',
+    INVALID_FORMAT: 'Некорректный формат'
 };
 
 export const TIME = {
