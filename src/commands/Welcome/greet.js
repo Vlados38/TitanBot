@@ -8,18 +8,21 @@ export default {
     slashOnly: true,
     data: new SlashCommandBuilder()
         .setName('greet')
-        .setDescription('Manage welcome & goodbye settings')
+        .setDescription('Управление настройками приветствия и прощания')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .addSubcommand(subcommand =>
             subcommand
                 .setName('dashboard')
-                .setDescription('Open the welcome & goodbye configuration dashboard'),
+                .setDescription('Открыть панель настройки приветствий и прощаний'),
         ),
 
     async execute(interaction, config, client) {
         try {
             if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-                return await replyUserError(interaction, { type: ErrorTypes.PERMISSION, message: 'You need the **Manage Server** permission to use `/greet`.' });
+                return await replyUserError(interaction, {
+                    type: ErrorTypes.PERMISSION,
+                    message: 'Для использования `/greet` необходимо право **Управление сервером**.'
+                });
             }
 
             const subcommand = interaction.options.getSubcommand();
@@ -28,12 +31,16 @@ export default {
                 case 'dashboard':
                     return await greetDashboard.execute(interaction, config, client);
                 default:
-                    logger.warn(`Unknown /greet subcommand: ${subcommand}`);
+                    logger.warn(`Неизвестная подкоманда /greet: ${subcommand}`);
             }
         } catch (error) {
             if (error instanceof TitanBotError) {
-                return await replyUserError(interaction, { type: ErrorTypes.CONFIGURATION, message: error.userMessage || 'Something went wrong.' });
+                return await replyUserError(interaction, {
+                    type: ErrorTypes.CONFIGURATION,
+                    message: error.userMessage || 'Что-то пошло не так.'
+                });
             }
+
             await handleInteractionError(interaction, error, { command: 'greet' });
         }
     },
