@@ -78,7 +78,7 @@ export default {
     // ─────────────────────────────────────
 
     const embed = new EmbedBuilder()
-      .setColor('#5865F2')
+      .setColor('#b48ced')
       .setTitle('🏆 РЕЙТИНГ СЕРВЕРА')
       .setDescription(
         [
