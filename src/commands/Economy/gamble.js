@@ -1,3 +1,8 @@
+// ==================== /gamble ====================
+// Команда азартной игры.
+// Переведены пользовательские описания, сообщения, embed и footer.
+// Логика команды не изменена.
+
 import { SlashCommandBuilder } from 'discord.js';
 import { createEmbed, successEmbed, infoEmbed, warningEmbed } from '../../utils/embeds.js';
 import { getEconomyData, setEconomyData } from '../../utils/economy.js';
@@ -13,11 +18,11 @@ const GAMBLE_COOLDOWN = 5 * 60 * 1000;
 export default {
     data: new SlashCommandBuilder()
         .setName('gamble')
-        .setDescription('Gamble your money for a chance to win more')
+        .setDescription('Испытать удачу и попытаться выиграть больше денег')
         .addIntegerOption(option =>
             option
                 .setName('amount')
-                .setDescription('Amount of cash to gamble')
+                .setDescription('Сумма наличных для ставки')
                 .setRequired(true)
                 .setMinValue(1)
         ),
@@ -25,107 +30,109 @@ export default {
     execute: withErrorHandling(async (interaction, config, client) => {
         const deferred = await InteractionHelper.safeDefer(interaction);
         if (!deferred) return;
-            
-            const userId = interaction.user.id;
-            const guildId = interaction.guildId;
-            const betAmount = interaction.options.getInteger("amount");
-            const now = Date.now();
 
-            const userData = await getEconomyData(client, guildId, userId);
-            const lastGamble = userData.lastGamble || 0;
-            let cloverCount = userData.inventory["lucky_clover"] || 0;
-            let charmCount = userData.inventory["lucky_charm"] || 0;
+        const userId = interaction.user.id;
+        const guildId = interaction.guildId;
+        const betAmount = interaction.options.getInteger('amount');
+        const now = Date.now();
 
-            if (now < lastGamble + GAMBLE_COOLDOWN) {
-                const remaining = lastGamble + GAMBLE_COOLDOWN - now;
-                const minutes = Math.floor(remaining / (1000 * 60));
-                const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+        const userData = await getEconomyData(client, guildId, userId);
+        const lastGamble = userData.lastGamble || 0;
+        let cloverCount = userData.inventory['lucky_clover'] || 0;
+        let charmCount = userData.inventory['lucky_charm'] || 0;
 
-                throw createError(
-                    "Gamble cooldown active",
-                    ErrorTypes.RATE_LIMIT,
-                    `You need to cool down before gambling again. Wait **${minutes}m ${seconds}s**.`,
-                    { remaining, cooldownType: 'gamble' }
-                );
-            }
+        if (now < lastGamble + GAMBLE_COOLDOWN) {
+            const remaining = lastGamble + GAMBLE_COOLDOWN - now;
+            const minutes = Math.floor(remaining / (1000 * 60));
+            const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
 
-            if (userData.wallet < betAmount) {
-                throw createError(
-                    "Insufficient cash for gamble",
-                    ErrorTypes.VALIDATION,
-                    `You only have $${userData.wallet.toLocaleString()} cash, but you are trying to bet $${betAmount.toLocaleString()}.`,
-                    { required: betAmount, current: userData.wallet }
-                );
-            }
+            throw createError(
+                'Азартная игра пока недоступна',
+                ErrorTypes.RATE_LIMIT,
+                `Вам нужно немного отдохнуть перед следующей ставкой. Подождите **${minutes}м ${seconds}с**.`,
+                { remaining, cooldownType: 'gamble' }
+            );
+        }
 
-            let winChance = BASE_WIN_CHANCE;
-            let cloverMessage = "";
-            let usedClover = false;
-            let usedCharm = false;
+        if (userData.wallet < betAmount) {
+            throw createError(
+                'Недостаточно наличных для ставки',
+                ErrorTypes.VALIDATION,
+                `У вас только $${userData.wallet.toLocaleString()} наличных, но вы пытаетесь поставить $${betAmount.toLocaleString()}.`,
+                { required: betAmount, current: userData.wallet }
+            );
+        }
 
-            if (cloverCount > 0) {
-                winChance += CLOVER_WIN_BONUS;
-                userData.inventory["lucky_clover"] -= 1;
-                cloverMessage = `\n🍀 **Lucky Clover Consumed:** Your win chance was boosted!`;
-                usedClover = true;
-            }
-            
-            else if (charmCount > 0) {
-                winChance += CHARM_WIN_BONUS;
-                userData.inventory["lucky_charm"] -= 1;
-                cloverMessage = `\n🍀 **Lucky Charm Used (${charmCount - 1} uses remaining):** Your win chance was boosted!`;
-                usedCharm = true;
-            }
+        let winChance = BASE_WIN_CHANCE;
+        let cloverMessage = '';
+        let usedClover = false;
+        let usedCharm = false;
 
-            const win = Math.random() < winChance;
-            let cashChange = 0;
-            let resultEmbed;
+        if (cloverCount > 0) {
+            winChance += CLOVER_WIN_BONUS;
+            userData.inventory['lucky_clover'] -= 1;
+            cloverMessage = '\n🍀 **Счастливый клевер использован:** ваш шанс на победу увеличен!';
+            usedClover = true;
+        } else if (charmCount > 0) {
+            winChance += CHARM_WIN_BONUS;
+            userData.inventory['lucky_charm'] -= 1;
+            cloverMessage = `\n🍀 **Счастливый амулет использован (осталось использований: ${charmCount - 1}):** ваш шанс на победу увеличен!`;
+            usedCharm = true;
+        }
 
-            if (win) {
-                const amountWon = Math.floor(betAmount * PAYOUT_MULTIPLIER);
-                // Net change: the bet is replaced by the payout (bet was at stake, not pre-deducted)
-                cashChange = amountWon - betAmount;
+        const win = Math.random() < winChance;
+        let cashChange = 0;
+        let resultEmbed;
 
-                resultEmbed = successEmbed(
-                    "🎉 You Won!",
-                    `You successfully gambled and turned your **$${betAmount.toLocaleString()}** bet into **$${amountWon.toLocaleString()}**!${cloverMessage}`,
-                );
-            } else {
-cashChange = -betAmount;
+        if (win) {
+            const amountWon = Math.floor(betAmount * PAYOUT_MULTIPLIER);
 
-                resultEmbed = warningEmbed(
-                    "💔 You Lost...",
-                    `The dice rolled against you. You lost your **$${betAmount.toLocaleString()}** bet.`,
-                );
-            }
+            // Чистое изменение баланса: ставка заменяется выигрышем.
+            // Ставка заранее не вычиталась из баланса.
+            cashChange = amountWon - betAmount;
 
-            userData.wallet = (userData.wallet || 0) + cashChange;
-userData.lastGamble = now;
+            resultEmbed = successEmbed(
+                '🎉 Вы выиграли!',
+                `Вам повезло! Ваша ставка **$${betAmount.toLocaleString()}** превратилась в **$${amountWon.toLocaleString()}**!${cloverMessage}`,
+            );
+        } else {
+            cashChange = -betAmount;
 
-            await setEconomyData(client, guildId, userId, userData);
+            resultEmbed = warningEmbed(
+                '💔 Вы проиграли...',
+                `Удача была не на вашей стороне. Вы потеряли свою ставку в размере **$${betAmount.toLocaleString()}**.`,
+            );
+        }
 
-            const newCash = userData.wallet;
+        userData.wallet = (userData.wallet || 0) + cashChange;
+        userData.lastGamble = now;
 
-            resultEmbed.addFields({
-                name: "New Cash Balance",
-                value: `$${newCash.toLocaleString()}`,
-                inline: true,
+        await setEconomyData(client, guildId, userId, userData);
+
+        const newCash = userData.wallet;
+
+        resultEmbed.addFields({
+            name: 'Новый баланс наличных',
+            value: `$${newCash.toLocaleString()}`,
+            inline: true,
+        });
+
+        if (usedClover) {
+            resultEmbed.setFooter({
+                text: `У вас осталось ${userData.inventory['lucky_clover']} счастливых клевер. Шанс на победу составлял ${Math.round(winChance * 100)}%.`,
             });
+        } else if (usedCharm) {
+            resultEmbed.setFooter({
+                text: `У вас осталось ${userData.inventory['lucky_charm']} использований счастливого амулета. Шанс на победу составлял ${Math.round(winChance * 100)}%.`,
+            });
+        } else {
+            resultEmbed.setFooter({
+                text: `Следующая ставка будет доступна через 5 минут. Базовый шанс на победу: ${Math.round(BASE_WIN_CHANCE * 100)}%.`,
+            });
+        }
 
-            if (usedClover) {
-                resultEmbed.setFooter({
-                    text: `You have ${userData.inventory["lucky_clover"]} Lucky Clovers left. Win chance was ${Math.round(winChance * 100)}%.`,
-                });
-            } else if (usedCharm) {
-                resultEmbed.setFooter({
-                    text: `You have ${userData.inventory["lucky_charm"]} Lucky Charm uses left. Win chance was ${Math.round(winChance * 100)}%.`,
-                });
-            } else {
-                resultEmbed.setFooter({
-                    text: `Next gamble available in 5 minutes. Base win chance: ${Math.round(BASE_WIN_CHANCE * 100)}%.`,
-                });
-            }
-
-            await InteractionHelper.safeEditReply(interaction, { embeds: [resultEmbed] });
-    }, { command: 'gamble' })
+        await InteractionHelper.safeEditReply(interaction, {
+            embeds: [resultEmbed],
+        });
+    }, { command: 'gamble' }),
 };
