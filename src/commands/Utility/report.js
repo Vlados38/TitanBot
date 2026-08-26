@@ -8,22 +8,22 @@ import reportSetchannel from './modules/report_setchannel.js';
 export default {
     data: new SlashCommandBuilder()
         .setName('report')
-        .setDescription('Report a user to server staff, or configure where reports are sent.')
+        .setDescription('Пожаловаться на пользователя администрации сервера или настроить канал для жалоб.')
         .setDMPermission(false)
         .addSubcommand(subcommand =>
             subcommand
                 .setName('file')
-                .setDescription('Report a user to the server moderation team.')
+                .setDescription('Отправить жалобу на пользователя команде модерации сервера.')
                 .addUserOption(option =>
                     option
                         .setName('user')
-                        .setDescription('The user you want to report.')
+                        .setDescription('Пользователь, на которого вы хотите пожаловаться.')
                         .setRequired(true),
                 )
                 .addStringOption(option =>
                     option
                         .setName('reason')
-                        .setDescription('The reason for the report (be detailed).')
+                        .setDescription('Причина жалобы (опишите подробно).')
                         .setRequired(true)
                         .setMaxLength(500),
                 ),
@@ -31,11 +31,11 @@ export default {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('setchannel')
-                .setDescription('Set the channel where user reports are sent. (Manage Server required)')
+                .setDescription('Установить канал, в который будут отправляться жалобы. (Требуется Управление сервером)')
                 .addChannelOption(option =>
                     option
                         .setName('channel')
-                        .setDescription('The text channel to receive reports.')
+                        .setDescription('Текстовый канал для получения жалоб.')
                         .addChannelTypes(ChannelType.GuildText)
                         .setRequired(true),
                 ),
@@ -53,6 +53,9 @@ export default {
             return await reportSetchannel.execute(interaction, config, client);
         }
 
-        return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'Unknown subcommand.' });
+        return await replyUserError(interaction, {
+            type: ErrorTypes.UNKNOWN,
+            message: 'Неизвестная подкоманда.'
+        });
     },
 };
