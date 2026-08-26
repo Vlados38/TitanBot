@@ -10,22 +10,22 @@ import { updateTicketPriority } from '../../services/ticket.js';
 export default {
     data: new SlashCommandBuilder()
         .setName("priority")
-        .setDescription("Sets the priority level for the current support ticket.")
+        .setDescription("Устанавливает уровень приоритета для текущего тикета.")
         .addStringOption((option) =>
             option
                 .setName("level")
-                .setDescription("The priority level for the ticket.")
+                .setDescription("Уровень приоритета тикета.")
                 .setRequired(true)
                 .addChoices(
-                    { name: "Urgent", value: "urgent" },
-                    { name: "High", value: "high" },
-                    { name: "Medium", value: "medium" },
-                    { name: "Low", value: "low" },
-                    { name: "None", value: "none" },
+                    { name: "Срочный", value: "urgent" },
+                    { name: "Высокий", value: "high" },
+                    { name: "Средний", value: "medium" },
+                    { name: "Низкий", value: "low" },
+                    { name: "Нет", value: "none" },
                 ),
-            )
+        )
         .setDMPermission(false),
-    category: "Ticket",
+    category: "Тикеты",
 
     async execute(interaction, guildConfig, client) {
         const deferred = await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral });
@@ -34,27 +34,43 @@ export default {
         }
 
         const permissionContext = await getTicketPermissionContext({ client, interaction });
+
         if (!permissionContext.ticketData) {
-            return await replyUserError(interaction, { type: ErrorTypes.VALIDATION, message: 'This command can only be used in a valid ticket channel.' });
+            return await replyUserError(interaction, {
+                type: ErrorTypes.VALIDATION,
+                message: 'Эту команду можно использовать только в действительном канале тикета.',
+            });
         }
 
         if (!permissionContext.canManageTicket) {
-            return await replyUserError(interaction, { type: ErrorTypes.PERMISSION, message: 'You need the `Manage Channels` permission or the configured `Ticket Staff Role` to change ticket priority.' });
+            return await replyUserError(interaction, {
+                type: ErrorTypes.PERMISSION,
+                message: 'Для изменения приоритета тикета у вас должно быть разрешение `Manage Channels` или настроенная роль `Ticket Staff`.',
+            });
         }
 
         const priorityLevel = interaction.options.getString("level");
+
         await updateTicketPriority(interaction.channel, priorityLevel, interaction.user);
+
+        const priorityNames = {
+            urgent: "СРОЧНЫЙ",
+            high: "ВЫСОКИЙ",
+            medium: "СРЕДНИЙ",
+            low: "НИЗКИЙ",
+            none: "НЕТ",
+        };
 
         await InteractionHelper.safeEditReply(interaction, {
             embeds: [
                 successEmbed(
-                    "Priority Updated",
-                    `Ticket priority set to **${priorityLevel.toUpperCase()}**.`,
+                    "Приоритет обновлён",
+                    `Приоритет тикета установлен на **${priorityNames[priorityLevel]}**.`,
                 ),
             ],
         });
 
-        logger.info('Ticket priority updated successfully', {
+        logger.info('Приоритет тикета успешно обновлён', {
             userId: interaction.user.id,
             userTag: interaction.user.tag,
             channelId: interaction.channel.id,
