@@ -1,5 +1,3 @@
-Извини — я должен был сразу выдать готовый файл. Ниже полный код с переводом пользовательских текстов на русский. Код и идентификаторы не изменял.
-
 import { getColor, getDefaultApplicationQuestions, botConfig } from '../../../config/bot.js';
 import {
     ActionRowBuilder,
