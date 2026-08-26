@@ -4,6 +4,7 @@ import { deleteBirthday } from '../../../utils/database.js';
 import { logger } from '../../../utils/logger.js';
 
 import { InteractionHelper } from '../../../utils/interactionHelper.js';
+
 export default {
     async execute(interaction, config, client) {
         await InteractionHelper.safeDefer(interaction);
@@ -15,8 +16,8 @@ export default {
         if (sortedBirthdays.length === 0) {
             const embed = new EmbedBuilder()
                 .setColor(0xFF0000)
-                .setTitle('No Birthdays')
-                .setDescription('No birthdays have been set in this server yet.');
+                .setTitle('Дни рождения отсутствуют')
+                .setDescription('В этом сервере ещё не указаны дни рождения.');
             return await InteractionHelper.safeEditReply(interaction, {
                 embeds: [embed]
             });
@@ -34,6 +35,7 @@ export default {
                 staleUserIds.push(birthday.userId);
                 continue;
             }
+
             displayIndex++;
             birthdayList += `${displayIndex}. <@${birthday.userId}> - ${birthday.monthName} ${birthday.day}\n`;
         }
@@ -47,19 +49,24 @@ export default {
         if (displayIndex === 0) {
             const embed = new EmbedBuilder()
                 .setColor(0xFF0000)
-                .setTitle('No Birthdays')
-                .setDescription('No birthdays have been set by current server members.');
+                .setTitle('Дни рождения отсутствуют')
+                .setDescription('У нынешних участников сервера не указаны дни рождения.');
             return await InteractionHelper.safeEditReply(interaction, {
                 embeds: [embed]
             });
         }
 
-        birthdayList = `**${displayIndex} birthday${displayIndex !== 1 ? 's' : ''} in ${interaction.guild.name}**\n\n` + birthdayList;
+        birthdayList =
+            `**${displayIndex} ${displayIndex === 1 ? 'день рождения' : 'дней рождения'} на сервере ${interaction.guild.name}**\n\n` +
+            birthdayList;
 
         const embed = new EmbedBuilder()
             .setColor(0x00FF00)
-            .setTitle('Server Birthdays')
-            .setDescription(`${birthdayList}\n\nTotal: ${displayIndex} birthday${displayIndex !== 1 ? 's' : ''}`);
+            .setTitle('Дни рождения на сервере')
+            .setDescription(
+                `${birthdayList}\n\n` +
+                `Всего: ${displayIndex} ${displayIndex === 1 ? 'день рождения' : 'дней рождения'}`
+            );
 
         await InteractionHelper.safeEditReply(interaction, {
             embeds: [embed]
