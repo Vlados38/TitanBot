@@ -23,7 +23,7 @@ export const helpBackButton = {
             });
         } catch (error) {
             if (error?.code === 40060 || error?.code === 10062) {
-                logger.warn('Help back button interaction already acknowledged or expired.', {
+                logger.warn('Взаимодействие с кнопкой возврата в меню помощи уже подтверждено или истекло.', {
                     event: 'interaction.help.button.unavailable',
                     errorCode: String(error.code),
                     customId: interaction.customId,
@@ -41,27 +41,29 @@ export const helpBugReportButton = {
     name: BUG_REPORT_BUTTON_ID,
     async execute(interaction, client) {
         const githubButton = new ButtonBuilder()
-            .setLabel('🐛 Report Bug on GitHub')
+            .setLabel('🐛 Сообщить об ошибке')
             .setStyle(ButtonStyle.Link)
-            .setURL('https://github.com/codebymitch/TitanBot/issues');
+            .setURL('https://discord.gg/48wahU5fNE');
 
         const bugRow = new ActionRowBuilder().addComponents(githubButton);
 
         const bugReportEmbed = createEmbed({
-            title: '🐛 Bug Report',
-            description: 'Found a bug? Please report it on our GitHub Issues page!\n\n' +
-                '**When reporting a bug, please include:**\n' +
-                '• 📝 Detailed description of the issue\n' +
-                '• 📋 Steps to reproduce the problem\n' +
-                '• 📸 Screenshots if applicable\n' +
-                '• 💻 Your bot version and environment\n\n' +
-                'This helps us fix issues faster and more effectively!',
+            title: '🐛 Сообщение об ошибке',
+            description: 'Нашли ошибку? Пожалуйста, сообщите о ней на сервере поддержки!\n\n' +
+                '**При сообщении об ошибке укажите:**\n' +
+                '• 📝 Подробное описание проблемы\n' +
+                '• 📋 Шаги для воспроизведения проблемы\n' +
+                '• 📸 Скриншоты, если это необходимо\n' +
+                'Наша кошкодевочка немного глупенькая, поэтому\n\n' +
+                'Своевременное информирование поможет нам быстрее и эффективнее исправлять проблемы!',
             color: 'error'
         });
+
         bugReportEmbed.setFooter({
-            text: 'TitanBot Bug Reporting System',
+            text: 'Система сообщений об ошибках NekoBot',
             iconURL: client.user.displayAvatarURL()
         });
+
         bugReportEmbed.setTimestamp();
 
         await interaction.reply({
@@ -124,7 +126,7 @@ export const helpPaginationButton = {
             await interaction.editReply({ embeds, components });
         } catch (error) {
             if (error?.code === 40060 || error?.code === 10062) {
-                logger.warn('Help pagination interaction already acknowledged or expired.', {
+                logger.warn('Взаимодействие с кнопкой пагинации помощи уже подтверждено или истекло.', {
                     event: 'interaction.help.pagination.unavailable',
                     errorCode: String(error.code),
                     customId: interaction.customId,
