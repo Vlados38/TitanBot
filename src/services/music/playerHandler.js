@@ -1,4 +1,5 @@
-// Player event handlers for Riffy. Adapted from Musicify playerHandler (Apache-2.0).
+// Обработчики событий плеера для Riffy.
+// Адаптировано из Musicify playerHandler (Apache-2.0).
 
 import { logger } from '../../utils/logger.js';
 import { getGuildMusicData, clearUpdateInterval } from './playerStore.js';
@@ -12,6 +13,7 @@ const IDLE_DISCONNECT_MS = 30 * 1000;
 
 async function editOrSendPlayerMessage(client, guildData, channelId, embed, components) {
     const channel = client.channels.cache.get(channelId);
+
     if (!channel) {
         guildData.playerMessageId = null;
         guildData.playerChannelId = null;
@@ -37,13 +39,14 @@ async function editOrSendPlayerMessage(client, guildData, channelId, embed, comp
         guildData.playerMessageId = newMsg.id;
         guildData.playerChannelId = channel.id;
     } catch (error) {
-        logger.error('Failed to send music player message:', error);
+        logger.error('Не удалось отправить сообщение музыкального плеера:', error);
     }
 }
 
 export async function refreshPlayerMessage(client, guildId) {
     try {
         const player = client.riffy?.players?.get(guildId);
+
         if (!player?.current) {
             return;
         }
@@ -52,15 +55,24 @@ export async function refreshPlayerMessage(client, guildId) {
         const embed = buildNowPlayingEmbed(player.current, player, guildData);
         const components = buildPlayerButtonRows(player, guildData);
         const channelId = guildData.playerChannelId || player.textChannel;
-        await editOrSendPlayerMessage(client, guildData, channelId, embed, components);
+
+        await editOrSendPlayerMessage(
+            client,
+            guildData,
+            channelId,
+            embed,
+            components
+        );
     } catch (error) {
-        logger.error('Failed to refresh music player message:', error);
+        logger.error('Не удалось обновить сообщение музыкального плеера:', error);
     }
 }
 
 function startUpdateInterval(client, guildId) {
     const guildData = getGuildMusicData(guildId);
+
     clearUpdateInterval(guildData);
+
     guildData.updateInterval = setInterval(() => {
         refreshPlayerMessage(client, guildId);
     }, UPDATE_INTERVAL_MS);
@@ -68,70 +80,103 @@ function startUpdateInterval(client, guildId) {
 
 export function setupPlayerHandler(client) {
     if (!client.riffy) {
-        logger.warn('Riffy not initialized; music player handlers not attached.');
+        logger.warn('Riffy не инициализирован; обработчики музыкального плеера не подключены.');
         return;
     }
 
-    // Lavalink nodes often flap (reconnect -> error -> reconnect). Throttle all
-    // per-node messages to one line per interval, log the first connect only,
-    // and skip reconnect noise entirely since it is meaningless during flapping.
+    // Узлы Lavalink могут часто переподключаться
+    // (переподключение → ошибка → переподключение).
+    // Ограничиваем сообщения для каждого узла до одной строки за интервал,
+    // записываем только первое подключение и полностью игнорируем шум
+    // от повторных подключений, поскольку он не несёт полезной информации.
     const nodeLogState = new Map();
     const NODE_LOG_INTERVAL_MS = 5 * 60 * 1000;
 
     const shouldLogNodeEvent = (nodeName) => {
-        const prev = nodeLogState.get(nodeName) ?? { lastLogAt: 0, hasConnected: false };
+        const prev = nodeLogState.get(nodeName) ?? {
+            lastLogAt: 0,
+            hasConnected: false,
+        };
+
         const now = Date.now();
+
         if (now - prev.lastLogAt < NODE_LOG_INTERVAL_MS) {
             return false;
         }
-        nodeLogState.set(nodeName, { ...prev, lastLogAt: now });
+
+        nodeLogState.set(nodeName, {
+            ...prev,
+            lastLogAt: now,
+        });
+
         return true;
     };
 
     const markNodeConnected = (nodeName) => {
-        const prev = nodeLogState.get(nodeName) ?? { lastLogAt: 0, hasConnected: false };
-        nodeLogState.set(nodeName, { ...prev, hasConnected: true });
+        const prev = nodeLogState.get(nodeName) ?? {
+            lastLogAt: 0,
+            hasConnected: false,
+        };
+
+        nodeLogState.set(nodeName, {
+            ...prev,
+            hasConnected: true,
+        });
     };
 
     client.riffy.on('nodeConnect', (node) => {
-        const prev = nodeLogState.get(node.name) ?? { lastLogAt: 0, hasConnected: false };
+        const prev = nodeLogState.get(node.name) ?? {
+            lastLogAt: 0,
+            hasConnected: false,
+        };
+
         if (prev.hasConnected) {
             return;
         }
+
         markNodeConnected(node.name);
-        logger.info(`Lavalink node "${node.name}" connected.`);
+
+        logger.info(`Узел Lavalink "${node.name}" подключён.`);
     });
 
     client.riffy.on('nodeReconnect', () => {
-        // Intentionally silent — reconnect spam is not actionable during flapping.
+        // Намеренно ничего не записываем —
+        // частые сообщения о переподключении не несут полезной информации.
     });
 
     client.riffy.on('nodeError', (node, error) => {
         if (!shouldLogNodeEvent(node.name)) {
             return;
         }
-        logger.warn(`Lavalink node "${node.name}" error: ${error?.message || error}`);
+
+        logger.warn(
+            `Ошибка узла Lavalink "${node.name}": ${error?.message || error}`
+        );
     });
 
     client.riffy.on('nodeDisconnect', (node) => {
         if (!shouldLogNodeEvent(node.name)) {
             return;
         }
-        logger.warn(`Lavalink node "${node.name}" disconnected.`);
+
+        logger.warn(`Узел Lavalink "${node.name}" отключён.`);
     });
 
     client.riffy.on('trackStart', async (player, track) => {
         try {
             const guildData = getGuildMusicData(player.guildId);
 
-            // Keep the Lavalink player's loop mode aligned with the stored preference.
-            // Skip temporarily clears track-loop so it can advance; restore it here.
+            // Синхронизируем режим повтора плеера Lavalink
+            // с сохранённой настройкой.
+            // Skip временно отключает повтор текущего трека,
+            // чтобы перейти дальше; здесь режим повтора восстанавливается.
             if (guildData.loop && player.loop !== guildData.loop) {
                 player.setLoop(guildData.loop);
             }
 
             if (player.previous) {
                 guildData.previousTracks.push(player.previous);
+
                 if (guildData.previousTracks.length > 20) {
                     guildData.previousTracks.shift();
                 }
@@ -145,16 +190,25 @@ export function setupPlayerHandler(client) {
             const embed = buildNowPlayingEmbed(track, player, guildData);
             const components = buildPlayerButtonRows(player, guildData);
             const channelId = guildData.playerChannelId || player.textChannel;
-            await editOrSendPlayerMessage(client, guildData, channelId, embed, components);
+
+            await editOrSendPlayerMessage(
+                client,
+                guildData,
+                channelId,
+                embed,
+                components
+            );
+
             startUpdateInterval(client, player.guildId);
         } catch (error) {
-            logger.error('Music trackStart error:', error);
+            logger.error('Ошибка music trackStart:', error);
         }
     });
 
     client.riffy.on('queueEnd', async (player) => {
         try {
             const guildData = getGuildMusicData(player.guildId);
+
             clearUpdateInterval(guildData);
 
             if (guildData.autoplay) {
@@ -164,14 +218,21 @@ export function setupPlayerHandler(client) {
 
             if (guildData.playerMessageId && guildData.playerChannelId) {
                 try {
-                    const channel = client.channels.cache.get(guildData.playerChannelId);
+                    const channel = client.channels.cache.get(
+                        guildData.playerChannelId
+                    );
+
                     if (channel) {
-                        const msg = await channel.messages.fetch(guildData.playerMessageId);
+                        const msg = await channel.messages.fetch(
+                            guildData.playerMessageId
+                        );
+
                         await msg.delete();
                     }
                 } catch {
-                    // already deleted
+                    // Сообщение уже удалено.
                 }
+
                 guildData.playerMessageId = null;
                 guildData.playerChannelId = null;
             }
@@ -180,36 +241,52 @@ export function setupPlayerHandler(client) {
                 if (guildData.idleTimeout) {
                     clearTimeout(guildData.idleTimeout);
                 }
+
                 guildData.idleTimeout = setTimeout(() => {
                     try {
-                        const currentPlayer = client.riffy.players.get(player.guildId);
-                        if (currentPlayer && !currentPlayer.playing && !currentPlayer.paused && !currentPlayer.current) {
+                        const currentPlayer =
+                            client.riffy.players.get(player.guildId);
+
+                        if (
+                            currentPlayer &&
+                            !currentPlayer.playing &&
+                            !currentPlayer.paused &&
+                            !currentPlayer.current
+                        ) {
                             currentPlayer.destroy();
                         }
                     } catch {
-                        // player already destroyed
+                        // Плеер уже уничтожен.
                     }
+
                     guildData.idleTimeout = null;
                 }, IDLE_DISCONNECT_MS);
             }
         } catch (error) {
-            logger.error('Music queueEnd error:', error);
+            logger.error('Ошибка music queueEnd:', error);
         }
     });
 
     client.riffy.on('playerDisconnect', async (player) => {
         const guildData = getGuildMusicData(player.guildId);
+
         clearUpdateInterval(guildData);
 
         if (guildData.playerMessageId && guildData.playerChannelId) {
             try {
-                const channel = client.channels.cache.get(guildData.playerChannelId);
+                const channel = client.channels.cache.get(
+                    guildData.playerChannelId
+                );
+
                 if (channel) {
-                    const msg = await channel.messages.fetch(guildData.playerMessageId);
+                    const msg = await channel.messages.fetch(
+                        guildData.playerMessageId
+                    );
+
                     await msg.delete();
                 }
             } catch {
-                // already deleted
+                // Сообщение уже удалено.
             }
         }
 
@@ -217,6 +294,7 @@ export function setupPlayerHandler(client) {
         guildData.playerChannelId = null;
         guildData.previousTracks = [];
         guildData.autoPaused = false;
+
         if (guildData.idleTimeout) {
             clearTimeout(guildData.idleTimeout);
             guildData.idleTimeout = null;
@@ -224,18 +302,31 @@ export function setupPlayerHandler(client) {
     });
 
     client.riffy.on('trackError', async (player, track, payload) => {
-        logger.error(`Track error in ${player.guildId} for "${track?.info?.title}":`, payload?.error || payload);
+        logger.error(
+            `Ошибка трека в ${player.guildId} для "${track?.info?.title}":`,
+            payload?.error || payload
+        );
+
         const guildData = getGuildMusicData(player.guildId);
+
         if (guildData.playerChannelId) {
-            const channel = client.channels.cache.get(guildData.playerChannelId);
+            const channel = client.channels.cache.get(
+                guildData.playerChannelId
+            );
+
             if (channel) {
-                channel.send(`Failed to play **${track?.info?.title || 'track'}**. Skipping...`).catch(() => null);
+                channel.send(
+                    `Не удалось воспроизвести **${track?.info?.title || 'трек'}**. Пропускаем...`
+                ).catch(() => null);
             }
         }
     });
 
     client.riffy.on('trackStuck', async (player, track, payload) => {
-        logger.warn(`Track stuck in ${player.guildId} for "${track?.info?.title}" (${payload?.thresholdMs}ms)`);
+        logger.warn(
+            `Трек завис в ${player.guildId} для "${track?.info?.title}" ` +
+            `(${payload?.thresholdMs}мс)`
+        );
     });
 }
 
@@ -248,7 +339,10 @@ export async function shutdownMusic(client) {
         try {
             player.destroy();
         } catch (error) {
-            logger.debug('Error destroying music player during shutdown:', error.message);
+            logger.debug(
+                'Ошибка уничтожения музыкального плеера при завершении работы:',
+                error.message
+            );
         }
     }
 }
