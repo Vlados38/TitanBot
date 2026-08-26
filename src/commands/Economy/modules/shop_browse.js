@@ -15,33 +15,44 @@ export default {
             const createShopEmbed = (page) => {
                 const startIndex = (page - 1) * ITEMS_PER_PAGE;
                 const pageItems = shopItems.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
                 const embed = new EmbedBuilder()
-                    .setTitle('Store')
+                    .setTitle('Магазин')
                     .setColor(getColor('primary'))
-                    .setDescription('Use `/buy item_id:<id> quantity:<amount>` to purchase an item.');
+                    .setDescription('Используйте `/buy item_id:<id> quantity:<количество>`, чтобы купить предмет.');
+
                 pageItems.forEach(item => {
                     embed.addFields({
                         name: `${item.name} (${item.id})`,
-                        value: `**Type:** ${item.type}\n **Price:** $${item.price.toLocaleString()}\n${item.description}`,
+                        value:
+                            `**Тип:** ${item.type}\n` +
+                            `**Цена:** $${item.price.toLocaleString()}\n` +
+                            `${item.description}`,
                         inline: false,
                     });
                 });
-                embed.setFooter({ text: `Page ${page}/${totalPages}` });
+
+                embed.setFooter({
+                    text: `Страница ${page}/${totalPages}`,
+                });
+
                 return embed;
             };
 
             const createShopComponents = (page) => {
                 if (totalPages <= 1) return [];
+
                 return [
                     new ActionRowBuilder().addComponents(
                         new ButtonBuilder()
                             .setCustomId('shop_prev')
-                            .setLabel('⬅️ Previous')
+                            .setLabel('⬅️ Предыдущая')
                             .setStyle(ButtonStyle.Secondary)
                             .setDisabled(page === 1),
+
                         new ButtonBuilder()
                             .setCustomId('shop_next')
-                            .setLabel('Next ➡️')
+                            .setLabel('Следующая ➡️')
                             .setStyle(ButtonStyle.Secondary)
                             .setDisabled(page === totalPages),
                     ),
@@ -61,14 +72,24 @@ export default {
 
             collector.on('collect', async (buttonInteraction) => {
                 if (buttonInteraction.user.id !== interaction.user.id) {
-                    await buttonInteraction.reply({ content: '❌ You cannot use these buttons. Run `/shop` to get your own shop view.', flags: 64 });
+                    await buttonInteraction.reply({
+                        content: '❌ Вы не можете использовать эти кнопки. Используйте `/shop`, чтобы открыть свой магазин.',
+                        flags: MessageFlags.Ephemeral,
+                    });
                     return;
                 }
+
                 const { customId } = buttonInteraction;
+
                 if (customId === 'shop_prev' || customId === 'shop_next') {
                     await buttonInteraction.deferUpdate();
-                    if (customId === 'shop_prev' && currentPage > 1) currentPage--;
-                    else if (customId === 'shop_next' && currentPage < totalPages) currentPage++;
+
+                    if (customId === 'shop_prev' && currentPage > 1) {
+                        currentPage--;
+                    } else if (customId === 'shop_next' && currentPage < totalPages) {
+                        currentPage++;
+                    }
+
                     await buttonInteraction.editReply({
                         embeds: [createShopEmbed(currentPage)],
                         components: createShopComponents(currentPage),
@@ -79,8 +100,14 @@ export default {
             collector.on('end', async () => {
                 try {
                     const disabledComponents = createShopComponents(currentPage);
-                    disabledComponents.forEach(row => row.components.forEach(btn => btn.setDisabled(true)));
-                    await message.edit({ components: disabledComponents });
+
+                    disabledComponents.forEach(row =>
+                        row.components.forEach(button => button.setDisabled(true))
+                    );
+
+                    await message.edit({
+                        components: disabledComponents,
+                    });
                 } catch (error) {
                     logger.debug('shop_browse: could not disable components on collector end', {
                         error: error.message,
@@ -88,7 +115,9 @@ export default {
                 }
             });
         } catch (error) {
-            await handleInteractionError(interaction, error, { command: 'shop_browse' });
+            await handleInteractionError(interaction, error, {
+                command: 'shop_browse',
+            });
         }
     },
 };
