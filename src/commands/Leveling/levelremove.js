@@ -6,25 +6,27 @@ import { removeLevels, getUserLevelData, getLevelingConfig } from '../../service
 import { createEmbed } from '../../utils/embeds.js';
 
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+
 export default {
   data: new SlashCommandBuilder()
     .setName('levelremove')
-    .setDescription('Remove levels from a user')
+    .setDescription('Удалить уровни у пользователя')
     .addUserOption((option) =>
       option
         .setName('user')
-        .setDescription('The user to remove levels from')
+        .setDescription('Пользователь, у которого нужно удалить уровни')
         .setRequired(true)
     )
     .addIntegerOption((option) =>
       option
         .setName('levels')
-        .setDescription('Number of levels to remove')
+        .setDescription('Количество уровней для удаления')
         .setRequired(true)
         .setMinValue(1)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .setDMPermission(false),
+
   category: 'Leveling',
 
   async execute(interaction, config, client) {
@@ -33,58 +35,76 @@ export default {
     const hasPermission = await checkUserPermissions(
       interaction,
       PermissionFlagsBits.ManageGuild,
-      'You need ManageGuild permission to use this command.'
+      'Для использования этой команды вам необходимо право **Управление сервером**.'
     );
+
     if (!hasPermission) return;
 
     const levelingConfig = await getLevelingConfig(client, interaction.guildId);
+
     if (!levelingConfig?.enabled) {
       await InteractionHelper.safeEditReply(interaction, {
         embeds: [
           new EmbedBuilder()
             .setColor('#f1c40f')
-            .setDescription('The leveling system is currently disabled on this server.')
+            .setDescription('Система уровней в данный момент отключена на этом сервере.')
         ],
         flags: MessageFlags.Ephemeral
       });
+
       return;
     }
 
     const targetUser = interaction.options.getUser('user');
     const levelsToRemove = interaction.options.getInteger('levels');
 
-    const member = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
+    const member = await interaction.guild.members
+      .fetch(targetUser.id)
+      .catch(() => null);
+
     if (!member) {
       throw new TitanBotError(
-        `User ${targetUser.id} not found in this guild`,
+        `Пользователь ${targetUser.id} не найден на этом сервере`,
         ErrorTypes.USER_INPUT,
-        'The specified user is not in this server.'
+        'Указанный пользователь не находится на этом сервере.'
       );
     }
 
-    const userData = await getUserLevelData(client, interaction.guildId, targetUser.id);
+    const userData = await getUserLevelData(
+      client,
+      interaction.guildId,
+      targetUser.id
+    );
+
     if (userData.level === 0) {
       throw new TitanBotError(
-        `User ${targetUser.id} is already at minimum level`,
+        `Пользователь ${targetUser.id} уже находится на минимальном уровне`,
         ErrorTypes.VALIDATION,
-        `${targetUser.tag} is already at level 0 and cannot have levels removed.`
+        `${targetUser.tag} уже находится на **0 уровне**, поэтому удалить уровни невозможно.`
       );
     }
 
-    const updatedData = await removeLevels(client, interaction.guildId, targetUser.id, levelsToRemove);
+    const updatedData = await removeLevels(
+      client,
+      interaction.guildId,
+      targetUser.id,
+      levelsToRemove
+    );
 
     await InteractionHelper.safeEditReply(interaction, {
       embeds: [
         createEmbed({
-          title: 'Levels Removed',
-          description: `Successfully removed ${levelsToRemove} levels from ${targetUser.tag}.\n**New Level:** ${updatedData.level}`,
+          title: 'Уровни удалены',
+          description:
+            `У пользователя ${targetUser.tag} успешно удалено **${levelsToRemove}** ур. ` +
+            `\n**Новый уровень:** ${updatedData.level}`,
           color: 'success'
         })
       ]
     });
 
     logger.info(
-      `[ADMIN] User ${interaction.user.tag} removed ${levelsToRemove} levels from ${targetUser.tag} in guild ${interaction.guildId}`
+      `[ADMIN] Пользователь ${interaction.user.tag} удалил ${levelsToRemove} уровней у ${targetUser.tag} на сервере ${interaction.guildId}`
     );
   }
 };
