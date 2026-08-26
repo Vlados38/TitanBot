@@ -1,9 +1,24 @@
 import { getColor } from '../../config/bot.js';
-import { SlashCommandBuilder, PermissionFlagsBits, ChannelType, MessageFlags } from 'discord.js';
+import {
+    SlashCommandBuilder,
+    PermissionFlagsBits,
+    ChannelType,
+    MessageFlags,
+} from 'discord.js';
+
 import { createEmbed } from '../../utils/embeds.js';
-import { getLevelingConfig, saveLevelingConfig } from '../../services/leveling/leveling.js';
+import {
+    getLevelingConfig,
+    saveLevelingConfig,
+} from '../../services/leveling/leveling.js';
+
 import { botHasPermission } from '../../utils/permissionGuard.js';
-import { TitanBotError, ErrorTypes, replyUserError } from '../../utils/errorHandler.js';
+import {
+    TitanBotError,
+    ErrorTypes,
+    replyUserError,
+} from '../../utils/errorHandler.js';
+
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { logger } from '../../utils/logger.js';
 import levelDashboard from './modules/level_dashboard.js';
@@ -14,56 +29,64 @@ export default {
         .setDescription('Управление системой уровней')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .setDMPermission(false)
+
+        // /level setup
         .addSubcommand((subcommand) =>
             subcommand
                 .setName('setup')
-                .setDescription('Настроить систему уровней — также включит её')
+                .setDescription('Настроить и включить систему уровней')
+
                 .addChannelOption((option) =>
                     option
                         .setName('channel')
                         .setDescription('Канал для уведомлений о повышении уровня')
                         .addChannelTypes(ChannelType.GuildText)
-                        .setRequired(true),
+                        .setRequired(true)
                 )
+
                 .addIntegerOption((option) =>
                     option
                         .setName('xp_min')
-                        .setDescription('Минимальное количество XP за сообщение (по умолчанию: 15)')
+                        .setDescription('Минимальный XP за сообщение')
                         .setMinValue(1)
                         .setMaxValue(500)
-                        .setRequired(false),
+                        .setRequired(false)
                 )
+
                 .addIntegerOption((option) =>
                     option
                         .setName('xp_max')
-                        .setDescription('Максимальное количество XP за сообщение (по умолчанию: 25)')
+                        .setDescription('Максимальный XP за сообщение')
                         .setMinValue(1)
                         .setMaxValue(500)
-                        .setRequired(false),
+                        .setRequired(false)
                 )
+
                 .addStringOption((option) =>
                     option
                         .setName('message')
-                        .setDescription(
-                            'Сообщение при повышении уровня. Используйте {user} и {level} (по умолчанию используется готовый текст)',
-                        )
+                        .setDescription('Сообщение повышения уровня ({user} и {level})')
                         .setMaxLength(500)
-                        .setRequired(false),
+                        .setRequired(false)
                 )
+
                 .addIntegerOption((option) =>
                     option
                         .setName('xp_cooldown')
-                        .setDescription('Задержка между начислениями XP пользователю в секундах (по умолчанию: 60)')
+                        .setDescription('Задержка начисления XP в секундах')
                         .setMinValue(0)
                         .setMaxValue(3600)
-                        .setRequired(false),
-                ),
+                        .setRequired(false)
+                )
         )
+
+        // /level dashboard
         .addSubcommand((subcommand) =>
             subcommand
                 .setName('dashboard')
-                .setDescription('Открыть интерактивную панель настройки системы уровней'),
+                .setDescription('Открыть панель управления уровнями')
         ),
+
     category: 'Leveling',
 
     async execute(interaction, config, client) {
@@ -73,23 +96,45 @@ export default {
 
         if (!deferred) return;
 
-        if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+        if (
+            !interaction.memberPermissions?.has(
+                PermissionFlagsBits.ManageGuild
+            )
+        ) {
             return await replyUserError(interaction, {
                 type: ErrorTypes.PERMISSION,
-                message: 'Для использования этой команды вам необходимо право **Управление сервером**.',
+                message:
+                    'Для использования этой команды вам необходимо право **Управление сервером**.',
             });
         }
 
         const subcommand = interaction.options.getSubcommand();
 
+        // ==========================================
+        // /level dashboard
+        // ==========================================
+
         if (subcommand === 'dashboard') {
-            return levelDashboard.execute(interaction, config, client);
+            return levelDashboard.execute(
+                interaction,
+                config,
+                client
+            );
         }
 
+        // ==========================================
+        // /level setup
+        // ==========================================
+
         if (subcommand === 'setup') {
-            const channel = interaction.options.getChannel('channel');
-            const xpMin = interaction.options.getInteger('xp_min') ?? 15;
-            const xpMax = interaction.options.getInteger('xp_max') ?? 25;
+            const channel =
+                interaction.options.getChannel('channel');
+
+            const xpMin =
+                interaction.options.getInteger('xp_min') ?? 15;
+
+            const xpMax =
+                interaction.options.getInteger('xp_max') ?? 25;
 
             const message =
                 interaction.options.getString('message') ??
@@ -98,49 +143,72 @@ export default {
             const xpCooldown =
                 interaction.options.getInteger('xp_cooldown') ?? 60;
 
+            // Проверяем диапазон XP
             if (xpMin > xpMax) {
                 return await replyUserError(interaction, {
                     type: ErrorTypes.VALIDATION,
-                    message: `Минимальное количество XP (**${xpMin}**) не может быть больше максимального (**${xpMax}**).`,
+                    message:
+                        `Минимальное количество XP (**${xpMin}**) ` +
+                        `не может быть больше максимального (**${xpMax}**).`,
                 });
             }
 
-            if (!botHasPermission(channel, ['SendMessages', 'EmbedLinks'])) {
+            // Проверяем права бота в канале
+            if (
+                !botHasPermission(channel, [
+                    'SendMessages',
+                    'EmbedLinks',
+                ])
+            ) {
                 throw new TitanBotError(
                     'Bot missing permissions in the specified channel',
                     ErrorTypes.PERMISSION,
-                    `Мне необходимы права **Отправка сообщений** и **Встраивание ссылок** в канале ${channel}, чтобы отправлять уведомления о повышении уровня.`,
+                    `Мне необходимы права **Отправка сообщений** и ` +
+                    `**Встраивание ссылок** в канале ${channel}, ` +
+                    `чтобы отправлять уведомления о повышении уровня.`,
                 );
             }
 
-            const existingConfig = await getLevelingConfig(
-                client,
-                interaction.guildId
-            );
+            // Получаем существующую конфигурацию
+            const existingConfig =
+                await getLevelingConfig(
+                    client,
+                    interaction.guildId
+                );
 
+            // Если система уже настроена
             if (existingConfig.configured) {
                 return await replyUserError(interaction, {
                     type: ErrorTypes.UNKNOWN,
                     message:
-                        `Система уровней уже настроена на этом сервере (уведомления о повышении уровня отправляются в <#${existingConfig.levelUpChannel}>).\n\n` +
+                        `Система уровней уже настроена на этом сервере ` +
+                        `(уведомления отправляются в <#${existingConfig.levelUpChannel}>).\n\n` +
                         `Используйте \`/level dashboard\`, чтобы изменить настройки.`,
                 });
             }
 
+            // Новая конфигурация
             const newConfig = {
                 ...existingConfig,
+
                 configured: true,
                 enabled: true,
+
                 levelUpChannel: channel.id,
+
                 xpRange: {
                     min: xpMin,
                     max: xpMax,
                 },
-                xpCooldown: xpCooldown,
+
+                xpCooldown,
+
                 levelUpMessage: message,
+
                 announceLevelUp: true,
             };
 
+            // Сохраняем
             await saveLevelingConfig(
                 client,
                 interaction.guildId,
@@ -158,21 +226,30 @@ export default {
                 }
             );
 
-            return await InteractionHelper.safeEditReply(interaction, {
-                embeds: [
-                    createEmbed({
-                        title: 'Система уровней настроена',
-                        description:
-                            `Система уровней теперь **включена** и готова к работе.\n\n` +
-                            `**Канал уведомлений:** ${channel}\n` +
-                            `**XP за сообщение:** ${xpMin} – ${xpMax}\n` +
-                            `**Задержка XP:** ${xpCooldown} сек.\n` +
-                            `**Сообщение при повышении уровня:** \`${message}\`\n\n` +
-                            `Используйте \`/level dashboard\`, чтобы в любое время изменить эти настройки.`,
-                        color: 'success',
-                    }),
-                ],
-            });
+            // Ответ
+            return await InteractionHelper.safeEditReply(
+                interaction,
+                {
+                    embeds: [
+                        createEmbed({
+                            title: 'Система уровней настроена',
+
+                            description:
+                                `Система уровней теперь **включена** и готова к работе.\n\n` +
+
+                                `**Канал уведомлений:** ${channel}\n` +
+                                `**XP за сообщение:** ${xpMin} – ${xpMax}\n` +
+                                `**Задержка XP:** ${xpCooldown} сек.\n` +
+                                `**Сообщение:** \`${message}\`\n\n` +
+
+                                `Используйте \`/level dashboard\`, ` +
+                                `чтобы изменить настройки.`,
+
+                            color: 'success',
+                        }),
+                    ],
+                }
+            );
         }
     },
 };
