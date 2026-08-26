@@ -99,30 +99,30 @@ class ConfigService {
     static validateConfigKeySafety(key) {
         if (typeof key !== 'string' || key.trim().length === 0) {
             throw createError(
-                'Invalid setting key',
+                'Недопустимый ключ настройки',
                 ErrorTypes.VALIDATION,
-                'Setting key must be a non-empty string.',
+                'Ключ настройки должен быть непустой строкой.',
                 { key }
             );
         }
 
         if (this.UNSAFE_KEYS.includes(key)) {
             throw createError(
-                'Unsafe setting key',
+                'Небезопасный ключ настройки',
                 ErrorTypes.VALIDATION,
-                'This setting key is not allowed for security reasons.',
+                'Этот ключ настройки запрещён по соображениям безопасности.',
                 { key }
             );
         }
     }
 
     static async validateConfigValue(key, value, guild) {
-        logger.debug(`[CONFIG_SERVICE] Validating config value`, { key, type: typeof value });
+        logger.debug(`[CONFIG_SERVICE] Проверка значения конфигурации`, { key, type: typeof value });
 
         const rule = CONFIG_VALIDATION_RULES[key];
         
         if (!rule) {
-            logger.warn(`[CONFIG_SERVICE] No validation rule for key: ${key}`);
+            logger.warn(`[CONFIG_SERVICE] Правило проверки отсутствует для ключа: ${key}`);
             return true; 
         }
 
@@ -135,9 +135,9 @@ class ConfigService {
             const parsed = zodSchema.safeParse(value);
             if (!parsed.success) {
                 throw createError(
-                    'Invalid configuration value',
+                    'Недопустимое значение конфигурации',
                     ErrorTypes.VALIDATION,
-                    'Provided configuration value is invalid.',
+                    'Указанное значение конфигурации недопустимо.',
                     {
                         key,
                         errorCode: 'VALIDATION_FAILED',
@@ -154,9 +154,9 @@ class ConfigService {
         if (rule.type === 'channel') {
             if (typeof value !== 'string' && typeof value !== 'object') {
                 throw createError(
-                    'Invalid channel',
+                    'Недопустимый канал',
                     ErrorTypes.VALIDATION,
-                    'Channel ID must be a string.',
+                    'ID канала должен быть строкой.',
                     { key, provided: typeof value }
                 );
             }
@@ -166,18 +166,18 @@ class ConfigService {
 
             if (!channel) {
                 throw createError(
-                    'Channel not found',
+                    'Канал не найден',
                     ErrorTypes.VALIDATION,
-                    'The specified channel does not exist.',
+                    'Указанный канал не существует.',
                     { key, channelId }
                 );
             }
 
             if (!channel.isTextBased?.()) {
                 throw createError(
-                    'Invalid channel type',
+                    'Недопустимый тип канала',
                     ErrorTypes.VALIDATION,
-                    'Only text channels are allowed.',
+                    'Разрешены только текстовые каналы.',
                     { key, channelId, channelType: channel.type }
                 );
             }
@@ -188,9 +188,9 @@ class ConfigService {
         if (rule.type === 'role') {
             if (typeof value !== 'string' && typeof value !== 'object') {
                 throw createError(
-                    'Invalid role',
+                    'Недопустимая роль',
                     ErrorTypes.VALIDATION,
-                    'Role ID must be a string.',
+                    'ID роли должен быть строкой.',
                     { key, provided: typeof value }
                 );
             }
@@ -200,9 +200,9 @@ class ConfigService {
 
             if (!role) {
                 throw createError(
-                    'Role not found',
+                    'Роль не найдена',
                     ErrorTypes.VALIDATION,
-                    'The specified role does not exist.',
+                    'Указанная роль не существует.',
                     { key, roleId }
                 );
             }
@@ -210,9 +210,9 @@ class ConfigService {
             const botHighestRole = guild.members.me?.roles.highest;
             if (role.position >= botHighestRole?.position) {
                 throw createError(
-                    'Role too high',
+                    'Роль находится слишком высоко',
                     ErrorTypes.VALIDATION,
-                    "Can't set roles higher than my highest role.",
+                    'Нельзя устанавливать роли, находящиеся выше моей самой высокой роли.',
                     { key, roleId, rolePosition: role.position }
                 );
             }
@@ -223,9 +223,9 @@ class ConfigService {
         if (rule.type === 'string') {
             if (typeof value !== 'string') {
                 throw createError(
-                    'Invalid value type',
+                    'Недопустимый тип значения',
                     ErrorTypes.VALIDATION,
-                    'Value must be a string.',
+                    'Значение должно быть строкой.',
                     { key, provided: typeof value }
                 );
             }
@@ -233,18 +233,18 @@ class ConfigService {
             const length = value.length;
             if (rule.maxLength && length > rule.maxLength) {
                 throw createError(
-                    'Value too long',
+                    'Значение слишком длинное',
                     ErrorTypes.VALIDATION,
-                    `Value cannot exceed **${rule.maxLength}** characters.`,
+                    `Значение не может содержать более **${rule.maxLength}** символов.`,
                     { key, current: length, max: rule.maxLength }
                 );
             }
 
             if (rule.minLength && length < rule.minLength) {
                 throw createError(
-                    'Value too short',
+                    'Значение слишком короткое',
                     ErrorTypes.VALIDATION,
-                    `Value must be at least **${rule.minLength}** character(s).`,
+                    `Значение должно содержать как минимум **${rule.minLength}** символ(а/ов).`,
                     { key, current: length, min: rule.minLength }
                 );
             }
@@ -255,27 +255,27 @@ class ConfigService {
         if (rule.type === 'number') {
             if (typeof value !== 'number') {
                 throw createError(
-                    'Invalid value type',
+                    'Недопустимый тип значения',
                     ErrorTypes.VALIDATION,
-                    'Value must be a number.',
+                    'Значение должно быть числом.',
                     { key, provided: typeof value }
                 );
             }
 
             if (rule.min !== undefined && value < rule.min) {
                 throw createError(
-                    'Value too low',
+                    'Значение слишком маленькое',
                     ErrorTypes.VALIDATION,
-                    `Value must be at least **${rule.min}**.`,
+                    `Значение должно быть не меньше **${rule.min}**.`,
                     { key, value, min: rule.min }
                 );
             }
 
             if (rule.max !== undefined && value > rule.max) {
                 throw createError(
-                    'Value too high',
+                    'Значение слишком большое',
                     ErrorTypes.VALIDATION,
-                    `Value cannot exceed **${rule.max}**.`,
+                    `Значение не может быть больше **${rule.max}**.`,
                     { key, value, max: rule.max }
                 );
             }
@@ -286,9 +286,9 @@ class ConfigService {
         if (rule.type === 'boolean') {
             if (typeof value !== 'boolean') {
                 throw createError(
-                    'Invalid value type',
+                    'Недопустимый тип значения',
                     ErrorTypes.VALIDATION,
-                    'Value must be true or false.',
+                    'Значение должно быть true или false.',
                     { key, provided: typeof value }
                 );
             }
@@ -299,9 +299,9 @@ class ConfigService {
         if (rule.type === 'object') {
             if (typeof value !== 'object' || value === null) {
                 throw createError(
-                    'Invalid value type',
+                    'Недопустимый тип значения',
                     ErrorTypes.VALIDATION,
-                    'Value must be an object.',
+                    'Значение должно быть объектом.',
                     { key, provided: typeof value }
                 );
             }
@@ -313,7 +313,7 @@ class ConfigService {
     }
 
     static detectConflicts(currentConfig, key, value) {
-        logger.debug(`[CONFIG_SERVICE] Checking for config conflicts`, { key });
+        logger.debug(`[CONFIG_SERVICE] Проверка конфликтов конфигурации`, { key });
 
         const conflicts = [];
         const relatedSettings = SETTING_CONFLICTS[key] || [];
@@ -323,7 +323,7 @@ class ConfigService {
                 
                 if (currentConfig.logging?.enabled) {
                     conflicts.push(
-                        `Disabling log channel but logging system is still enabled. Consider disabling logging first.`
+                        `Канал логирования отключается, но система логирования всё ещё включена. Рекомендуется сначала отключить логирование.`
                     );
                 }
             }
@@ -333,7 +333,7 @@ class ConfigService {
     }
 
     static async updateSetting(client, guildId, key, value, adminId) {
-        logger.info(`[CONFIG_SERVICE] Updating setting`, {
+        logger.info(`[CONFIG_SERVICE] Обновление настройки`, {
             guildId,
             key,
             adminId,
@@ -343,15 +343,15 @@ class ConfigService {
         this.validateConfigKeySafety(key);
 
         if (this.PROTECTED_SETTINGS.includes(key)) {
-            logger.warn(`[CONFIG_SERVICE] Attempted to modify protected setting`, {
+            logger.warn(`[CONFIG_SERVICE] Попытка изменить защищённую настройку`, {
                 key,
                 guildId,
                 adminId
             });
             throw createError(
-                'Protected setting',
+                'Защищённая настройка',
                 ErrorTypes.VALIDATION,
-                `The setting **${key}** cannot be modified.`,
+                `Настройку **${key}** нельзя изменить.`,
                 { key }
             );
         }
@@ -359,9 +359,9 @@ class ConfigService {
         const guild = client.guilds.cache.get(guildId);
         if (!guild) {
             throw createError(
-                'Guild not found',
+                'Сервер не найден',
                 ErrorTypes.VALIDATION,
-                'Guild does not exist.',
+                'Сервер не существует.',
                 { guildId }
             );
         }
@@ -372,7 +372,7 @@ class ConfigService {
 
         const conflicts = this.detectConflicts(currentConfig, key, value);
         if (conflicts.length > 0) {
-            logger.warn(`[CONFIG_SERVICE] Config conflicts detected`, {
+            logger.warn(`[CONFIG_SERVICE] Обнаружены конфликты конфигурации`, {
                 guildId,
                 key,
                 conflicts
@@ -396,7 +396,7 @@ class ConfigService {
             conflicts
         });
 
-        logger.info(`[CONFIG_SERVICE] Setting updated successfully`, {
+        logger.info(`[CONFIG_SERVICE] Настройка успешно обновлена`, {
             guildId,
             key,
             adminId,
@@ -415,7 +415,7 @@ class ConfigService {
     }
 
     static async bulkUpdate(client, guildId, updates, adminId) {
-        logger.info(`[CONFIG_SERVICE] Bulk updating settings`, {
+        logger.info(`[CONFIG_SERVICE] Массовое обновление настроек`, {
             guildId,
             updateCount: Object.keys(updates).length,
             adminId
@@ -424,9 +424,9 @@ class ConfigService {
         const guild = client.guilds.cache.get(guildId);
         if (!guild) {
             throw createError(
-                'Guild not found',
+                'Сервер не найден',
                 ErrorTypes.VALIDATION,
-                'Guild does not exist.',
+                'Сервер не существует.',
                 { guildId }
             );
         }
@@ -439,7 +439,7 @@ class ConfigService {
                 this.validateConfigKeySafety(key);
 
                 if (this.PROTECTED_SETTINGS.includes(key)) {
-                    validationErrors.push(`${key}: Protected setting cannot be modified`);
+                    validationErrors.push(`${key}: Защищённую настройку нельзя изменить`);
                     continue;
                 }
 
@@ -451,14 +451,14 @@ class ConfigService {
         }
 
         if (validationErrors.length > 0) {
-            logger.warn(`[CONFIG_SERVICE] Bulk update validation failed`, {
+            logger.warn(`[CONFIG_SERVICE] Массовое обновление не прошло проверку`, {
                 guildId,
                 errors: validationErrors
             });
             throw createError(
-                'Validation failed',
+                'Проверка не пройдена',
                 ErrorTypes.VALIDATION,
-                `Some settings failed validation:\n• ${validationErrors.join('\n• ')}`,
+                `Некоторые настройки не прошли проверку:\n• ${validationErrors.join('\n• ')}`,
                 { errors: validationErrors }
             );
         }
@@ -479,7 +479,7 @@ class ConfigService {
             });
         }
 
-        logger.info(`[CONFIG_SERVICE] Bulk update completed`, {
+        logger.info(`[CONFIG_SERVICE] Массовое обновление завершено`, {
             guildId,
             adminId,
             appliedCount: Object.keys(validatedUpdates).length,
@@ -507,7 +507,7 @@ class ConfigService {
             history.shift();
         }
 
-        logger.debug(`[CONFIG_SERVICE] Change recorded for audit trail`, {
+        logger.debug(`[CONFIG_SERVICE] Изменение записано в журнал аудита`, {
             guildId,
             key: changeData.key,
             historySize: history.length
@@ -520,7 +520,7 @@ class ConfigService {
     }
 
     static async resetSetting(client, guildId, key, adminId) {
-        logger.info(`[CONFIG_SERVICE] Resetting setting`, {
+        logger.info(`[CONFIG_SERVICE] Сброс настройки`, {
             guildId,
             key,
             adminId
@@ -543,7 +543,7 @@ class ConfigService {
             timestamp: new Date().toISOString()
         });
 
-        logger.info(`[CONFIG_SERVICE] Setting reset successfully`, {
+        logger.info(`[CONFIG_SERVICE] Настройка успешно сброшена`, {
             guildId,
             key,
             adminId,
@@ -559,16 +559,16 @@ class ConfigService {
     }
 
     static async getConfigSummary(client, guildId) {
-        logger.debug(`[CONFIG_SERVICE] Fetching config summary`, { guildId });
+        logger.debug(`[CONFIG_SERVICE] Получение сводки конфигурации`, { guildId });
 
         const config = await getGuildConfig(client, guildId);
         const guild = client.guilds.cache.get(guildId);
 
         if (!guild) {
             throw createError(
-                'Guild not found',
+                'Сервер не найден',
                 ErrorTypes.VALIDATION,
-                'Guild does not exist.',
+                'Сервер не существует.',
                 { guildId }
             );
         }
@@ -585,15 +585,15 @@ class ConfigService {
                 const channel = guild.channels.cache.get(value);
                 summary[key] = {
                     id: value,
-                    name: channel?.name || 'Unknown',
-                    status: channel ? 'Valid' : 'Missing'
+                    name: channel?.name || 'Неизвестно',
+                    status: channel ? 'Действителен' : 'Отсутствует'
                 };
             } else if (rule.type === 'role' && value) {
                 const role = guild.roles.cache.get(value);
                 summary[key] = {
                     id: value,
-                    name: role?.name || 'Unknown',
-                    status: role ? 'Valid' : 'Missing'
+                    name: role?.name || 'Неизвестно',
+                    status: role ? 'Действительна' : 'Отсутствует'
                 };
             } else {
                 summary[key] = value;
@@ -618,8 +618,8 @@ class ConfigService {
 wrapServiceClassMethods(ConfigService, (methodName) => ({
     service: 'ConfigService',
     operation: methodName,
-    message: `Configuration service operation failed: ${methodName}`,
-    userMessage: 'A configuration operation failed. Please try again in a moment.'
+    message: `Ошибка операции сервиса конфигурации: ${methodName}`,
+    userMessage: 'Произошла ошибка при выполнении операции с конфигурацией. Попробуйте ещё раз через некоторое время.'
 }));
 
 export default ConfigService;
