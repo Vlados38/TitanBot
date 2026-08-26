@@ -25,105 +25,114 @@ import { botHasPermission } from '../../../utils/permissionGuard.js';
 import { startDashboardSession } from '../../../utils/dashboardSession.js';
 
 function buildDashboardEmbed(cfg, guild) {
-    const channel = cfg.levelUpChannel ? `<#${cfg.levelUpChannel}>` : '`Not set`';
+    const channel = cfg.levelUpChannel ? `<#${cfg.levelUpChannel}>` : '`Не установлен`';
     const xpMin = cfg.xpRange?.min ?? cfg.xpPerMessage?.min ?? 15;
     const xpMax = cfg.xpRange?.max ?? cfg.xpPerMessage?.max ?? 25;
     const cooldown = cfg.xpCooldown ?? 60;
-    const rawMsg = cfg.levelUpMessage || '{user} has leveled up to level {level}!';
+    const rawMsg = cfg.levelUpMessage || '{user} достиг уровня {level}!';
     const msgPreview = `\`${rawMsg.length > 60 ? rawMsg.substring(0, 60) + '…' : rawMsg}\``;
 
     const rewards = cfg.roleRewards ?? {};
     const rewardEntries = Object.entries(rewards).sort(([a], [b]) => Number(a) - Number(b));
     const rewardsValue = rewardEntries.length > 0
-        ? rewardEntries.map(([lvl, roleId]) => `Level **${lvl}** → <@&${roleId}>`).join('\n')
-        : '`None configured`';
+        ? rewardEntries.map(([lvl, roleId]) => `Уровень **${lvl}** → <@&${roleId}>`).join('\n')
+        : '`Не настроены`';
 
     const ignoredChannels = cfg.ignoredChannels ?? [];
     const ignoredRoles = cfg.ignoredRoles ?? [];
-    const ignoredChValue = ignoredChannels.length > 0 ? ignoredChannels.map(id => `<#${id}>`).join(',') : '`None`';
-    const ignoredRoValue = ignoredRoles.length > 0 ? ignoredRoles.map(id => `<@&${id}>`).join(',') : '`None`';
+    const ignoredChValue = ignoredChannels.length > 0 ? ignoredChannels.map(id => `<#${id}>`).join(', ') : '`Нет`';
+    const ignoredRoValue = ignoredRoles.length > 0 ? ignoredRoles.map(id => `<@&${id}>`).join(', ') : '`Нет`';
 
     return new EmbedBuilder()
-        .setTitle('⚡ Leveling System Dashboard')
-        .setDescription(`Manage leveling settings for **${guild.name}**.\nSelect an option below to modify a setting.`)
+        .setTitle('⚡ Панель управления системой уровней')
+        .setDescription(`Управление настройками системы уровней для **${guild.name}**.\nВыберите нужный параметр ниже, чтобы изменить его.`)
         .setColor(getColor('info'))
         .addFields(
-            { name: 'Level-up Channel', value: channel, inline: true },
-            { name: 'System Status', value: cfg.enabled ? '**Enabled**' : '**Disabled**', inline: true },
-            { name: 'Announcements', value: cfg.announceLevelUp !== false ? '**Enabled**' : '**Disabled**', inline: true },
-            { name: 'XP per Message', value: `\`${xpMin} – ${xpMax}\``, inline: true },
-            { name: 'XP Cooldown', value: `\`${cooldown}s\``, inline: true },
+            { name: 'Канал повышения уровня', value: channel, inline: true },
+            { name: 'Статус системы', value: cfg.enabled ? '**Включена**' : '**Выключена**', inline: true },
+            { name: 'Уведомления', value: cfg.announceLevelUp !== false ? '**Включены**' : '**Выключены**', inline: true },
+            { name: 'XP за сообщение', value: `\`${xpMin} – ${xpMax}\``, inline: true },
+            { name: 'Задержка XP', value: `\`${cooldown} сек.\``, inline: true },
             { name: '\u200B', value: '\u200B', inline: true },
-            { name: 'Level-up Message', value: msgPreview, inline: false },
-            { name: 'Role Rewards', value: rewardsValue, inline: false },
-            { name: 'Ignored Channels', value: ignoredChValue, inline: true },
-            { name: 'Ignored Roles', value: ignoredRoValue, inline: true },
+            { name: 'Сообщение при повышении уровня', value: msgPreview, inline: false },
+            { name: 'Награды за уровни', value: rewardsValue, inline: false },
+            { name: 'Игнорируемые каналы', value: ignoredChValue, inline: true },
+            { name: 'Игнорируемые роли', value: ignoredRoValue, inline: true },
         )
-        .setFooter({ text: 'Dashboard closes after 10 minutes of inactivity' })
+        .setFooter({ text: 'Панель управления закроется после 10 минут бездействия' })
         .setTimestamp();
 }
 
 function buildSelectMenu(guildId) {
     return new StringSelectMenuBuilder()
         .setCustomId(`level_cfg_${guildId}`)
-        .setPlaceholder('Select a setting to configure...')
+        .setPlaceholder('Выберите настройку для изменения...')
         .addOptions(
             new StringSelectMenuOptionBuilder()
-                .setLabel('Change Level-up Channel')
-                .setDescription('Set the channel where level-up notifications are sent')
+                .setLabel('Изменить канал повышения уровня')
+                .setDescription('Выберите канал для отправки уведомлений о повышении уровня')
                 .setValue('channel')
                 .setEmoji('📢'),
+
             new StringSelectMenuOptionBuilder()
-                .setLabel('Edit Level-up Message')
-                .setDescription('Customise the message shown when a user levels up')
+                .setLabel('Изменить сообщение повышения уровня')
+                .setDescription('Настройте сообщение, которое отображается при повышении уровня')
                 .setValue('message')
                 .setEmoji('💬'),
+
             new StringSelectMenuOptionBuilder()
-                .setLabel('Set XP Range')
-                .setDescription('Set the minimum and maximum XP rewarded per message')
+                .setLabel('Настроить диапазон XP')
+                .setDescription('Установите минимальное и максимальное количество XP за сообщение')
                 .setValue('xp_range')
                 .setEmoji('🎲'),
+
             new StringSelectMenuOptionBuilder()
-                .setLabel('Set XP Cooldown')
-                .setDescription('Seconds between XP grants for the same user')
+                .setLabel('Настроить задержку XP')
+                .setDescription('Количество секунд между начислениями XP одному пользователю')
                 .setValue('xp_cooldown')
                 .setEmoji('⏱️'),
+
             new StringSelectMenuOptionBuilder()
-                .setLabel('Add Role Reward')
-                .setDescription('Award a role when a user reaches a specific level')
+                .setLabel('Добавить награду за уровень')
+                .setDescription('Выдать роль пользователю при достижении определённого уровня')
                 .setValue('role_reward_add')
                 .setEmoji('🏆'),
+
             new StringSelectMenuOptionBuilder()
-                .setLabel('Remove Role Reward')
-                .setDescription('Remove a role reward from a specific level')
+                .setLabel('Удалить награду за уровень')
+                .setDescription('Удалить награду за определённый уровень')
                 .setValue('role_reward_remove')
-                .setEmoji('\ud83d\uddd1\ufe0f'),
+                .setEmoji('🗑️'),
+
             new StringSelectMenuOptionBuilder()
-                .setLabel('Ignored Channels')
-                .setDescription('Toggle channels where XP will not be awarded')
+                .setLabel('Игнорируемые каналы')
+                .setDescription('Переключить каналы, в которых XP не начисляется')
                 .setValue('ignore_channels')
-                .setEmoji('\ud83d\udeab'),
+                .setEmoji('🚫'),
+
             new StringSelectMenuOptionBuilder()
-                .setLabel('Ignored Roles')
-                .setDescription('Toggle roles that will not receive XP')
+                .setLabel('Игнорируемые роли')
+                .setDescription('Переключить роли, пользователи с которыми не получают XP')
                 .setValue('ignore_roles')
-                .setEmoji('\ud83d\udeab'),
+                .setEmoji('🚫'),
         );
 }
 
 function buildButtonRow(cfg, guildId, disabled = false) {
     const announceOn = cfg.announceLevelUp !== false;
     const systemOn = cfg.enabled !== false;
+
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId(`level_cfg_toggle_announce_${guildId}`)
-            .setLabel('Announcements')
+            .setLabel('Уведомления')
             .setStyle(announceOn ? ButtonStyle.Success : ButtonStyle.Danger)
             .setEmoji('📣')
             .setDisabled(disabled),
+
         new ButtonBuilder()
             .setCustomId(`level_cfg_toggle_system_${guildId}`)
-            .setLabel('Leveling')
+            .setLabel('Система уровней')
             .setStyle(systemOn ? ButtonStyle.Success : ButtonStyle.Danger)
             .setEmoji('⚡')
             .setDisabled(disabled),
@@ -132,6 +141,7 @@ function buildButtonRow(cfg, guildId, disabled = false) {
 
 async function refreshDashboard(rootInteraction, cfg, guildId) {
     const selectMenu = buildSelectMenu(guildId);
+
     await InteractionHelper.safeEditReply(rootInteraction, {
         embeds: [buildDashboardEmbed(cfg, rootInteraction.guild)],
         components: [
@@ -143,6 +153,7 @@ async function refreshDashboard(rootInteraction, cfg, guildId) {
 
 export default {
     prefixOnly: false,
+
     async execute(interaction, config, client) {
         try {
             const guildId = interaction.guild.id;
@@ -152,62 +163,80 @@ export default {
                 throw new TitanBotError(
                     'Leveling system not configured',
                     ErrorTypes.CONFIGURATION,
-                    'The leveling system has not been set up yet. Run `/level setup` first to configure it.',
+                    'Система уровней ещё не настроена. Сначала выполните `/level setup` для её настройки.',
                 );
             }
 
             await startDashboardSession({
                 interaction,
+
                 embeds: [buildDashboardEmbed(cfg, interaction.guild)],
+
                 components: [
                     buildButtonRow(cfg, guildId),
                     new ActionRowBuilder().addComponents(buildSelectMenu(guildId)),
                 ],
+
                 selectMenuId: `level_cfg_${guildId}`,
+
                 buttonMatcher: (customId) =>
                     customId === `level_cfg_toggle_announce_${guildId}` ||
                     customId === `level_cfg_toggle_system_${guildId}`,
+
                 onSelect: async (selectInteraction) => {
                     const selectedOption = selectInteraction.values[0];
+
                     switch (selectedOption) {
                         case 'channel':
                             await handleChannel(selectInteraction, interaction, cfg, guildId, client);
                             break;
+
                         case 'message':
                             await handleMessage(selectInteraction, interaction, cfg, guildId, client);
                             break;
+
                         case 'xp_range':
                             await handleXpRange(selectInteraction, interaction, cfg, guildId, client);
                             break;
+
                         case 'xp_cooldown':
                             await handleXpCooldown(selectInteraction, interaction, cfg, guildId, client);
                             break;
+
                         case 'role_reward_add':
                             await handleRoleRewardAdd(selectInteraction, interaction, cfg, guildId, client);
                             break;
+
                         case 'role_reward_remove':
                             await handleRoleRewardRemove(selectInteraction, interaction, cfg, guildId, client);
                             break;
+
                         case 'ignore_channels':
                             await handleIgnoreChannels(selectInteraction, interaction, cfg, guildId, client);
                             break;
+
                         case 'ignore_roles':
                             await handleIgnoreRoles(selectInteraction, interaction, cfg, guildId, client);
                             break;
                     }
                 },
+
                 onButton: async (btnInteraction) => {
                     await btnInteraction.deferUpdate().catch(() => null);
-                    const isAnnounce = btnInteraction.customId === `level_cfg_toggle_announce_${guildId}`;
+
+                    const isAnnounce =
+                        btnInteraction.customId === `level_cfg_toggle_announce_${guildId}`;
 
                     if (isAnnounce) {
                         cfg.announceLevelUp = cfg.announceLevelUp === false;
+
                         await saveLevelingConfig(client, guildId, cfg);
+
                         await btnInteraction.followUp({
                             embeds: [
                                 successEmbed(
-                                    '✅ Announcements Updated',
-                                    `Level-up announcements are now **${cfg.announceLevelUp ? 'enabled' : 'disabled'}**.`,
+                                    '✅ Уведомления обновлены',
+                                    `Уведомления о повышении уровня теперь **${cfg.announceLevelUp ? 'включены' : 'выключены'}**.`,
                                 ),
                             ],
                             flags: MessageFlags.Ephemeral,
@@ -215,12 +244,14 @@ export default {
                     } else {
                         const wasEnabled = cfg.enabled !== false;
                         cfg.enabled = !wasEnabled;
+
                         await saveLevelingConfig(client, guildId, cfg);
+
                         await btnInteraction.followUp({
                             embeds: [
                                 successEmbed(
-                                    '✅ System Updated',
-                                    `The leveling system is now **${cfg.enabled ? 'enabled' : 'disabled'}**.${!cfg.enabled ? '\nUsers will not earn XP until the system is re-enabled.' : ''}`,
+                                    '✅ Система обновлена',
+                                    `Система уровней теперь **${cfg.enabled ? 'включена' : 'выключена'}**.${!cfg.enabled ? '\n> ⚠️ Пока система выключена, пользователи не будут получать XP.' : ''}`,
                                 ),
                             ],
                             flags: MessageFlags.Ephemeral,
@@ -232,11 +263,13 @@ export default {
             });
         } catch (error) {
             if (error instanceof TitanBotError) throw error;
+
             logger.error('Unexpected error in level_dashboard:', error);
+
             throw new TitanBotError(
                 `Level dashboard failed: ${error.message}`,
                 ErrorTypes.UNKNOWN,
-                'Failed to open the leveling dashboard.',
+                'Не удалось открыть панель управления системой уровней.',
             );
         }
     },
@@ -245,23 +278,23 @@ export default {
 async function handleRoleRewardAdd(selectInteraction, rootInteraction, cfg, guildId, client) {
     const modal = new ModalBuilder()
         .setCustomId(`level_cfg_role_reward_add_${guildId}`)
-        .setTitle('🏆 Add Role Reward');
+        .setTitle('🏆 Добавить награду за уровень');
 
     const roleSelect = new RoleSelectMenuBuilder()
         .setCustomId('reward_role')
-        .setPlaceholder('Select a role to award...')
+        .setPlaceholder('Выберите роль для награды...')
         .setMinValues(1)
         .setMaxValues(1)
         .setRequired(true);
 
     const roleLabel = new LabelBuilder()
-        .setLabel('Role to Award')
-        .setDescription('This role will be given when the user reaches the level')
+        .setLabel('Роль для награды')
+        .setDescription('Эта роль будет выдана при достижении указанного уровня')
         .setRoleSelectMenuComponent(roleSelect);
 
     const levelInput = new TextInputBuilder()
         .setCustomId('reward_level')
-        .setLabel('Level required (1–500)')
+        .setLabel('Требуемый уровень (1–500)')
         .setStyle(TextInputStyle.Short)
         .setPlaceholder('10')
         .setMaxLength(3)
@@ -275,7 +308,10 @@ async function handleRoleRewardAdd(selectInteraction, rootInteraction, cfg, guil
 
     const submitted = await selectInteraction
         .awaitModalSubmit({
-            filter: i => i.customId === `level_cfg_role_reward_add_${guildId}` && i.user.id === selectInteraction.user.id,
+            filter: i =>
+                i.customId === `level_cfg_role_reward_add_${guildId}` &&
+                i.user.id === selectInteraction.user.id,
+
             time: 120_000,
         })
         .catch(() => null);
@@ -286,7 +322,11 @@ async function handleRoleRewardAdd(selectInteraction, rootInteraction, cfg, guil
     const level = parseInt(rawLevel, 10);
 
     if (isNaN(level) || level < 1 || level > 500) {
-        await replyUserError(submitted, { type: ErrorTypes.VALIDATION, message: 'Level must be a whole number between **1** and **500**.' });
+        await replyUserError(submitted, {
+            type: ErrorTypes.VALIDATION,
+            message: 'Уровень должен быть целым числом от **1** до **500**.',
+        });
+
         return;
     }
 
@@ -294,10 +334,16 @@ async function handleRoleRewardAdd(selectInteraction, rootInteraction, cfg, guil
 
     cfg.roleRewards = cfg.roleRewards ?? {};
     cfg.roleRewards[level] = roleId;
+
     await saveLevelingConfig(client, guildId, cfg);
 
     await submitted.reply({
-        embeds: [successEmbed('Role Reward Added', `<@&${roleId}> will now be awarded at level **${level}**.`)],
+        embeds: [
+            successEmbed(
+                'Награда добавлена',
+                `<@&${roleId}> теперь будет выдаваться при достижении **${level} уровня**.`,
+            ),
+        ],
         flags: MessageFlags.Ephemeral,
     });
 
@@ -310,27 +356,33 @@ async function handleRoleRewardRemove(selectInteraction, rootInteraction, cfg, g
 
     if (entries.length === 0) {
         await selectInteraction.deferUpdate();
+
         await replyUserError(selectInteraction, {
             type: ErrorTypes.USER_INPUT,
-            message: 'There are no role rewards configured to remove.',
+            message: 'Нет настроенных наград за уровни, которые можно удалить.',
         });
+
         return;
     }
 
     const modal = new ModalBuilder()
         .setCustomId(`level_cfg_role_reward_remove_${guildId}`)
-        .setTitle('🗑️ Remove Role Reward');
+        .setTitle('🗑️ Удалить награду за уровень');
 
     const infoInput = new TextInputBuilder()
         .setCustomId('current_rewards')
-        .setLabel('Current rewards (read-only)')
+        .setLabel('Текущие награды (только для чтения)')
         .setStyle(TextInputStyle.Paragraph)
-        .setValue(entries.map(([lvl, roleId]) => `Level ${lvl}: <@&${roleId}>`).join('\n'))
+        .setValue(
+            entries
+                .map(([lvl, roleId]) => `Уровень ${lvl}: <@&${roleId}>`)
+                .join('\n')
+        )
         .setRequired(false);
 
     const levelInput = new TextInputBuilder()
         .setCustomId('remove_level')
-        .setLabel('Level to remove reward from')
+        .setLabel('Уровень, награду которого нужно удалить')
         .setStyle(TextInputStyle.Short)
         .setValue(entries[0][0])
         .setMaxLength(3)
@@ -346,7 +398,10 @@ async function handleRoleRewardRemove(selectInteraction, rootInteraction, cfg, g
 
     const submitted = await selectInteraction
         .awaitModalSubmit({
-            filter: i => i.customId === `level_cfg_role_reward_remove_${guildId}` && i.user.id === selectInteraction.user.id,
+            filter: i =>
+                i.customId === `level_cfg_role_reward_remove_${guildId}` &&
+                i.user.id === selectInteraction.user.id,
+
             time: 120_000,
         })
         .catch(() => null);
@@ -357,15 +412,25 @@ async function handleRoleRewardRemove(selectInteraction, rootInteraction, cfg, g
     const level = parseInt(rawLevel, 10);
 
     if (isNaN(level) || !cfg.roleRewards?.[level]) {
-        await replyUserError(submitted, { type: ErrorTypes.USER_INPUT, message: `No role reward is configured for level **${rawLevel}**.` });
+        await replyUserError(submitted, {
+            type: ErrorTypes.USER_INPUT,
+            message: `Для уровня **${rawLevel}** награда не настроена.`,
+        });
+
         return;
     }
 
     delete cfg.roleRewards[level];
+
     await saveLevelingConfig(client, guildId, cfg);
 
     await submitted.reply({
-        embeds: [successEmbed('Role Reward Removed', `The role reward for level **${level}** has been removed.`)],
+        embeds: [
+            successEmbed(
+                'Награда удалена',
+                `Награда за **${level} уровень** была удалена.`,
+            ),
+        ],
         flags: MessageFlags.Ephemeral,
     });
 
@@ -375,19 +440,19 @@ async function handleRoleRewardRemove(selectInteraction, rootInteraction, cfg, g
 async function handleChannel(selectInteraction, rootInteraction, cfg, guildId, client) {
     const modal = new ModalBuilder()
         .setCustomId(`level_cfg_channel_modal_${guildId}`)
-        .setTitle('\ud83d\udce2 Change Level-up Channel');
+        .setTitle('📢 Изменить канал повышения уровня');
 
     const channelSelect = new ChannelSelectMenuBuilder()
         .setCustomId('levelup_channel')
-        .setPlaceholder('Select a text channel...')
+        .setPlaceholder('Выберите текстовый канал...')
         .setMinValues(1)
         .setMaxValues(1)
         .addChannelTypes(ChannelType.GuildText)
         .setRequired(true);
 
     const channelLabel = new LabelBuilder()
-        .setLabel('Level-up Channel')
-        .setDescription('Channel where level-up notifications will be sent')
+        .setLabel('Канал повышения уровня')
+        .setDescription('Канал, куда будут отправляться уведомления о повышении уровня')
         .setChannelSelectMenuComponent(channelSelect);
 
     modal.addLabelComponents(channelLabel);
@@ -396,7 +461,10 @@ async function handleChannel(selectInteraction, rootInteraction, cfg, guildId, c
 
     const submitted = await selectInteraction
         .awaitModalSubmit({
-            filter: i => i.customId === `level_cfg_channel_modal_${guildId}` && i.user.id === selectInteraction.user.id,
+            filter: i =>
+                i.customId === `level_cfg_channel_modal_${guildId}` &&
+                i.user.id === selectInteraction.user.id,
+
             time: 120_000,
         })
         .catch(() => null);
@@ -407,15 +475,25 @@ async function handleChannel(selectInteraction, rootInteraction, cfg, guildId, c
     const channel = selectInteraction.guild.channels.cache.get(channelId);
 
     if (channel && !botHasPermission(channel, ['SendMessages', 'EmbedLinks'])) {
-        await replyUserError(submitted, { type: ErrorTypes.PERMISSION, message: `I need **SendMessages** and **EmbedLinks** permissions in ${channel} to send level-up notifications.` });
+        await replyUserError(submitted, {
+            type: ErrorTypes.PERMISSION,
+            message: `Мне нужны разрешения **SendMessages** и **EmbedLinks** в ${channel}, чтобы отправлять уведомления о повышении уровня.`,
+        });
+
         return;
     }
 
     cfg.levelUpChannel = channelId;
+
     await saveLevelingConfig(client, guildId, cfg);
 
     await submitted.reply({
-        embeds: [successEmbed('\u2705 Channel Updated', `Level-up notifications will now be sent in ${channel ??`<#${channelId}>`}.`)],
+        embeds: [
+            successEmbed(
+                '✅ Канал обновлён',
+                `Уведомления о повышении уровня теперь будут отправляться в ${channel ?? `<#${channelId}>`}.`,
+            ),
+        ],
         flags: MessageFlags.Ephemeral,
     });
 
@@ -425,19 +503,19 @@ async function handleChannel(selectInteraction, rootInteraction, cfg, guildId, c
 async function handleIgnoreChannels(selectInteraction, rootInteraction, cfg, guildId, client) {
     const modal = new ModalBuilder()
         .setCustomId(`level_cfg_ignore_channels_${guildId}`)
-        .setTitle('\ud83d\udeab Ignored Channels');
+        .setTitle('🚫 Игнорируемые каналы');
 
     const channelSelect = new ChannelSelectMenuBuilder()
         .setCustomId('ignore_channel')
-        .setPlaceholder('Select channels to toggle...')
+        .setPlaceholder('Выберите каналы для переключения...')
         .setMinValues(1)
         .setMaxValues(10)
         .addChannelTypes(ChannelType.GuildText)
         .setRequired(true);
 
     const channelLabel = new LabelBuilder()
-        .setLabel('Toggle Ignored Channels')
-        .setDescription('Selected channels will be toggled — XP will not be awarded in them')
+        .setLabel('Переключить игнорируемые каналы')
+        .setDescription('Выбранные каналы будут переключены — в них XP начисляться не будет')
         .setChannelSelectMenuComponent(channelSelect);
 
     modal.addLabelComponents(channelLabel);
@@ -446,7 +524,10 @@ async function handleIgnoreChannels(selectInteraction, rootInteraction, cfg, gui
 
     const submitted = await selectInteraction
         .awaitModalSubmit({
-            filter: i => i.customId === `level_cfg_ignore_channels_${guildId}` && i.user.id === selectInteraction.user.id,
+            filter: i =>
+                i.customId === `level_cfg_ignore_channels_${guildId}` &&
+                i.user.id === selectInteraction.user.id,
+
             time: 120_000,
         })
         .catch(() => null);
@@ -465,14 +546,20 @@ async function handleIgnoreChannels(selectInteraction, rootInteraction, cfg, gui
     }
 
     cfg.ignoredChannels = Array.from(ignoreSet);
+
     await saveLevelingConfig(client, guildId, cfg);
 
     const list = cfg.ignoredChannels.length > 0
-        ? cfg.ignoredChannels.map(id => `<#${id}>`).join(',')
-        : '`None`';
+        ? cfg.ignoredChannels.map(id => `<#${id}>`).join(', ')
+        : '`Нет`';
 
     await submitted.reply({
-        embeds: [successEmbed('\u2705 Ignored Channels Updated', `XP will not be awarded in: ${list}`)],
+        embeds: [
+            successEmbed(
+                '✅ Игнорируемые каналы обновлены',
+                `XP не будет начисляться в: ${list}`,
+            ),
+        ],
         flags: MessageFlags.Ephemeral,
     });
 
@@ -482,18 +569,18 @@ async function handleIgnoreChannels(selectInteraction, rootInteraction, cfg, gui
 async function handleIgnoreRoles(selectInteraction, rootInteraction, cfg, guildId, client) {
     const modal = new ModalBuilder()
         .setCustomId(`level_cfg_ignore_roles_${guildId}`)
-        .setTitle('\ud83d\udeab Ignored Roles');
+        .setTitle('🚫 Игнорируемые роли');
 
     const roleSelect = new RoleSelectMenuBuilder()
         .setCustomId('ignore_role')
-        .setPlaceholder('Select roles to toggle...')
+        .setPlaceholder('Выберите роли для переключения...')
         .setMinValues(1)
         .setMaxValues(10)
         .setRequired(true);
 
     const roleLabel = new LabelBuilder()
-        .setLabel('Toggle Ignored Roles')
-        .setDescription('Selected roles will be toggled — members with them will not earn XP')
+        .setLabel('Переключить игнорируемые роли')
+        .setDescription('Выбранные роли будут переключены — пользователи с ними не будут получать XP')
         .setRoleSelectMenuComponent(roleSelect);
 
     modal.addLabelComponents(roleLabel);
@@ -502,7 +589,10 @@ async function handleIgnoreRoles(selectInteraction, rootInteraction, cfg, guildI
 
     const submitted = await selectInteraction
         .awaitModalSubmit({
-            filter: i => i.customId === `level_cfg_ignore_roles_${guildId}` && i.user.id === selectInteraction.user.id,
+            filter: i =>
+                i.customId === `level_cfg_ignore_roles_${guildId}` &&
+                i.user.id === selectInteraction.user.id,
+
             time: 120_000,
         })
         .catch(() => null);
@@ -521,14 +611,20 @@ async function handleIgnoreRoles(selectInteraction, rootInteraction, cfg, guildI
     }
 
     cfg.ignoredRoles = Array.from(ignoreSet);
+
     await saveLevelingConfig(client, guildId, cfg);
 
     const list = cfg.ignoredRoles.length > 0
-        ? cfg.ignoredRoles.map(id => `<@&${id}>`).join(',')
-        : '`None`';
+        ? cfg.ignoredRoles.map(id => `<@&${id}>`).join(', ')
+        : '`Нет`';
 
     await submitted.reply({
-        embeds: [successEmbed('\u2705 Ignored Roles Updated', `These roles will not earn XP: ${list}`)],
+        embeds: [
+            successEmbed(
+                '✅ Игнорируемые роли обновлены',
+                `Эти роли не будут получать XP: ${list}`,
+            ),
+        ],
         flags: MessageFlags.Ephemeral,
     });
 
@@ -538,18 +634,18 @@ async function handleIgnoreRoles(selectInteraction, rootInteraction, cfg, guildI
 async function handleMessage(selectInteraction, rootInteraction, cfg, guildId, client) {
     const modal = new ModalBuilder()
         .setCustomId('level_cfg_message')
-        .setTitle('💬 Edit Level-up Message')
+        .setTitle('💬 Изменить сообщение повышения уровня')
         .addComponents(
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
                     .setCustomId('message_input')
-                    .setLabel('Message ({user} and {level} are available)')
+                    .setLabel('Сообщение ({user} и {level} доступны)')
                     .setStyle(TextInputStyle.Paragraph)
-                    .setValue(cfg.levelUpMessage || '{user} has leveled up to level {level}!')
+                    .setValue(cfg.levelUpMessage || '{user} достиг уровня {level}!')
                     .setMaxLength(500)
                     .setMinLength(1)
                     .setRequired(true)
-                    .setPlaceholder('{user} has leveled up to level {level}!'),
+                    .setPlaceholder('{user} достиг уровня {level}!'),
             ),
         );
 
@@ -558,14 +654,18 @@ async function handleMessage(selectInteraction, rootInteraction, cfg, guildId, c
     const submitted = await selectInteraction
         .awaitModalSubmit({
             filter: i =>
-                i.customId === 'level_cfg_message' && i.user.id === selectInteraction.user.id,
+                i.customId === 'level_cfg_message' &&
+                i.user.id === selectInteraction.user.id,
+
             time: 120_000,
         })
         .catch(() => null);
 
     if (!submitted) return;
 
-    const newMessage = submitted.fields.getTextInputValue('message_input').trim();
+    const newMessage = submitted.fields
+        .getTextInputValue('message_input')
+        .trim();
 
     if (!newMessage.includes('{user}') && !newMessage.includes('{level}')) {
         logger.warn(
@@ -574,15 +674,18 @@ async function handleMessage(selectInteraction, rootInteraction, cfg, guildId, c
     }
 
     cfg.levelUpMessage = newMessage;
+
     await saveLevelingConfig(client, guildId, cfg);
 
-    const preview = newMessage.replace('{user}', '@User').replace('{level}', '5');
+    const preview = newMessage
+        .replace('{user}', '@Пользователь')
+        .replace('{level}', '5');
 
     await submitted.reply({
         embeds: [
             successEmbed(
-                '✅ Message Updated',
-                `Level-up message saved.\n**Preview:** ${preview}`,
+                '✅ Сообщение обновлено',
+                `Сообщение о повышении уровня сохранено.\n**Предпросмотр:** ${preview}`,
             ),
         ],
         flags: MessageFlags.Ephemeral,
@@ -597,12 +700,12 @@ async function handleXpRange(selectInteraction, rootInteraction, cfg, guildId, c
 
     const modal = new ModalBuilder()
         .setCustomId('level_cfg_xp_range')
-        .setTitle('Set XP Range per Message')
+        .setTitle('Настроить диапазон XP за сообщение')
         .addComponents(
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
                     .setCustomId('xp_min_input')
-                    .setLabel('Minimum XP (1–500)')
+                    .setLabel('Минимум XP (1–500)')
                     .setStyle(TextInputStyle.Short)
                     .setValue(String(currentMin))
                     .setMaxLength(3)
@@ -610,10 +713,11 @@ async function handleXpRange(selectInteraction, rootInteraction, cfg, guildId, c
                     .setRequired(true)
                     .setPlaceholder('15'),
             ),
+
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
                     .setCustomId('xp_max_input')
-                    .setLabel('Maximum XP (1–500)')
+                    .setLabel('Максимум XP (1–500)')
                     .setStyle(TextInputStyle.Short)
                     .setValue(String(currentMax))
                     .setMaxLength(3)
@@ -628,7 +732,9 @@ async function handleXpRange(selectInteraction, rootInteraction, cfg, guildId, c
     const submitted = await selectInteraction
         .awaitModalSubmit({
             filter: i =>
-                i.customId === 'level_cfg_xp_range' && i.user.id === selectInteraction.user.id,
+                i.customId === 'level_cfg_xp_range' &&
+                i.user.id === selectInteraction.user.id,
+
             time: 120_000,
         })
         .catch(() => null);
@@ -637,27 +743,47 @@ async function handleXpRange(selectInteraction, rootInteraction, cfg, guildId, c
 
     const rawMin = submitted.fields.getTextInputValue('xp_min_input').trim();
     const rawMax = submitted.fields.getTextInputValue('xp_max_input').trim();
+
     const newMin = parseInt(rawMin, 10);
     const newMax = parseInt(rawMax, 10);
 
-    if (isNaN(newMin) || isNaN(newMax) || newMin < 1 || newMax < 1 || newMin > 500 || newMax > 500) {
-        await replyUserError(submitted, { type: ErrorTypes.VALIDATION, message: 'Both XP values must be whole numbers between **1** and **500**.' });
+    if (
+        isNaN(newMin) ||
+        isNaN(newMax) ||
+        newMin < 1 ||
+        newMax < 1 ||
+        newMin > 500 ||
+        newMax > 500
+    ) {
+        await replyUserError(submitted, {
+            type: ErrorTypes.VALIDATION,
+            message: 'Оба значения XP должны быть целыми числами от **1** до **500**.',
+        });
+
         return;
     }
 
     if (newMin > newMax) {
-        await replyUserError(submitted, { type: ErrorTypes.VALIDATION, message: 'Minimum XP cannot be greater than maximum XP.' });
+        await replyUserError(submitted, {
+            type: ErrorTypes.VALIDATION,
+            message: 'Минимальное количество XP не может быть больше максимального.',
+        });
+
         return;
     }
 
-    cfg.xpRange = { min: newMin, max: newMax };
+    cfg.xpRange = {
+        min: newMin,
+        max: newMax,
+    };
+
     await saveLevelingConfig(client, guildId, cfg);
 
     await submitted.reply({
         embeds: [
             successEmbed(
-                '✅ XP Range Updated',
-                `Users will now earn between **${newMin}** and **${newMax}** XP per message.`,
+                '✅ Диапазон XP обновлён',
+                `Теперь пользователи будут получать от **${newMin}** до **${newMax}** XP за сообщение.`,
             ),
         ],
         flags: MessageFlags.Ephemeral,
@@ -669,12 +795,12 @@ async function handleXpRange(selectInteraction, rootInteraction, cfg, guildId, c
 async function handleXpCooldown(selectInteraction, rootInteraction, cfg, guildId, client) {
     const modal = new ModalBuilder()
         .setCustomId('level_cfg_cooldown')
-        .setTitle('⏱️ Set XP Cooldown')
+        .setTitle('⏱️ Настроить задержку XP')
         .addComponents(
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
                     .setCustomId('cooldown_input')
-                    .setLabel('Cooldown in seconds (0–3600)')
+                    .setLabel('Задержка в секундах (0–3600)')
                     .setStyle(TextInputStyle.Short)
                     .setValue(String(cfg.xpCooldown ?? 60))
                     .setMaxLength(4)
@@ -689,29 +815,43 @@ async function handleXpCooldown(selectInteraction, rootInteraction, cfg, guildId
     const submitted = await selectInteraction
         .awaitModalSubmit({
             filter: i =>
-                i.customId === 'level_cfg_cooldown' && i.user.id === selectInteraction.user.id,
+                i.customId === 'level_cfg_cooldown' &&
+                i.user.id === selectInteraction.user.id,
+
             time: 120_000,
         })
         .catch(() => null);
 
     if (!submitted) return;
 
-    const raw = submitted.fields.getTextInputValue('cooldown_input').trim();
+    const raw = submitted.fields
+        .getTextInputValue('cooldown_input')
+        .trim();
+
     const newCooldown = parseInt(raw, 10);
 
-    if (isNaN(newCooldown) || newCooldown < 0 || newCooldown > 3600) {
-        await replyUserError(submitted, { type: ErrorTypes.VALIDATION, message: 'Cooldown must be a whole number between **0** and **3600** seconds.' });
+    if (
+        isNaN(newCooldown) ||
+        newCooldown < 0 ||
+        newCooldown > 3600
+    ) {
+        await replyUserError(submitted, {
+            type: ErrorTypes.VALIDATION,
+            message: 'Задержка должна быть целым числом от **0** до **3600** секунд.',
+        });
+
         return;
     }
 
     cfg.xpCooldown = newCooldown;
+
     await saveLevelingConfig(client, guildId, cfg);
 
     await submitted.reply({
         embeds: [
             successEmbed(
-                '✅ Cooldown Updated',
-                `XP cooldown set to **${newCooldown} second${newCooldown !== 1 ? 's' : ''}**.${newCooldown === 0 ? '\n> ⚠️ A cooldown of 0 means XP is granted on every message.' : ''}`,
+                '✅ Задержка обновлена',
+                `Задержка XP установлена на **${newCooldown} ${newCooldown !== 1 ? 'секунд' : 'секунду'}**.${newCooldown === 0 ? '\n> ⚠️ Задержка 0 означает, что XP будет начисляться за каждое сообщение.' : ''}`,
             ),
         ],
         flags: MessageFlags.Ephemeral,
