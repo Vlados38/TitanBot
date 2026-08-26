@@ -22,13 +22,22 @@ async function handleMusicButton(interaction, client) {
 
     if (customId === MUSIC_BUTTON_IDS.QUEUE) {
         if (!player?.current) {
-            return replyUserError(interaction, { type: ErrorTypes.USER_INPUT, message: 'Nothing is playing right now.' });
+            return replyUserError(interaction, {
+                type: ErrorTypes.USER_INPUT,
+                message: 'Сейчас ничего не играет.',
+            });
         }
+
         if (!canControlMusic(interaction.member, player)) {
-            return replyUserError(interaction, { type: ErrorTypes.PERMISSION, message: VOICE_CHANNEL_DENIAL });
+            return replyUserError(interaction, {
+                type: ErrorTypes.PERMISSION,
+                message: VOICE_CHANNEL_DENIAL,
+            });
         }
+
         guildData.queuePages.set(interaction.user.id, 0);
         const payload = buildQueueReply(client, interaction.guild.id, 0);
+
         return interaction.reply({
             embeds: payload.embeds,
             components: payload.components,
@@ -45,14 +54,27 @@ async function handleMusicButton(interaction, client) {
 
     if (queuePaginationIds.includes(customId)) {
         if (!player?.current) {
-            return replyUserError(interaction, { type: ErrorTypes.USER_INPUT, message: 'Nothing is playing right now.' });
+            return replyUserError(interaction, {
+                type: ErrorTypes.USER_INPUT,
+                message: 'Сейчас ничего не играет.',
+            });
         }
+
         if (!canControlMusic(interaction.member, player)) {
-            return replyUserError(interaction, { type: ErrorTypes.PERMISSION, message: VOICE_CHANNEL_DENIAL });
+            return replyUserError(interaction, {
+                type: ErrorTypes.PERMISSION,
+                message: VOICE_CHANNEL_DENIAL,
+            });
         }
 
         await interaction.deferUpdate();
-        const payload = buildQueueReply(client, interaction.guild.id, guildData.queuePages.get(interaction.user.id) || 0);
+
+        const payload = buildQueueReply(
+            client,
+            interaction.guild.id,
+            guildData.queuePages.get(interaction.user.id) || 0
+        );
+
         const totalPages = payload.totalPages;
         let page = payload.page;
 
@@ -60,21 +82,31 @@ async function handleMusicButton(interaction, client) {
             case MUSIC_BUTTON_IDS.QUEUE_FIRST:
                 page = 0;
                 break;
+
             case MUSIC_BUTTON_IDS.QUEUE_PREV:
                 page = Math.max(0, page - 1);
                 break;
+
             case MUSIC_BUTTON_IDS.QUEUE_NEXT:
                 page = Math.min(totalPages - 1, page + 1);
                 break;
+
             case MUSIC_BUTTON_IDS.QUEUE_LAST:
                 page = totalPages - 1;
                 break;
+
             default:
                 break;
         }
 
         guildData.queuePages.set(interaction.user.id, page);
-        const updated = buildQueueReply(client, interaction.guild.id, page);
+
+        const updated = buildQueueReply(
+            client,
+            interaction.guild.id,
+            page
+        );
+
         return interaction.editReply({
             embeds: updated.embeds,
             components: updated.components,
@@ -82,11 +114,17 @@ async function handleMusicButton(interaction, client) {
     }
 
     if (!player) {
-        return replyUserError(interaction, { type: ErrorTypes.USER_INPUT, message: 'No music is playing. Use `/play` first.' });
+        return replyUserError(interaction, {
+            type: ErrorTypes.USER_INPUT,
+            message: 'Музыка сейчас не играет. Сначала используй `/play`.',
+        });
     }
 
     if (!canControlMusic(interaction.member, player)) {
-        return replyUserError(interaction, { type: ErrorTypes.PERMISSION, message: VOICE_CHANNEL_DENIAL });
+        return replyUserError(interaction, {
+            type: ErrorTypes.PERMISSION,
+            message: VOICE_CHANNEL_DENIAL,
+        });
     }
 
     await interaction.deferUpdate();
@@ -96,43 +134,90 @@ async function handleMusicButton(interaction, client) {
             case MUSIC_BUTTON_IDS.PAUSE:
                 await applyPause(client, interaction.guild.id);
                 break;
+
             case MUSIC_BUTTON_IDS.RESUME:
                 await applyResume(client, interaction.guild.id);
                 break;
+
             case MUSIC_BUTTON_IDS.SKIP:
-                // Under track-loop, stop() would replay the same track. Clear it so the
-                // skip advances; trackStart re-applies the stored loop to the next track.
+                // При повторе текущего трека stop() запустил бы тот же трек снова.
+                // Отключаем повтор, чтобы пропуск перешёл к следующему треку.
+                // trackStart снова применит сохранённый режим повтора к следующему треку.
                 if (player.loop === 'track') {
                     player.setLoop('none');
                 }
+
                 player.stop();
                 break;
+
             case MUSIC_BUTTON_IDS.STOP:
-                await destroyPlayerSession(client, interaction.guild.id, player, guildData);
+                await destroyPlayerSession(
+                    client,
+                    interaction.guild.id,
+                    player,
+                    guildData
+                );
                 break;
+
             case MUSIC_BUTTON_IDS.SHUFFLE:
                 if (player.queue.length > 0) {
                     player.queue.shuffle();
                     guildData.shuffle = true;
-                    await refreshPlayerMessage(client, interaction.guild.id);
+
+                    await refreshPlayerMessage(
+                        client,
+                        interaction.guild.id
+                    );
                 }
                 break;
+
             case MUSIC_BUTTON_IDS.LOOP: {
                 const guildDataLoop = getGuildMusicData(interaction.guild.id);
-                const next = guildDataLoop.loop === 'none' ? 'track' : guildDataLoop.loop === 'track' ? 'queue' : 'none';
-                await setLoopMode(client, interaction, next);
+
+                const next =
+                    guildDataLoop.loop === 'none'
+                        ? 'track'
+                        : guildDataLoop.loop === 'track'
+                            ? 'queue'
+                            : 'none';
+
+                await setLoopMode(
+                    client,
+                    interaction,
+                    next
+                );
+
                 break;
             }
+
             case MUSIC_BUTTON_IDS.VOL_DOWN:
-                guildData.volume = Math.max(0, guildData.volume - 10);
+                guildData.volume = Math.max(
+                    0,
+                    guildData.volume - 10
+                );
+
                 player.setVolume(guildData.volume);
-                await refreshPlayerMessage(client, interaction.guild.id);
+
+                await refreshPlayerMessage(
+                    client,
+                    interaction.guild.id
+                );
                 break;
+
             case MUSIC_BUTTON_IDS.VOL_UP:
-                guildData.volume = Math.min(100, guildData.volume + 10);
+                guildData.volume = Math.min(
+                    100,
+                    guildData.volume + 10
+                );
+
                 player.setVolume(guildData.volume);
-                await refreshPlayerMessage(client, interaction.guild.id);
+
+                await refreshPlayerMessage(
+                    client,
+                    interaction.guild.id
+                );
                 break;
+
             default:
                 break;
         }
@@ -149,11 +234,19 @@ export const musicButtonHandler = {
     async execute(interaction, client) {
         try {
             if (!client.riffy) {
-                return replyUserError(interaction, { type: ErrorTypes.CONFIGURATION, message: 'Music is unavailable — Lavalink is not configured.' });
+                return replyUserError(interaction, {
+                    type: ErrorTypes.CONFIGURATION,
+                    message: 'Музыка недоступна — Lavalink не настроен.',
+                });
             }
+
             await handleMusicButton(interaction, client);
         } catch (error) {
-            await handleInteractionError(interaction, error, { handler: 'musicButton' });
+            await handleInteractionError(
+                interaction,
+                error,
+                { handler: 'musicButton' }
+            );
         }
     },
 };
