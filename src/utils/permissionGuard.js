@@ -6,7 +6,7 @@ import { replyUserError, ErrorTypes } from './errorHandler.js';
 import { isBotOwner, getBotMessage } from '../config/bot.js';
 
 /**
- * Read default_member_permissions from a SlashCommandBuilder (or its JSON).
+ * Получает default_member_permissions из SlashCommandBuilder (или его JSON).
  * @param {import('discord.js').SlashCommandBuilder | object} commandData
  * @returns {bigint | null}
  */
@@ -42,7 +42,7 @@ function isModerationCategory(category) {
 }
 
 /**
- * Whether a member holds the guild-configured moderator role (config wizard modRole).
+ * Проверяет, имеет ли участник настроенную роль модератора сервера (modRole из мастера настройки).
  * @param {import('discord.js').GuildMember | null | undefined} member
  * @param {object | null | undefined} guildConfig
  * @returns {boolean}
@@ -58,7 +58,8 @@ export function memberHasConfiguredModeratorRole(member, guildConfig) {
 }
 
 /**
- * Whether a member may run a moderation command (native Discord perm or configured modRole).
+ * Проверяет, может ли участник выполнить команду модерации
+ * (стандартное разрешение Discord или настроенная роль модератора).
  * @param {import('discord.js').GuildMember | null | undefined} member
  * @param {object | null | undefined} guildConfig
  * @param {bigint | bigint[] | null} [requiredPermissions]
@@ -85,8 +86,9 @@ export function memberHasModerationCommandAccess(member, guildConfig, requiredPe
 }
 
 /**
- * Whether a guild member satisfies a command's default_member_permissions bitfield.
- * Guild owners always pass. Moderation commands also accept the configured modRole.
+ * Проверяет, соответствует ли участник сервера битовой маске default_member_permissions команды.
+ * Владелец сервера всегда проходит проверку.
+ * Команды модерации также разрешены участникам с настроенной ролью modRole.
  * @param {import('discord.js').GuildMember | null | undefined} member
  * @param {bigint | null} permissionBitfield
  * @param {{ guildConfig?: object | null, commandCategory?: string | null }} [options]
@@ -115,14 +117,14 @@ export function memberMeetsCommandPermissions(member, permissionBitfield, option
 }
 
 /**
- * Check moderation command access and reply when denied.
+ * Проверяет доступ к команде модерации и отправляет сообщение об ошибке, если доступ запрещён.
  * @returns {Promise<boolean>}
  */
 export async function checkModerationPermissions(
   interaction,
   guildConfig,
   requiredPermissions,
-  errorMessage = 'You do not have permission to use this command.'
+  errorMessage = 'У вас нет разрешения на использование этой команды.'
 ) {
   if (memberHasModerationCommandAccess(interaction.member, guildConfig, requiredPermissions)) {
     return true;
@@ -144,9 +146,11 @@ export async function checkModerationPermissions(
 }
 
 /**
- * Enforce a command's default_member_permissions for prefix (and other non-Discord-gated) invocations.
- * Slash commands are gated by Discord, but prefix commands must mirror the same requirement in code.
- * @returns {Promise<boolean>} true when the member may proceed
+ * Проверяет default_member_permissions команды для префиксных
+ * и других вызовов, которые не контролируются Discord.
+ * Slash-команды контролируются Discord, но префиксные команды
+ * должны соответствовать тому же требованию на уровне кода.
+ * @returns {Promise<boolean>} true, если участник может продолжить
  */
 export async function enforceDefaultCommandPermissions(interaction, command, context = {}) {
   if (isBotOwner(interaction.user?.id)) {
@@ -218,7 +222,7 @@ export function botHasPermission(channel, permissions) {
 export async function checkUserPermissions(
   interaction,
   requiredPermissions,
-  errorMessage = 'You do not have permission to use this command.'
+  errorMessage = 'У вас нет разрешения на использование этой команды.'
 ) {
   const member = interaction.member;
 
@@ -248,7 +252,7 @@ export async function checkBotPermissions(
   if (!targetChannel || !targetChannel.guild) {
     await replyUserError(interaction, {
       type: ErrorTypes.UNKNOWN,
-      message: 'Could not determine channel.',
+      message: 'Не удалось определить канал.',
       context: { source: 'permissionGuard.checkBotPermissions' }
     });
     return false;
@@ -258,7 +262,7 @@ export async function checkBotPermissions(
   if (!botMember) {
     await replyUserError(interaction, {
       type: ErrorTypes.UNKNOWN,
-      message: 'Could not find bot member in this guild.',
+      message: 'Не удалось найти бота на этом сервере.',
       context: { source: 'permissionGuard.checkBotPermissions' }
     });
     return false;
@@ -277,7 +281,7 @@ export async function checkBotPermissions(
   if (missingPerms.length > 0) {
     await replyUserError(interaction, {
       type: ErrorTypes.PERMISSION,
-      message: `I need the following permissions in ${targetChannel}: ${missingPerms.join(', ')}`,
+      message: `Мне необходимы следующие разрешения в ${targetChannel}: ${missingPerms.join(', ')}`,
       context: { source: 'permissionGuard.checkBotPermissions', subtype: 'bot_permission' }
     });
 
