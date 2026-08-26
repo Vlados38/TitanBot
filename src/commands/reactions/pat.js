@@ -23,7 +23,7 @@ const reactionsPath = path.join(
 
 // Погладить другого пользователя
 const normalMessages = [
-    '🥰 {author} нежно погладил(а) {target} по голове!',
+    '🥰 {author} нежно погладил(а) {target} по голове...',
     '🫳 {author} ласково погладил(а) {target} по голове.',
     '💕 {author} потрепал(а) {target} по голове.',
     '🥺 {author} решил(а) немного приласкать {target}.',
