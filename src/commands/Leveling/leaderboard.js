@@ -4,11 +4,13 @@ import { TitanBotError, ErrorTypes } from '../../utils/errorHandler.js';
 import { getLeaderboard, getLevelingConfig, getXpForLevel } from '../../services/leveling/leveling.js';
 
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+
 export default {
   data: new SlashCommandBuilder()
     .setName('leaderboard')
-    .setDescription("Shows the server's level leaderboard")
+    .setDescription('Показывает таблицу лидеров по уровням сервера')
     .setDMPermission(false),
+
   category: 'Leveling',
 
   async execute(interaction, config, client) {
@@ -21,55 +23,80 @@ export default {
         embeds: [
           new EmbedBuilder()
             .setColor('#f1c40f')
-            .setDescription('The leveling system is currently disabled on this server.')
+            .setDescription(
+              'Система уровней в данный момент отключена на этом сервере.'
+            )
         ],
         flags: MessageFlags.Ephemeral
       });
+
       return;
     }
 
-    const leaderboard = await getLeaderboard(client, interaction.guildId, 10);
+    const leaderboard = await getLeaderboard(
+      client,
+      interaction.guildId,
+      10
+    );
 
     if (leaderboard.length === 0) {
       throw new TitanBotError(
         'No leaderboard data found',
         ErrorTypes.DATABASE,
-        'No level data found yet. Start chatting to gain XP!'
+        'Данных об уровнях пока нет. Начните общаться, чтобы получать XP!'
       );
     }
 
     const embed = new EmbedBuilder()
-      .setTitle('Level Leaderboard')
+      .setTitle('Таблица лидеров по уровням')
       .setColor('#2ecc71')
-      .setDescription("Top 10 most active members in this server:")
+      .setDescription(
+        'Топ-10 самых активных участников этого сервера:'
+      )
       .setTimestamp();
 
     const leaderboardText = await Promise.all(
       leaderboard.map(async (user, index) => {
         try {
-          const member = await interaction.guild.members.fetch(user.userId).catch(() => null);
-          const userMention = member?.user.toString() || `<@${user.userId}>`;
+          const member = await interaction.guild.members
+            .fetch(user.userId)
+            .catch(() => null);
+
+          const userMention =
+            member?.user.toString() || `<@${user.userId}>`;
+
           const xpForNextLevel = getXpForLevel(user.level + 1);
 
           let rankPrefix = `${index + 1}.`;
-          if (index === 0) rankPrefix = '🥇';
-          else if (index === 1) rankPrefix = '🥈';
-          else if (index === 2) rankPrefix = '🥉';
-          else rankPrefix = `**${index + 1}.**`;
 
-          return `${rankPrefix} ${userMention} - Level ${user.level} (${user.xp}/${xpForNextLevel} XP)`;
+          if (index === 0) {
+            rankPrefix = '🥇';
+          } else if (index === 1) {
+            rankPrefix = '🥈';
+          } else if (index === 2) {
+            rankPrefix = '🥉';
+          } else {
+            rankPrefix = `**${index + 1}.**`;
+          }
+
+          return `${rankPrefix} ${userMention} — Уровень ${user.level} (${user.xp}/${xpForNextLevel} XP)`;
         } catch {
-          return `**${index + 1}.** Error loading user ${user.userId}`;
+          return `**${index + 1}.** Ошибка загрузки пользователя ${user.userId}`;
         }
       })
     );
 
     embed.addFields({
-      name: 'Rankings',
+      name: 'Рейтинг',
       value: leaderboardText.join('\n')
     });
 
-    await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
-    logger.debug(`Leaderboard displayed for guild ${interaction.guildId}`);
+    await InteractionHelper.safeEditReply(interaction, {
+      embeds: [embed]
+    });
+
+    logger.debug(
+      `Leaderboard displayed for guild ${interaction.guildId}`
+    );
   }
 };
