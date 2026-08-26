@@ -3,15 +3,16 @@ import { successEmbed } from '../utils/embeds.js';
 import { logger } from '../utils/logger.js';
 
 import { replyUserError, ErrorTypes } from '../utils/errorHandler.js';
+
 function createControlButtons(countdownId, isPaused = false) {
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId(`countdown_pause:${countdownId}`)
-            .setLabel(isPaused ? "▶️ Resume" : "⏸️ Pause")
+            .setLabel(isPaused ? "▶️ Продолжить" : "⏸️ Пауза")
             .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
             .setCustomId(`countdown_cancel:${countdownId}`)
-            .setLabel("❌ Cancel")
+            .setLabel("❌ Отмена")
             .setStyle(ButtonStyle.Danger),
     );
 }
@@ -36,7 +37,7 @@ function startCountdown(countdownId, countdownData, activeCountdowns) {
         countdownData.interval = null;
     }
 
-    logger.info(`Countdown started: ${countdownData.title} (${countdownData.remainingTime / 1000}s remaining)`);
+    logger.info(`Обратный отсчёт запущен: ${countdownData.title} (${countdownData.remainingTime / 1000} сек. осталось)`);
 
     countdownData.interval = setInterval(async () => {
         try {
@@ -51,7 +52,7 @@ function startCountdown(countdownId, countdownData, activeCountdowns) {
 
                 const embed = successEmbed(
                     `⏱️ ${countdownData.title}`,
-                    `Time remaining: **${formatTime(Math.ceil(remaining / 1000))}**`,
+                    `Осталось времени: **${formatTime(Math.ceil(remaining / 1000))}**`,
                 );
 
                 try {
@@ -65,7 +66,7 @@ function startCountdown(countdownId, countdownData, activeCountdowns) {
                         ],
                     });
                 } catch (error) {
-                    logger.error("Error updating countdown message:", error);
+                    logger.error("Ошибка обновления сообщения обратного отсчёта:", error);
                 }
             }
 
@@ -73,8 +74,8 @@ function startCountdown(countdownId, countdownData, activeCountdowns) {
                 clearInterval(countdownData.interval);
 
                 const finishedEmbed = successEmbed(
-                    `⏱️ ${countdownData.title} (Finished!)`,
-                    "⏰ Time's up!",
+                    `⏱️ ${countdownData.title} (Завершено!)`,
+                    "⏰ Время вышло!",
                 );
 
                 await countdownData.message.edit({
@@ -85,7 +86,7 @@ function startCountdown(countdownId, countdownData, activeCountdowns) {
                 cleanupCountdown(countdownId, activeCountdowns);
             }
         } catch (error) {
-            logger.error("Countdown update error:", error);
+            logger.error("Ошибка обновления обратного отсчёта:", error);
             cleanupCountdown(countdownId, activeCountdowns);
         }
     }, 100);
@@ -106,16 +107,17 @@ async function countdownButtonHandler(interaction, client, args) {
         const countdownId = args[1];
 
         const countdownData = activeCountdowns.get(countdownId);
+
         if (!countdownData) {
             return await interaction.reply({
-                content: "This countdown has expired or was cancelled.",
+                content: "Этот обратный отсчёт истёк или был отменён.",
                 flags: ["Ephemeral"],
             });
         }
 
         if (!interaction.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
             return await interaction.reply({
-                content: 'You need the "Manage Messages" permission to control countdowns.',
+                content: 'Вам необходимо разрешение "Управление сообщениями", чтобы управлять обратным отсчётом.',
                 flags: ["Ephemeral"],
             });
         }
@@ -128,13 +130,14 @@ async function countdownButtonHandler(interaction, client, args) {
                     startCountdown(countdownId, countdownData, activeCountdowns);
 
                     const currentEmbed = countdownData.message.embeds[0];
+
                     await countdownData.message.edit({
                         embeds: [currentEmbed],
                         components: [createControlButtons(countdownId, false)],
                     });
 
                     await interaction.reply({
-                        content: "▶️ Countdown resumed!",
+                        content: "▶️ Обратный отсчёт продолжен!",
                         flags: ["Ephemeral"],
                     });
                 } else {
@@ -143,13 +146,14 @@ async function countdownButtonHandler(interaction, client, args) {
                     countdownData.remainingTime = countdownData.endTime - Date.now();
 
                     const currentEmbed = countdownData.message.embeds[0];
+
                     await countdownData.message.edit({
                         embeds: [currentEmbed],
                         components: [createControlButtons(countdownId, true)],
                     });
 
                     await interaction.reply({
-                        content: "⏸️ Countdown paused!",
+                        content: "⏸️ Обратный отсчёт приостановлен!",
                         flags: ["Ephemeral"],
                     });
                 }
@@ -159,8 +163,8 @@ async function countdownButtonHandler(interaction, client, args) {
                 clearInterval(countdownData.interval);
 
                 const embed = successEmbed(
-                    `⏱️ ${countdownData.title} (Cancelled)`,
-                    "The countdown was cancelled.",
+                    `⏱️ ${countdownData.title} (Отменено)`,
+                    "Обратный отсчёт был отменён.",
                 );
 
                 await countdownData.message.edit({
@@ -171,22 +175,33 @@ async function countdownButtonHandler(interaction, client, args) {
                 cleanupCountdown(countdownId, activeCountdowns);
 
                 await interaction.reply({
-                    content: "❌ Countdown cancelled!",
+                    content: "❌ Обратный отсчёт отменён!",
                     flags: ["Ephemeral"],
                 });
                 break;
         }
     } catch (error) {
-        logger.error('Countdown button handler error:', error);
+        logger.error('Ошибка обработчика кнопок обратного отсчёта:', error);
+
         try {
             if (!interaction.replied && !interaction.deferred) {
-                await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'An error occurred controlling the countdown.' });
+                await replyUserError(interaction, {
+                    type: ErrorTypes.UNKNOWN,
+                    message: 'Произошла ошибка при управлении обратным отсчётом.'
+                });
             }
         } catch (err) {
-            logger.error('Failed to send error message:', err);
+            logger.error('Не удалось отправить сообщение об ошибке:', err);
         }
     }
 }
 
-export { createControlButtons, formatTime, startCountdown, cleanupCountdown, countdownButtonHandler };
+export {
+    createControlButtons,
+    formatTime,
+    startCountdown,
+    cleanupCountdown,
+    countdownButtonHandler
+};
+
 export default countdownButtonHandler;
