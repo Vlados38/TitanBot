@@ -1,8 +1,9 @@
 /**
- * Prefix command restrictions — dashboard and advanced setup flows stay slash-only.
+ * Ограничения для команд с префиксом — dashboard и расширенные процессы настройки
+ * доступны только через slash-команды.
  */
 
-/** Top-level commands that cannot be invoked via prefix at all. */
+/** Команды верхнего уровня, которые вообще нельзя вызвать через префикс. */
 export const SLASH_ONLY_COMMANDS = new Set([
   'configwizard',
   'help',
@@ -11,18 +12,19 @@ export const SLASH_ONLY_COMMANDS = new Set([
   'apply',
 ]);
 
-/** Subcommands blocked for every command when invoked via prefix. */
+/** Подкоманды, заблокированные для всех команд при использовании префикса. */
 export const GLOBAL_BLOCKED_SUBCOMMANDS = new Set([
   'dashboard',
   'setup',
 ]);
 
-/** Subcommand groups blocked for every command when invoked via prefix. */
+/** Группы подкоманд, заблокированные для всех команд при использовании префикса. */
 export const GLOBAL_BLOCKED_SUBCOMMAND_GROUPS = new Set([
   'config',
 ]);
 
-/** Per-command subcommands that stay slash-only (beyond the global block list). */
+/** Подкоманды отдельных команд, доступные только через slash-команды
+ * (помимо глобально заблокированных). */
 export const COMMAND_BLOCKED_SUBCOMMANDS = {
   music: new Set([
     'shuffle',
@@ -65,10 +67,10 @@ function isSubcommandBlocked(commandName, subcommandName) {
 }
 
 /**
- * Returns whether a prefix invocation should be rejected.
- * @param {object} command - Loaded command module
- * @param {string[]} args - Parsed prefix arguments (after command name)
- * @param {(name: string) => string} resolveSubcommandAlias
+ * Возвращает информацию о том, следует ли отклонить вызов через префикс.
+ * @param {object} command - Загруженный модуль команды
+ * @param {string[]} args - Аргументы префикса (после имени команды)
+ * @param {(name: string) => string} resolveSubcommandAlias - Функция разрешения псевдонима подкоманды
  * @returns {{ blocked: boolean, reason?: string }}
  */
 export function getPrefixRestriction(command, args, resolveSubcommandAlias) {
@@ -80,11 +82,17 @@ export function getPrefixRestriction(command, args, resolveSubcommandAlias) {
   const commandName = commandJson.name?.toLowerCase();
 
   if (command.prefixOnly === false || command.slashOnly === true) {
-    return { blocked: true, reason: 'This command is only available as a slash command.' };
+    return {
+      blocked: true,
+      reason: 'Эта команда доступна только как slash-команда.',
+    };
   }
 
   if (SLASH_ONLY_COMMANDS.has(commandName)) {
-    return { blocked: true, reason: 'This command is only available as a slash command.' };
+    return {
+      blocked: true,
+      reason: 'Эта команда доступна только как slash-команда.',
+    };
   }
 
   const [firstArg, secondArg] = args.map((arg) => arg?.toLowerCase?.() || null);
@@ -99,27 +107,30 @@ export function getPrefixRestriction(command, args, resolveSubcommandAlias) {
     allSubcommandNames.every((name) => isSubcommandBlocked(commandName, name));
 
   if (allSubcommandsBlocked) {
-    return { blocked: true, reason: 'This command is only available as a slash command.' };
+    return {
+      blocked: true,
+      reason: 'Эта команда доступна только как slash-команда.',
+    };
   }
 
   if (firstArg && GLOBAL_BLOCKED_SUBCOMMAND_GROUPS.has(firstArg)) {
     return {
       blocked: true,
-      reason: 'This configuration flow is only available as a slash command.',
+      reason: 'Этот процесс настройки доступен только как slash-команда.',
     };
   }
 
   if (resolvedFirstArg && isSubcommandBlocked(commandName, resolvedFirstArg)) {
     return {
       blocked: true,
-      reason: 'This subcommand is only available as a slash command.',
+      reason: 'Эта подкоманда доступна только как slash-команда.',
     };
   }
 
   if (subcommandGroup && resolvedSecondArg && isSubcommandBlocked(commandName, resolvedSecondArg)) {
     return {
       blocked: true,
-      reason: 'This subcommand is only available as a slash command.',
+      reason: 'Эта подкоманда доступна только как slash-команда.',
     };
   }
 
