@@ -15,10 +15,10 @@ const DAILY_AMOUNT = ECONOMY_CONFIG.dailyAmount || 100;
 const WORK_MIN = ECONOMY_CONFIG.workMin || 10;
 const WORK_MAX = ECONOMY_CONFIG.workMax || 100;
 const COOLDOWNS = ECONOMY_CONFIG.cooldowns || {
-daily: 24 * 60 * 60 * 1000,
-work: 60 * 60 * 1000,
-crime: 2 * 60 * 60 * 1000,
-rob: 4 * 60 * 60 * 1000,
+    daily: 24 * 60 * 60 * 1000,
+    work: 60 * 60 * 1000,
+    crime: 2 * 60 * 60 * 1000,
+    rob: 4 * 60 * 60 * 1000,
 };
 
 export function getEconomyKey(guildId, userId) {
@@ -26,7 +26,7 @@ export function getEconomyKey(guildId, userId) {
     const validUserId = validateDiscordId(userId, 'userId');
     
     if (!validGuildId || !validUserId) {
-        throw new Error('Invalid guild ID or user ID');
+        throw new Error('Недействительный ID сервера или пользователя');
     }
     
     return getEconomyStorageKey(validGuildId, validUserId);
@@ -52,14 +52,14 @@ export function getMaxBankCapacity(userData) {
 }
 
 export function formatCurrency(amount) {
-    const currencyName = ECONOMY_CONFIG.currency?.name || 'coins';
+    const currencyName = ECONOMY_CONFIG.currency?.name || 'монет';
     return `${amount.toLocaleString()} ${currencyName}`;
 }
 
 export async function getEconomyData(client, guildId, userId) {
     try {
         if (!client.db || typeof client.db.get !== 'function') {
-            throw new Error('Database not available');
+            throw new Error('База данных недоступна');
         }
 
         const key = getEconomyKey(guildId, userId);
@@ -71,7 +71,7 @@ export async function getEconomyData(client, guildId, userId) {
         
         return normalizeEconomyData(data, defaults);
     } catch (error) {
-        logger.error(`Error getting economy data for user ${userId}`, error);
+        logger.error(`Ошибка получения данных экономики для пользователя ${userId}`, error);
         return normalizeEconomyData({}, DEFAULT_ECONOMY_DATA);
     }
 }
@@ -79,7 +79,7 @@ export async function getEconomyData(client, guildId, userId) {
 export async function setEconomyData(client, guildId, userId, data) {
     try {
         if (!client.db || typeof client.db.set !== 'function') {
-            throw new Error('Database not available');
+            throw new Error('База данных недоступна');
         }
 
         const key = getEconomyKey(guildId, userId);
@@ -87,7 +87,7 @@ export async function setEconomyData(client, guildId, userId, data) {
         await client.db.set(key, normalized);
         return true;
     } catch (error) {
-        logger.error(`Error saving economy data for user ${userId}`, error);
+        logger.error(`Ошибка сохранения данных экономики для пользователя ${userId}`, error);
         return false;
     }
 }
@@ -133,32 +133,32 @@ export function checkCooldown(userData, action) {
 }
 
 function formatCooldown(ms) {
-    if (ms < 1000) return 'now';
+    if (ms < 1000) return 'сейчас';
     
     const seconds = Math.floor(ms / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
     
-    if (days > 0) return `${days}d ${hours % 24}h`;
-    if (hours > 0) return `${hours}h ${minutes % 60}m`;
-    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-    return `${seconds}s`;
+    if (days > 0) return `${days}д ${hours % 24}ч`;
+    if (hours > 0) return `${hours}ч ${minutes % 60}м`;
+    if (minutes > 0) return `${minutes}м ${seconds % 60}с`;
+    return `${seconds}с`;
 }
 
 export function getWorkReward() {
     const amount = Math.floor(Math.random() * (WORK_MAX - WORK_MIN + 1)) + WORK_MIN;
     const jobs = [
-        'worked at a fast food restaurant',
-        'worked as a programmer',
-        'worked as a construction worker',
-        'worked as a doctor',
-        'worked as a streamer',
-        'worked as a YouTuber',
-        'worked as a teacher',
-        'worked as a cashier',
-        'worked as a delivery driver',
-        'worked as a freelancer'
+        'работал в ресторане быстрого питания',
+        'работал программистом',
+        'работал строителем',
+        'работал врачом',
+        'работал стримером',
+        'работал ютубером',
+        'работал учителем',
+        'работал кассиром',
+        'работал курьером',
+        'работал фрилансером'
     ];
     
     const job = jobs[Math.floor(Math.random() * jobs.length)];
@@ -166,7 +166,7 @@ export function getWorkReward() {
     return {
         amount,
         job,
-        message: `You ${job} and earned ${formatCurrency(amount)}!`
+        message: `Ты ${job} и заработал ${formatCurrency(amount)}!`
     };
 }
 
@@ -175,32 +175,32 @@ export function getCrimeOutcome() {
         {
             success: true,
             amount: Math.floor(Math.random() * 200) + 50,
-            message: 'You successfully robbed a bank and got away with {amount}!' 
+            message: 'Ты успешно ограбил банк и скрылся с {amount}!'
         },
         {
             success: true,
             amount: Math.floor(Math.random() * 100) + 20,
-            message: 'You pickpocketed someone and stole {amount}!' 
+            message: 'Ты обокрал кого-то и украл {amount}!'
         },
         {
             success: true,
             amount: Math.floor(Math.random() * 150) + 30,
-            message: 'You hacked into a bank account and transferred {amount} to yourself!' 
+            message: 'Ты взломал банковский счёт и перевёл себе {amount}!'
         },
         {
             success: false,
             fine: Math.floor(Math.random() * 100) + 50,
-            message: 'You got caught and had to pay a fine of {fine}!' 
+            message: 'Тебя поймали, и тебе пришлось заплатить штраф в размере {fine}!'
         },
         {
             success: false,
             fine: Math.floor(Math.random() * 150) + 50,
-            message: 'The police caught you! You paid {fine} to get out of jail.' 
+            message: 'Полиция поймала тебя! Ты заплатил {fine}, чтобы выйти из тюрьмы.'
         },
         {
             success: false,
             fine: 0,
-            message: 'Your attempt failed, but you managed to escape!' 
+            message: 'Попытка провалилась, но тебе удалось сбежать!'
         }
     ];
     
@@ -212,22 +212,22 @@ export function getRobOutcome(targetBalance) {
         return {
             success: false,
             amount: 0,
-            message: 'The target has no money to steal!'
+            message: 'У цели нет денег, которые можно украсть!'
         };
     }
     
-const success = Math.random() > 0.4;
+    const success = Math.random() > 0.4;
     
     if (success) {
         const amount = Math.min(
-Math.floor(Math.random() * (targetBalance * 0.3)) + 1,
+            Math.floor(Math.random() * (targetBalance * 0.3)) + 1,
             targetBalance
         );
         
         return {
             success: true,
             amount,
-            message: `You successfully robbed them and got away with {amount}!`
+            message: `Ты успешно ограбил цель и скрылся с {amount}!`
         };
     } else {
         const fine = Math.floor(Math.random() * 200) + 100;
@@ -236,7 +236,7 @@ Math.floor(Math.random() * (targetBalance * 0.3)) + 1,
             success: false,
             amount: 0,
             fine,
-            message: `You got caught! You had to pay a fine of {fine}.`
+            message: `Тебя поймали! Тебе пришлось заплатить штраф в размере {fine}.`
         };
     }
 }
@@ -249,18 +249,18 @@ export const addMoney = wrapServiceBoundary(async function addMoney(client, guil
     const validAmount = validateNumber(amount, 'amount');
     if (validAmount === null || validAmount <= 0) {
         throw createError(
-            'Invalid amount',
+            'Недействительная сумма',
             ErrorTypes.VALIDATION,
-            'Amount must be a positive number.',
+            'Сумма должна быть положительным числом.',
             { guildId, userId, amount, operation: 'addMoney' }
         );
     }
 
     if (type !== 'wallet' && type !== 'bank') {
         throw createError(
-            'Invalid money type',
+            'Недействительный тип денег',
             ErrorTypes.VALIDATION,
-            'Type must be "wallet" or "bank".',
+            'Тип должен быть "wallet" или "bank".',
             { guildId, userId, type, operation: 'addMoney' }
         );
     }
@@ -271,9 +271,9 @@ export const addMoney = wrapServiceBoundary(async function addMoney(client, guil
         const maxBank = getMaxBankCapacity(userData);
         if ((userData.bank || 0) + validAmount > maxBank) {
             throw createError(
-                'Bank capacity exceeded',
+                'Превышена вместимость банка',
                 ErrorTypes.VALIDATION,
-                `Bank capacity exceeded. Current: ${userData.bank || 0}, Max: ${maxBank}.`,
+                `Превышена вместимость банка. Сейчас: ${userData.bank || 0}, максимум: ${maxBank}.`,
                 { guildId, userId, current: userData.bank || 0, max: maxBank, operation: 'addMoney' }
             );
         }
@@ -291,25 +291,25 @@ export const addMoney = wrapServiceBoundary(async function addMoney(client, guil
 }, {
     service: 'economy',
     operation: 'addMoney',
-    userMessage: 'Failed to add money. Please try again.',
+    userMessage: 'Не удалось добавить деньги. Попробуйте ещё раз.',
 });
 
 export const removeMoney = wrapServiceBoundary(async function removeMoney(client, guildId, userId, amount, type = 'wallet') {
     const validAmount = validateNumber(amount, 'amount');
     if (validAmount === null || validAmount <= 0) {
         throw createError(
-            'Invalid amount',
+            'Недействительная сумма',
             ErrorTypes.VALIDATION,
-            'Amount must be a positive number.',
+            'Сумма должна быть положительным числом.',
             { guildId, userId, amount, operation: 'removeMoney' }
         );
     }
 
     if (type !== 'wallet' && type !== 'bank') {
         throw createError(
-            'Invalid money type',
+            'Недействительный тип денег',
             ErrorTypes.VALIDATION,
-            'Type must be "wallet" or "bank".',
+            'Тип должен быть "wallet" или "bank".',
             { guildId, userId, type, operation: 'removeMoney' }
         );
     }
@@ -319,9 +319,9 @@ export const removeMoney = wrapServiceBoundary(async function removeMoney(client
     if (type === 'bank') {
         if ((userData.bank || 0) < validAmount) {
             throw createError(
-                'Insufficient bank funds',
+                'Недостаточно средств в банке',
                 ErrorTypes.VALIDATION,
-                `Insufficient funds in bank. You have ${userData.bank || 0}, need ${validAmount}.`,
+                `Недостаточно средств в банке. У вас ${userData.bank || 0}, требуется ${validAmount}.`,
                 { guildId, userId, current: userData.bank || 0, required: validAmount, operation: 'removeMoney' }
             );
         }
@@ -329,9 +329,9 @@ export const removeMoney = wrapServiceBoundary(async function removeMoney(client
     } else {
         if ((userData.wallet || 0) < validAmount) {
             throw createError(
-                'Insufficient wallet funds',
+                'Недостаточно средств в кошельке',
                 ErrorTypes.VALIDATION,
-                `Insufficient funds in wallet. You have ${userData.wallet || 0}, need ${validAmount}.`,
+                `Недостаточно средств в кошельке. У вас ${userData.wallet || 0}, требуется ${validAmount}.`,
                 { guildId, userId, current: userData.wallet || 0, required: validAmount, operation: 'removeMoney' }
             );
         }
@@ -346,52 +346,52 @@ export const removeMoney = wrapServiceBoundary(async function removeMoney(client
 }, {
     service: 'economy',
     operation: 'removeMoney',
-    userMessage: 'Failed to remove money. Please try again.',
+    userMessage: 'Не удалось снять деньги. Попробуйте ещё раз.',
 });
 
 export function getShopInventory() {
     return [
         {
             id: 'fishing_rod',
-            name: 'Fishing Rod',
+            name: 'Удочка',
             emoji: '🎣',
             price: 500,
-            description: 'Catch fish to sell for profit!',
+            description: 'Лови рыбу и продавай её ради прибыли!',
             type: 'tool'
         },
         {
             id: 'hunting_rifle',
-            name: 'Hunting Rifle',
+            name: 'Охотничья винтовка',
             emoji: '🔫',
             price: 1000,
-            description: 'Hunt animals for meat and fur!',
+            description: 'Охоться на животных ради мяса и меха!',
             type: 'tool'
         },
         {
             id: 'laptop',
-            name: 'Laptop',
+            name: 'Ноутбук',
             emoji: '💻',
             price: 2000,
-            description: 'Work as a programmer for higher pay!',
+            description: 'Работай программистом и получай больше денег!',
             type: 'tool',
             workMultiplier: 1.5
         },
         {
             id: 'bank_loan',
-            name: 'Bank Loan',
+            name: 'Банковский кредит',
             emoji: '🏦',
             price: 5000,
-            description: 'Increases your bank capacity by 50,000!',
+            description: 'Увеличивает вместимость банка на 50 000!',
             type: 'upgrade',
             effect: 'bank_capacity',
             value: 50000
         },
         {
             id: 'lottery_ticket',
-            name: 'Lottery Ticket',
+            name: 'Лотерейный билет',
             emoji: '🎫',
             price: 100,
-            description: 'A chance to win big!',
+            description: 'Шанс сорвать большой куш!',
             type: 'consumable',
             use: 'gamble'
         }
