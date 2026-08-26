@@ -10,13 +10,16 @@ export async function handleVerificationButton(interaction, client) {
         await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral });
 
         if (!interaction.guild) {
-            return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'This button can only be used in a server.' });
+            return await replyUserError(interaction, {
+                type: ErrorTypes.UNKNOWN,
+                message: 'Эту кнопку можно использовать только на сервере.'
+            });
         }
 
         const guild = interaction.guild;
         const userId = interaction.user.id;
 
-        logger.debug('User clicked verify button', {
+        logger.debug('Пользователь нажал кнопку верификации', {
             guildId: guild.id,
             userId,
             userTag: interaction.user.tag
@@ -28,10 +31,13 @@ export async function handleVerificationButton(interaction, client) {
         });
 
         if (result.status === 'already_verified') {
-            return await replyUserError(interaction, { type: ErrorTypes.VALIDATION, message: 'You are already verified and have access to all server channels.' });
+            return await replyUserError(interaction, {
+                type: ErrorTypes.VALIDATION,
+                message: 'Вы уже прошли верификацию и имеете доступ ко всем каналам сервера.'
+            });
         }
 
-        logger.info('User verified via button', {
+        logger.info('Пользователь прошёл верификацию через кнопку', {
             guildId: guild.id,
             userId,
             roleName: result.roleName
@@ -39,13 +45,13 @@ export async function handleVerificationButton(interaction, client) {
 
         await InteractionHelper.safeEditReply(interaction, {
             embeds: [successEmbed(
-                "✅ Verification Successful!",
-                `You have been verified and given the **${result.roleName}** role!\n\nYou now have access to all server channels and features. Welcome! 🎉`
+                "✅ Верификация успешно пройдена!",
+                `Вы прошли верификацию и получили роль **${result.roleName}**!\n\nТеперь вам доступны все каналы и функции сервера. Добро пожаловать! 🎉`
             )],
         });
 
     } catch (error) {
-        logger.error('Error in verification button handler', {
+        logger.error('Ошибка в обработчике кнопки верификации', {
             error: error.message,
             guildId: interaction.guild?.id,
             userId: interaction.user.id
