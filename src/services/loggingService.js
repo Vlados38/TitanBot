@@ -209,7 +209,7 @@ export async function logEvent({
       await client.guilds.fetch(guildId).catch(() => null);
 
     if (!guild) {
-      logger.warn(`logEvent: Guild not found: ${guildId}`);
+      logger.warn(`logEvent: Сервер не найден: ${guildId}`);
       return null;
     }
 
@@ -236,13 +236,13 @@ export async function logEvent({
       await guild.channels.fetch(logChannelId).catch(() => null);
 
     if (!channel || channel.type !== ChannelType.GuildText) {
-      logger.warn(`logEvent: Invalid log channel ${logChannelId} for guild ${guildId}`);
+      logger.warn(`logEvent: Недопустимый канал логирования ${logChannelId} для сервера ${guildId}`);
       return null;
     }
 
     const permissions = channel.permissionsFor(guild.members.me);
     if (!permissions || !permissions.has(['SendMessages', 'EmbedLinks'])) {
-      logger.warn(`logEvent: Missing permissions in channel ${logChannelId}`);
+      logger.warn(`logEvent: Отсутствуют необходимые права в канале ${logChannelId}`);
       return null;
     }
 
@@ -257,10 +257,10 @@ export async function logEvent({
     }
 
     const sent = await channel.send(messageOptions);
-    logger.info(`Event logged: ${eventType} in guild ${guildId}`);
+    logger.info(`Событие записано в лог: ${eventType} на сервере ${guildId}`);
     return sent;
   } catch (error) {
-    logger.error('Error in logEvent:', error);
+    logger.error('Ошибка в logEvent:', error);
     return null;
   }
 }
@@ -283,8 +283,8 @@ function createLogEmbed(guild, eventType, data) {
 
     if (data.fields?.length) {
       const { before, after } = splitComparisonFields(data.fields);
-      if (before !== null) inlineFields.push({ name: 'Before', value: before, inline: true });
-      if (after !== null) inlineFields.push({ name: 'After', value: after, inline: true });
+      if (before !== null) inlineFields.push({ name: 'До', value: before, inline: true });
+      if (after !== null) inlineFields.push({ name: 'После', value: after, inline: true });
     }
   } else if (data.fields?.length) {
     const { before, after, rest } = splitComparisonFields(data.fields);
@@ -298,10 +298,10 @@ function createLogEmbed(guild, eventType, data) {
       });
 
       if (before !== null) {
-        inlineFields.push({ name: 'Before', value: before, inline: true });
+        inlineFields.push({ name: 'До', value: before, inline: true });
       }
       if (after !== null) {
-        inlineFields.push({ name: 'After', value: after, inline: true });
+        inlineFields.push({ name: 'После', value: after, inline: true });
       }
     } else {
       description = buildLogDescription({
@@ -318,7 +318,7 @@ function createLogEmbed(guild, eventType, data) {
   }
 
   if (data.section?.body) {
-    description = appendContentSection(description, data.section.title || 'Message', data.section.body);
+    description = appendContentSection(description, data.section.title || 'Сообщение', data.section.body);
   }
 
   if (data.inlineFields?.length) {
@@ -340,7 +340,7 @@ function createLogEmbed(guild, eventType, data) {
 
 function formatEventType(eventType) {
   if (!eventType || typeof eventType !== 'string') {
-    return 'Unknown Event';
+    return 'Неизвестное событие';
   }
 
   return eventType
@@ -387,14 +387,14 @@ export async function toggleEventLogging(client, guildId, eventTypes, enabled) {
     await updateGuildConfig(client, guildId, { logging });
     return true;
   } catch (error) {
-    logger.error('Error toggling event logging:', error);
+    logger.error('Ошибка переключения логирования событий:', error);
     return false;
   }
 }
 
 export async function setLogChannel(client, guildId, destination, channelId) {
   if (!LOG_DESTINATIONS.includes(destination)) {
-    throw new Error(`Invalid log destination: ${destination}`);
+    throw new Error(`Недопустимое назначение логирования: ${destination}`);
   }
 
   try {
@@ -411,12 +411,12 @@ export async function setLogChannel(client, guildId, destination, channelId) {
     await updateGuildConfig(client, guildId, { logging });
     return true;
   } catch (error) {
-    logger.error('Error setting log channel:', error);
+    logger.error('Ошибка установки канала логирования:', error);
     return false;
   }
 }
 
-/** @deprecated Use setLogChannel(client, guildId, 'audit', channelId) */
+/** @deprecated Используйте setLogChannel(client, guildId, 'audit', channelId) */
 export async function setLoggingChannel(client, guildId, channelId) {
   return setLogChannel(client, guildId, 'audit', channelId);
 }
@@ -428,7 +428,7 @@ export async function setLoggingEnabled(client, guildId, enabled) {
     await updateGuildConfig(client, guildId, { logging });
     return true;
   } catch (error) {
-    logger.error('Error setting logging enabled:', error);
+    logger.error('Ошибка изменения состояния логирования:', error);
     return false;
   }
 }
@@ -455,7 +455,7 @@ export async function updateIgnoreList(client, guildId, { action, type, id }) {
     await updateGuildConfig(client, guildId, { logging });
     return true;
   } catch (error) {
-    logger.error('Error updating ignore list:', error);
+    logger.error('Ошибка обновления списка исключений:', error);
     return false;
   }
 }
