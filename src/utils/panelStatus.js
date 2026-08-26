@@ -1,5 +1,6 @@
 /**
- * Shared helpers for detecting bot-posted panel messages (tickets, verification, etc.)
+ * Общие вспомогательные функции для определения сообщений панелей,
+ * опубликованных ботом (тикеты, верификация и т. д.)
  */
 
 export function messageHasButtonCustomId(message, buttonCustomId) {
@@ -42,28 +43,28 @@ export function messageHasPanelMarker(message, { buttonCustomId, selectCustomId 
     return false;
 }
 
-export function formatPanelStatusField(panelStatus, { repostHint = 'Repost Panel' } = {}) {
-    if (!panelStatus) return '`Unknown`';
+export function formatPanelStatusField(panelStatus, { repostHint = 'Опубликовать панель заново' } = {}) {
+    if (!panelStatus) return '`Неизвестно`';
 
     if (panelStatus.exists) {
         return panelStatus.message?.url
-            ? `✅ Active — [view panel](${panelStatus.message.url})`
-            : '✅ Active';
+            ? `✅ Активна — [просмотреть панель](${panelStatus.message.url})`
+            : '✅ Активна';
     }
 
     if (panelStatus.reason === 'channel_missing') {
-        return '⚠️ Panel channel missing or deleted';
+        return '⚠️ Канал панели отсутствует или был удалён';
     }
 
     if (panelStatus.reason === 'panel_deleted') {
-        return `⚠️ Panel message was deleted — use **${repostHint}** below`;
+        return `⚠️ Сообщение панели было удалено — используйте **${repostHint}** ниже`;
     }
 
     if (panelStatus.reason === 'no_channel') {
-        return '⚠️ No panel channel configured';
+        return '⚠️ Канал панели не настроен';
     }
 
-    return '`Unknown`';
+    return '`Неизвестно`';
 }
 
 export async function getBotPanelStatus(client, guild, {
@@ -133,4 +134,3 @@ export async function getReactionRolePanelStatus(client, guild, panelData) {
         selectCustomId: 'reaction_roles',
     });
 }
-
