@@ -189,14 +189,14 @@ export default {
           }
           await handleDashboardComponent(componentInteraction, client);
         } catch (error) {
-          logger.error('Command access dashboard interaction failed', {
+          logger.error('Сбой взаимодействия с панелью управления доступом к командам', {
             error: error.message,
             customId: componentInteraction.customId,
             guildId: interaction.guildId,
           });
           await replyUserError(componentInteraction, {
             type: ErrorTypes.UNKNOWN,
-            message: error.message || 'Failed to update command access.',
+            message: error.message || 'Неудалось обновить данные.',
           }).catch(() => {});
         }
       });
@@ -227,7 +227,7 @@ export default {
     if (scope === 'category') {
       const category = resolveCategoryChoice(client, target);
       if (!category) {
-        return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: `No category matched \`${target}\`. Use \`/commands dashboard\` to browse categories.` });
+        return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: `Не найдено категории, соответствующей \`${target}\`. Используйте \`/commands dashboard\` для просмотра категорий.` });
       }
 
       if (isDisable) {
@@ -235,8 +235,8 @@ export default {
         return InteractionHelper.safeEditReply(interaction, {
           embeds: [
             successEmbed(
-              'Category Disabled',
-              `All **${category.displayName}** commands are now disabled.\nProtected commands remain available.`,
+              'Категория выключена',
+              `Все **${category.displayName}** команды теперь выключены.\nЗащищенные команды остаются доступными..`,
             ),
           ],
         });
@@ -244,7 +244,7 @@ export default {
 
       await enableCategory(client, interaction.guildId, category.key);
       return InteractionHelper.safeEditReply(interaction, {
-        embeds: [successEmbed('Category Enabled', `**${category.displayName}** commands are now enabled (except individually disabled commands).`)],
+        embeds: [successEmbed('Категория включена', `Все **${category.displayName}** команды теперь включены (за исключением команд, отключенных по отдельности).`)],
       });
     }
 
@@ -252,13 +252,13 @@ export default {
     if (isDisable) {
       await disableCommand(client, interaction.guildId, commandName);
       return InteractionHelper.safeEditReply(interaction, {
-        embeds: [successEmbed('Command Disabled', `\`/${commandName}\` is now disabled in this server.`)],
+        embeds: [successEmbed('Команда выключена', `\`/${commandName}\` выключена на данном сервере.`)],
       });
     }
 
     await enableCommand(client, interaction.guildId, commandName);
     return InteractionHelper.safeEditReply(interaction, {
-      embeds: [successEmbed('Command Enabled', `\`/${commandName}\` is now enabled in this server.`)],
+      embeds: [successEmbed('Команда включена', `\`/${commandName}\` включена на данном сервере.`)],
     });
   },
 };
