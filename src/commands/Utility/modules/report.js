@@ -10,7 +10,10 @@ export default {
     async execute(interaction, config, client) {
         const deferSuccess = await InteractionHelper.safeDefer(interaction, { ephemeral: true });
         if (!deferSuccess) {
-            logger.warn('Report interaction defer failed', { userId: interaction.user.id, guildId: interaction.guildId });
+            logger.warn('Не удалось отложить взаимодействие с жалобой', {
+                userId: interaction.user.id,
+                guildId: interaction.guildId
+            });
             return;
         }
 
@@ -22,12 +25,15 @@ export default {
         const reportChannelId = resolveLogChannel(guildConfig, 'reports');
 
         if (!reportChannelId) {
-            return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'The report channel has not been set up. Ask a moderator to use `/logging dashboard` or `/logging channel`.' });
+            return await replyUserError(interaction, {
+                type: ErrorTypes.UNKNOWN,
+                message: 'Канал для жалоб не настроен. Попросите модератора использовать `/logging dashboard` или `/logging channel`.'
+            });
         }
 
         const ownerMention = interaction.guild.ownerId
-            ? `<@${interaction.guild.ownerId}> New report!`
-            : 'New report!';
+            ? `<@${interaction.guild.ownerId}> Новая жалоба!`
+            : 'Новая жалоба!';
 
         await logEvent({
             client,
@@ -35,13 +41,13 @@ export default {
             eventType: EVENT_TYPES.REPORT_FILE,
             content: ownerMention,
             data: {
-                title: 'User Report',
+                title: 'Жалоба на пользователя',
                 lines: [
-                    formatLogLine('Reported User', `${targetUser.tag} (\`${targetUser.id}\`)`),
-                    formatLogLine('Reported By', `${interaction.user.tag} (\`${interaction.user.id}\`)`),
-                    formatLogLine('Channel', interaction.channel.toString()),
+                    formatLogLine('Пожаловались на', `${targetUser.tag} (\`${targetUser.id}\`)`),
+                    formatLogLine('Пожаловался', `${interaction.user.tag} (\`${interaction.user.id}\`)`),
+                    formatLogLine('Канал', interaction.channel.toString()),
                 ],
-                blockFields: [{ name: 'Reason', value: reason }],
+                blockFields: [{ name: 'Причина', value: reason }],
                 author: await resolveUserAuthor(client, targetUser.id),
                 thumbnail: targetUser.displayAvatarURL(),
             },
@@ -49,12 +55,12 @@ export default {
 
         await InteractionHelper.safeEditReply(interaction, {
             embeds: [createEmbed({
-                title: 'Report Submitted',
-                description: `Your report against **${targetUser.tag}** has been successfully filed and sent to the moderation team. Thank you!`,
+                title: 'Жалоба отправлена',
+                description: `Ваша жалоба на **${targetUser.tag}** успешно зарегистрирована и отправлена команде модераторов. Спасибо!`,
             })],
         });
 
-        logger.info('Report submitted', {
+        logger.info('Жалоба отправлена', {
             userId: interaction.user.id,
             reportedUserId: targetUser.id,
             guildId,
