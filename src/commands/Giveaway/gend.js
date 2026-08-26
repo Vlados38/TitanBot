@@ -15,12 +15,12 @@ export default {
     data: new SlashCommandBuilder()
         .setName("gend")
         .setDescription(
-            "Ends an active giveaway immediately and picks the winner(s).",
+            "Немедленно завершает активный розыгрыш и выбирает победителя(ей).",
         )
         .addStringOption((option) =>
             option
                 .setName("messageid")
-                .setDescription("The message ID of the giveaway to end.")
+                .setDescription("ID сообщения розыгрыша, который нужно завершить.")
                 .setRequired(true),
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
@@ -28,31 +28,31 @@ export default {
     async execute(interaction) {
         if (!interaction.inGuild()) {
             throw new TitanBotError(
-                'Giveaway command used outside guild',
+                'Команда розыгрыша использована вне сервера',
                 ErrorTypes.VALIDATION,
-                'This command can only be used in a server.',
+                'Эту команду можно использовать только на сервере.',
                 { userId: interaction.user.id }
             );
         }
 
         if (!interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
             throw new TitanBotError(
-                'User lacks ManageGuild permission',
+                'У пользователя нет разрешения ManageGuild',
                 ErrorTypes.PERMISSION,
-                "You need the 'Manage Server' permission to end a giveaway.",
+                "Вам необходимо разрешение «Управление сервером», чтобы завершить розыгрыш.",
                 { userId: interaction.user.id, guildId: interaction.guildId }
             );
         }
 
-        logger.info(`Giveaway end initiated by ${interaction.user.tag} in guild ${interaction.guildId}`);
+        logger.info(`Начато завершение розыгрыша пользователем ${interaction.user.tag} на сервере ${interaction.guildId}`);
 
         const messageId = interaction.options.getString("messageid");
 
         if (!messageId || !/^\d+$/.test(messageId)) {
             throw new TitanBotError(
-                'Invalid message ID format',
+                'Неверный формат ID сообщения',
                 ErrorTypes.VALIDATION,
-                'Please provide a valid message ID.',
+                'Укажите корректный ID сообщения.',
                 { providedId: messageId }
             );
         }
@@ -62,9 +62,9 @@ export default {
 
         if (!giveaway) {
             throw new TitanBotError(
-                `Giveaway not found: ${messageId}`,
+                `Розыгрыш не найден: ${messageId}`,
                 ErrorTypes.VALIDATION,
-                "No giveaway was found with that message ID in the database.",
+                "Розыгрыш с таким ID сообщения не найден в базе данных.",
                 { messageId, guildId: interaction.guildId }
             );
         }
@@ -82,15 +82,15 @@ export default {
         const channel = await interaction.client.channels.fetch(
             updatedGiveaway.channelId,
         ).catch(err => {
-            logger.warn(`Could not fetch channel ${updatedGiveaway.channelId}:`, err.message);
+            logger.warn(`Не удалось получить канал ${updatedGiveaway.channelId}:`, err.message);
             return null;
         });
 
         if (!channel || !channel.isTextBased()) {
             throw new TitanBotError(
-                `Channel not found: ${updatedGiveaway.channelId}`,
+                `Канал не найден: ${updatedGiveaway.channelId}`,
                 ErrorTypes.VALIDATION,
-                "Could not find the channel where the giveaway was hosted. The giveaway state has been updated.",
+                "Не удалось найти канал, в котором проходил розыгрыш. Состояние розыгрыша обновлено.",
                 { channelId: updatedGiveaway.channelId, messageId }
             );
         }
@@ -98,15 +98,15 @@ export default {
         const message = await channel.messages
             .fetch(messageId)
             .catch(err => {
-                logger.warn(`Could not fetch message ${messageId}:`, err.message);
+                logger.warn(`Не удалось получить сообщение ${messageId}:`, err.message);
                 return null;
             });
 
         if (!message) {
             throw new TitanBotError(
-                `Message not found: ${messageId}`,
+                `Сообщение не найдено: ${messageId}`,
                 ErrorTypes.VALIDATION,
-                "Could not find the giveaway message. The giveaway state has been updated.",
+                "Не удалось найти сообщение розыгрыша. Состояние розыгрыша обновлено.",
                 { messageId, channelId: updatedGiveaway.channelId }
             );
         }
@@ -121,7 +121,7 @@ export default {
         const newRow = createGiveawayButtons(true);
 
         await message.edit({
-            content: "🎉 **GIVEAWAY ENDED** 🎉",
+            content: "🎉 **РОЗЫГРЫШ ЗАВЕРШЁН** 🎉",
             embeds: [newEmbed],
             components: [newRow],
         });
@@ -130,13 +130,15 @@ export default {
             const winnerMentions = winners
                 .map((id) => `<@${id}>`)
                 .join(",");
+
             const winnerPingMsg = await channel.send({
-                content: `🎉 CONGRATULATIONS ${winnerMentions}! You won the **${updatedGiveaway.prize}** giveaway! Please contact the host <@${updatedGiveaway.hostId}> to claim your prize.`,
+                content: `🎉 ПОЗДРАВЛЯЕМ ${winnerMentions}! Вы выиграли в розыгрыше **${updatedGiveaway.prize}**! Свяжитесь с организатором <@${updatedGiveaway.hostId}>, чтобы получить свой приз.`,
             });
+
             updatedGiveaway.winnerPingMessageId = winnerPingMsg.id;
             await saveGiveaway(interaction.client, interaction.guildId, updatedGiveaway);
 
-            logger.info(`Giveaway ended with ${winners.length} winner(s): ${messageId}`);
+            logger.info(`Розыгрыш завершён с ${winners.length} победителем(ями): ${messageId}`);
 
             try {
                 await logEvent({
@@ -144,22 +146,22 @@ export default {
                     guildId: interaction.guildId,
                     eventType: EVENT_TYPES.GIVEAWAY_WINNER,
                     data: {
-                        description: `Giveaway ended with ${winners.length} winner(s)`,
+                        description: `Розыгрыш завершён с ${winners.length} победителем(ями)`,
                         channelId: channel.id,
                         userId: interaction.user.id,
                         fields: [
                             {
-                                name: 'Prize',
-                                value: updatedGiveaway.prize || 'Mystery Prize!',
+                                name: 'Приз',
+                                value: updatedGiveaway.prize || 'Таинственный приз!',
                                 inline: true
                             },
                             {
-                                name: 'Winners',
+                                name: 'Победители',
                                 value: winnerMentions,
                                 inline: false
                             },
                             {
-                                name: 'Entries',
+                                name: 'Участники',
                                 value: endResult.participantCount.toString(),
                                 inline: true
                             }
@@ -167,22 +169,23 @@ export default {
                     }
                 });
             } catch (logError) {
-                logger.debug('Error logging giveaway winner event:', logError);
+                logger.debug('Ошибка при записи события о победителе розыгрыша:', logError);
             }
         } else {
             await channel.send({
-                content: `The giveaway for **${updatedGiveaway.prize}** has ended with no valid entries.`,
+                content: `Розыгрыш с призом **${updatedGiveaway.prize}** завершён без действительных участников.`,
             });
-            logger.info(`Giveaway ended with no winners: ${messageId}`);
+
+            logger.info(`Розыгрыш завершён без победителей: ${messageId}`);
         }
 
-        logger.info(`Giveaway successfully ended by ${interaction.user.tag}: ${messageId}`);
+        logger.info(`Розыгрыш успешно завершён пользователем ${interaction.user.tag}: ${messageId}`);
 
         return InteractionHelper.safeReply(interaction, {
             embeds: [
                 successEmbed(
-                    "Giveaway Ended ✅",
-                    `Successfully ended the giveaway for **${updatedGiveaway.prize}** in ${channel}. Selected ${winners.length} winner(s) from ${endResult.participantCount} entries.`,
+                    "Розыгрыш завершён ✅",
+                    `Розыгрыш с призом **${updatedGiveaway.prize}** успешно завершён в ${channel}. Выбрано победителей: **${winners.length}** из **${endResult.participantCount}** участников.`,
                 ),
             ],
             flags: MessageFlags.Ephemeral,
