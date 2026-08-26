@@ -11,9 +11,8 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Папка с GIF:
-// assets/reactions/kiss/
-const gifsPath = path.join(
+// Основная папка реакции
+const reactionsPath = path.join(
     __dirname,
     '../../../assets/reactions/kiss'
 );
@@ -78,6 +77,16 @@ function formatMessage(message, author, target) {
         .replaceAll('{target}', target.toString());
 }
 
+function getGifs(folder) {
+    if (!fs.existsSync(folder)) {
+        return [];
+    }
+
+    return fs
+        .readdirSync(folder)
+        .filter(file => file.toLowerCase().endsWith('.gif'));
+}
+
 // ============================================================
 // КОМАНДА
 // ============================================================
@@ -99,42 +108,65 @@ export default {
         const target = interaction.options.getUser('user');
 
         try {
-            // Проверяем существование папки
-            if (!fs.existsSync(gifsPath)) {
-                return interaction.reply({
-                    content: '❌ Папка с GIF для /kiss не найдена.',
-                    ephemeral: true
-                });
-            }
-
-            // Получаем все GIF
-            const gifs = fs
-                .readdirSync(gifsPath)
-                .filter(file => file.toLowerCase().endsWith('.gif'));
-
-            // Проверяем наличие GIF
-            if (gifs.length === 0) {
-                return interaction.reply({
-                    content: '❌ В папке с GIF для /kiss нет ни одного файла.',
-                    ephemeral: true
-                });
-            }
-
-            // Выбираем случайный GIF
-            const randomGif = randomItem(gifs);
-            const gifPath = path.join(gifsPath, randomGif);
-
-            // Выбираем случайное сообщение
+            let gifsFolder;
             let messageList;
 
+            // ================================================
+            // ПОЦЕЛУЙ СЕБЯ
+            // ================================================
+
             if (target.id === interaction.user.id) {
+                gifsFolder = path.join(
+                    reactionsPath,
+                    'self'
+                );
+
                 messageList = selfMessages;
+
+            // ================================================
+            // ПОЦЕЛУЙ БОТА
+            // ================================================
+
             } else if (target.bot) {
+                gifsFolder = path.join(
+                    reactionsPath,
+                    'bot'
+                );
+
                 messageList = botMessages;
+
+            // ================================================
+            // ПОЦЕЛУЙ ПОЛЬЗОВАТЕЛЯ
+            // ================================================
+
             } else {
+                gifsFolder = path.join(
+                    reactionsPath,
+                    'user'
+                );
+
                 messageList = normalMessages;
             }
 
+            // Получаем GIF из нужной папки
+            const gifs = getGifs(gifsFolder);
+
+            if (gifs.length === 0) {
+                return interaction.reply({
+                    content: '❌ Для этой реакции пока нет GIF.',
+                    ephemeral: true
+                });
+            }
+
+            // Случайный GIF
+            const randomGif = randomItem(gifs);
+
+            const gifPath = path.join(
+                gifsFolder,
+                randomGif
+            );
+
+            // Случайное сообщение
             const message = formatMessage(
                 randomItem(messageList),
                 interaction.user,
@@ -142,11 +174,14 @@ export default {
             );
 
             // Прикрепляем GIF
-            const attachment = new AttachmentBuilder(gifPath, {
-                name: 'kiss.gif'
-            });
+            const attachment = new AttachmentBuilder(
+                gifPath,
+                {
+                    name: 'kiss.gif'
+                }
+            );
 
-            // Создаём Embed
+            // Embed
             const embed = new EmbedBuilder()
                 .setColor(0xff69b4)
                 .setDescription(message)
