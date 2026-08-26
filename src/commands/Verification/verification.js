@@ -12,35 +12,35 @@ import verificationDashboard from './modules/verification_dashboard.js';
 export default {
     data: new SlashCommandBuilder()
         .setName("verification")
-        .setDescription("Manage the server verification system")
+        .setDescription("Управление системой верификации сервера")
         .addSubcommand(subcommand =>
             subcommand
                 .setName("setup")
-                .setDescription("Set up the verification system")
+                .setDescription("Настроить систему верификации")
                 .addChannelOption(option =>
                     option
                         .setName("verification_channel")
-                        .setDescription("Channel where verification messages will be sent")
+                        .setDescription("Канал, в котором будут отправляться сообщения верификации")
                         .addChannelTypes(ChannelType.GuildText)
                         .setRequired(true)
                 )
                 .addRoleOption(option =>
                     option
                         .setName("verified_role")
-                        .setDescription("Role to give to verified users")
+                        .setDescription("Роль, выдаваемая подтверждённым пользователям")
                         .setRequired(true)
                 )
                 .addStringOption(option =>
                     option
                         .setName("message")
-                        .setDescription("Custom verification message")
+                        .setDescription("Пользовательское сообщение верификации")
                         .setMaxLength(2000)
                         .setRequired(false)
                 )
                 .addStringOption(option =>
                     option
                         .setName("button_text")
-                        .setDescription("Text for the verification button")
+                        .setDescription("Текст кнопки верификации")
                         .setMaxLength(80)
                         .setRequired(false)
                 )
@@ -48,18 +48,18 @@ export default {
         .addSubcommand(subcommand =>
             subcommand
                 .setName("remove")
-                .setDescription("Remove verification from a user")
+                .setDescription("Снять верификацию с пользователя")
                 .addUserOption(option =>
                     option
                         .setName("user")
-                        .setDescription("User to remove verification from")
+                        .setDescription("Пользователь, с которого нужно снять верификацию")
                         .setRequired(true)
                 )
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName("dashboard")
-                .setDescription("Open the verification system configuration dashboard")
+                .setDescription("Открыть панель настройки системы верификации")
         ),
 
     async execute(interaction, config, client) {
@@ -69,9 +69,9 @@ export default {
 
             if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
                 throw createError(
-                    'Missing ManageGuild permission for verification admin subcommand',
+                    'Недостаточно прав ManageGuild для административной команды верификации',
                     ErrorTypes.PERMISSION,
-                    'You need the **Manage Server** permission to use this verification subcommand.',
+                    'Для использования этой команды верификации вам необходимо право **Управление сервером**.',
                     { subcommand, requiredPermission: 'ManageGuild', userId: interaction.user.id }
                 );
             }
@@ -85,9 +85,9 @@ export default {
                     return await verificationDashboard.execute(interaction, config, client);
                 default:
                     throw createError(
-                        `Unknown subcommand: ${subcommand}`,
+                        `Неизвестная подкоманда: ${subcommand}`,
                         ErrorTypes.VALIDATION,
-                        "Please select a valid subcommand.",
+                        "Пожалуйста, выберите действительную подкоманду.",
                         { subcommand }
                     );
             }
@@ -106,9 +106,9 @@ async function handleSetup(interaction, guild, client) {
 
     if (!botMember) {
         throw createError(
-            'Bot member not found in guild cache',
+            'Участник-бот не найден в кеше сервера',
             ErrorTypes.CONFIGURATION,
-            'I could not verify my permissions in this server. Please try again in a moment.',
+            'Не удалось проверить мои права на этом сервере. Пожалуйста, попробуйте ещё раз через некоторое время.',
             { guildId: guild.id }
         );
     }
@@ -118,43 +118,45 @@ async function handleSetup(interaction, guild, client) {
         PermissionFlagsBits.SendMessages,
         PermissionFlagsBits.EmbedLinks
     ];
+
     const missingChannelPerms = requiredChannelPermissions.filter(perm => 
         !verificationChannel.permissionsFor(botMember).has(perm)
     );
     
     if (missingChannelPerms.length > 0) {
         throw createError(
-            `Missing channel permissions: ${missingChannelPerms.join(', ')}`,
+            `Отсутствуют права канала: ${missingChannelPerms.join(', ')}`,
             ErrorTypes.PERMISSION,
-            'I need **View Channel**, **Send Messages**, and **Embed Links** in the verification channel.',
+            'Мне необходимы права **Просмотр канала**, **Отправка сообщений** и **Встраивание ссылок** в канале верификации.',
             { missingPermissions: missingChannelPerms, channel: verificationChannel.id }
         );
     }
 
     if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
         throw createError(
-            "Missing ManageRoles permission",
+            "Отсутствует право ManageRoles",
             ErrorTypes.PERMISSION,
-            "I need the 'Manage Roles' permission to give verified roles.",
+            "Мне необходимо право **Управление ролями**, чтобы выдавать подтверждённым пользователям роль.",
             { missingPermission: "ManageRoles" }
         );
     }
 
     if (verifiedRole.id === guild.id || verifiedRole.managed) {
         throw createError(
-            'Invalid verified role selected',
+            'Выбрана недопустимая роль верификации',
             ErrorTypes.VALIDATION,
-            'Please choose a normal assignable role (not @everyone or an integration-managed role).',
+            'Пожалуйста, выберите обычную роль, которую можно выдавать (не @everyone и не роль, управляемую интеграцией).',
             { roleId: verifiedRole.id, managed: verifiedRole.managed }
         );
     }
 
     const botRole = botMember.roles.highest;
+
     if (verifiedRole.position >= botRole.position) {
         throw createError(
-            "Role hierarchy error",
+            "Ошибка иерархии ролей",
             ErrorTypes.PERMISSION,
-            "The verified role must be below my highest role in the server role hierarchy.",
+            "Роль верификации должна находиться ниже моей самой высокой роли в иерархии ролей сервера.",
             { rolePosition: verifiedRole.position, botRolePosition: botRole.position }
         );
     }
@@ -166,9 +168,9 @@ async function handleSetup(interaction, guild, client) {
 
     if (hasAutoVerifyEnabled || hasAutoRoleConfigured) {
         throw createError(
-            'Verification setup blocked by conflicting onboarding system',
+            'Настройка верификации заблокирована конфликтующей системой выдачи ролей',
             ErrorTypes.CONFIGURATION,
-            'You cannot enable the verification system while **AutoVerify** or **AutoRole** is configured. Disable those first.',
+            'Вы не можете включить систему верификации, пока настроены **AutoVerify** или **AutoRole**. Сначала отключите их.',
             {
                 guildId: guild.id,
                 hasAutoVerifyEnabled,
@@ -182,7 +184,7 @@ async function handleSetup(interaction, guild, client) {
     await InteractionHelper.safeDefer(interaction);
 
     const verifyEmbed = createEmbed({
-        title: "Server Verification",
+        title: "Верификация сервера",
         description: message,
         color: getColor('success')
     });
@@ -213,11 +215,11 @@ async function handleSetup(interaction, guild, client) {
 
     await InteractionHelper.safeEditReply(interaction, {
         embeds: [successEmbed(
-            'Verification System Updated',
+            'Система верификации обновлена',
             [
-                `Channel: ${verificationChannel}`,
-                `Verified Role: ${verifiedRole}`,
-                `Button Text: ${buttonText}`
+                `Канал: ${verificationChannel}`,
+                `Роль верификации: ${verifiedRole}`,
+                `Текст кнопки: ${buttonText}`
             ].join('\n')
         )]
     });
@@ -233,18 +235,24 @@ async function handleRemove(interaction, guild, client) {
 
     if (result.status === 'not_verified') {
         return await InteractionHelper.safeReply(interaction, {
-            embeds: [infoEmbed('Not Verified', `${targetUser.tag} does not currently have the verified role.`)],
+            embeds: [infoEmbed(
+                'Не верифицирован',
+                `${targetUser.tag} в данный момент не имеет роли верифицированного пользователя.`
+            )],
             flags: MessageFlags.Ephemeral
         });
     }
 
-    logger.info('Verification removed via command', {
+    logger.info('Верификация снята через команду', {
         guildId: guild.id,
         targetUserId: targetUser.id,
         moderatorId: interaction.user.id
     });
 
     return await InteractionHelper.safeReply(interaction, {
-        embeds: [successEmbed('Verification Removed', `Verification removed from ${targetUser.tag}.`)]
+        embeds: [successEmbed(
+            'Верификация снята',
+            `Верификация пользователя ${targetUser.tag} снята.`
+        )]
     });
 }
