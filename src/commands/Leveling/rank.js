@@ -108,8 +108,8 @@ export default {
     // Цвет карточки
     const embedColor = getLevelColor(currentLevel);
 
-const embed = new EmbedBuilder()
-  .setColor(config.primary)
+    const embed = new EmbedBuilder()
+      .setColor(embedColor)
 
       /*
        * Верхняя часть
