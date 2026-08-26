@@ -13,23 +13,23 @@ export async function handleReactionRolesSelectMenu(interaction, client) {
 
         if (!interaction.inGuild() || !interaction.guild || !interaction.member) {
             throw createError(
-                'Reaction role interaction used outside a guild context',
+                'Взаимодействие с ролями по реакции использовано вне сервера',
                 ErrorTypes.VALIDATION,
-                'This reaction role menu can only be used inside a server.',
+                'Это меню ролей по реакции можно использовать только внутри сервера.',
                 { userId: interaction.user.id }
             );
         }
 
-        logger.debug(`Reaction role select menu interaction by ${interaction.user.tag} on message ${interaction.message.id}`);
+        logger.debug(`Взаимодействие с меню ролей по реакции от ${interaction.user.tag} для сообщения ${interaction.message.id}`);
 
         const reactionRoleData = await getReactionRoleMessage(client, interaction.guildId, interaction.message.id);
 
         if (!reactionRoleData) {
-            logger.warn(`Reaction role data not found for message ${interaction.message.id} in guild ${interaction.guildId}`);
+            logger.warn(`Данные ролей по реакции не найдены для сообщения ${interaction.message.id} на сервере ${interaction.guildId}`);
             return interaction.editReply({
                 embeds: [
                     new EmbedBuilder()
-                        .setDescription('❌ This reaction role message is no longer active.')
+                        .setDescription('❌ Это сообщение с ролями по реакции больше не активно.')
                         .setColor(getColor('error'))
                 ]
             });
@@ -42,18 +42,18 @@ export async function handleReactionRolesSelectMenu(interaction, client) {
 
         if (!me) {
             throw createError(
-                'Unable to fetch bot member for permission validation',
+                'Не удалось получить данные участника бота для проверки прав',
                 ErrorTypes.PERMISSION,
-                'I could not verify my server permissions. Please try again.',
+                'Не удалось проверить мои права на сервере. Пожалуйста, попробуйте ещё раз.',
                 { guildId: interaction.guildId }
             );
         }
 
         if (!me.permissions.has('ManageRoles')) {
             throw createError(
-                'Bot missing ManageRoles permission',
+                'У бота отсутствует право ManageRoles',
                 ErrorTypes.PERMISSION,
-                'I do not have permission to manage roles in this server.',
+                'У меня нет разрешения на управление ролями на этом сервере.',
                 { guildId: interaction.guildId }
             );
         }
@@ -70,13 +70,13 @@ export async function handleReactionRolesSelectMenu(interaction, client) {
 
         for (const roleId of selectedRoleIds) {
             if (!availableRoleIds.includes(roleId)) {
-                logger.warn(`Role ${roleId} not in available roles for message ${interaction.message.id}`);
+                logger.warn(`Роль ${roleId} отсутствует среди доступных ролей для сообщения ${interaction.message.id}`);
                 continue;
             }
 
             const role = interaction.guild.roles.cache.get(roleId);
             if (!role) {
-                logger.warn(`Role ${roleId} not found in guild ${interaction.guildId}`);
+                logger.warn(`Роль ${roleId} не найдена на сервере ${interaction.guildId}`);
                 skippedRoles.push(roleId);
                 continue;
             }
@@ -93,13 +93,13 @@ export async function handleReactionRolesSelectMenu(interaction, client) {
             ]);
 
             if (role.managed || roleHasDangerousPermissions) {
-                logger.warn(`Blocked self-assignment for protected role ${role.name} (${roleId})`);
+                logger.warn(`Заблокирована самостоятельная выдача защищённой роли ${role.name} (${roleId})`);
                 skippedRoles.push(role.name);
                 continue;
             }
 
             if (role.position >= botRolePosition) {
-                logger.warn(`Cannot assign role ${role.name} (${roleId}), hierarchy issue`);
+                logger.warn(`Невозможно выдать роль ${role.name} (${roleId}) из-за иерархии ролей`);
                 skippedRoles.push(role.name);
                 continue;
             }
@@ -108,9 +108,9 @@ export async function handleReactionRolesSelectMenu(interaction, client) {
                 try {
                     await member.roles.add(role);
                     addedRoles.push(role.name);
-                    logger.debug(`Added role ${role.name} to ${member.user.tag}`);
+                    logger.debug(`Роль ${role.name} добавлена пользователю ${member.user.tag}`);
                 } catch (roleError) {
-                    logger.error(`Failed to add role ${role.name} to ${member.user.tag}:`, roleError);
+                    logger.error(`Не удалось добавить роль ${role.name} пользователю ${member.user.tag}:`, roleError);
                     skippedRoles.push(role.name);
                 }
             }
@@ -128,29 +128,29 @@ export async function handleReactionRolesSelectMenu(interaction, client) {
                 try {
                     await member.roles.remove(role);
                     removedRoles.push(role.name);
-                    logger.debug(`Removed role ${role.name} from ${member.user.tag}`);
+                    logger.debug(`Роль ${role.name} удалена у пользователя ${member.user.tag}`);
                 } catch (roleError) {
-                    logger.error(`Failed to remove role ${role.name} from ${member.user.tag}:`, roleError);
+                    logger.error(`Не удалось удалить роль ${role.name} у пользователя ${member.user.tag}:`, roleError);
                 }
             }
         }
 
-        let description = '🎭 **Roles updated successfully!**\n\n';
+        let description = '🎭 **Роли успешно обновлены!**\n\n';
 
         if (addedRoles.length > 0) {
-            description += `✅ **Added:** ${addedRoles.map(name => `**${name}**`).join(', ')}\n`;
+            description += `✅ **Добавлены:** ${addedRoles.map(name => `**${name}**`).join(', ')}\n`;
         }
 
         if (removedRoles.length > 0) {
-            description += `❌ **Removed:** ${removedRoles.map(name => `**${name}**`).join(', ')}\n`;
+            description += `❌ **Удалены:** ${removedRoles.map(name => `**${name}**`).join(', ')}\n`;
         }
 
         if (addedRoles.length === 0 && removedRoles.length === 0) {
-            description += 'No changes were made to your roles.';
+            description += 'Изменений в ваших ролях не внесено.';
         }
 
         if (skippedRoles.length > 0) {
-            description += `\n⚠️ **Skipped:** ${skippedRoles.length} role${skippedRoles.length !== 1 ? 's' : ''} (permission issues)`;
+            description += `\n⚠️ **Пропущено:** ${skippedRoles.length} роль${skippedRoles.length !== 1 ? 'ей' : ''} (проблемы с правами)`;
         }
 
         const responseEmbed = new EmbedBuilder()
@@ -167,22 +167,22 @@ export async function handleReactionRolesSelectMenu(interaction, client) {
                     guildId: interaction.guildId,
                     eventType: EVENT_TYPES.REACTION_ROLE_UPDATE,
                     data: {
-                        description: `Reaction roles updated for ${member.user.tag}`,
+                        description: `Роли по реакции обновлены для ${member.user.tag}`,
                         userId: member.user.id,
                         channelId: interaction.channelId,
                         fields: [
                             {
-                                name: '👤 Member',
+                                name: '👤 Участник',
                                 value: `${member.user.tag} (${member.user.id})`,
                                 inline: false
                             },
                             ...(addedRoles.length > 0 ? [{
-                                name: '✅ Roles Added',
+                                name: '✅ Добавленные роли',
                                 value: addedRoles.join(', '),
                                 inline: false
                             }] : []),
                             ...(removedRoles.length > 0 ? [{
-                                name: '❌ Roles Removed',
+                                name: '❌ Удалённые роли',
                                 value: removedRoles.join(', '),
                                 inline: false
                             }] : [])
@@ -190,11 +190,11 @@ export async function handleReactionRolesSelectMenu(interaction, client) {
                     }
                 });
             } catch (logError) {
-                logger.warn('Failed to log reaction role update:', logError);
+                logger.warn('Не удалось записать изменение ролей по реакции в журнал:', logError);
             }
         }
 
-        logger.info(`Reaction roles updated for ${member.user.tag}: +${addedRoles.length}, -${removedRoles.length}`);
+        logger.info(`Роли по реакции обновлены для ${member.user.tag}: +${addedRoles.length}, -${removedRoles.length}`);
 
     } catch (error) {
         await handleInteractionError(interaction, error, {
