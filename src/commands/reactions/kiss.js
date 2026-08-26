@@ -11,16 +11,6 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Путь:
-// src/commands/Reactions
-//        ↓
-// src/commands
-//        ↓
-// src
-//        ↓
-// TitanBot
-//        ↓
-// assets/reactions/kiss
 const gifsPath = path.join(
     __dirname,
     '../../../assets/reactions/kiss'
@@ -37,10 +27,11 @@ export default {
                 .setRequired(true)
         ),
 
+    category: 'Реакции',
+
     async execute(interaction) {
         const target = interaction.options.getUser('user');
 
-        // Нельзя поцеловать самого себя
         if (target.id === interaction.user.id) {
             return interaction.reply({
                 content: '❌ Нельзя использовать эту команду на самом себе!',
@@ -48,7 +39,6 @@ export default {
             });
         }
 
-        // Нельзя использовать реакцию на бота
         if (target.bot) {
             return interaction.reply({
                 content: '❌ Нельзя использовать эту команду на ботов!',
@@ -57,26 +47,29 @@ export default {
         }
 
         try {
-            // Получаем все GIF из папки kiss
-            const gifs = fs
-                .readdirSync(gifsPath)
-                .filter(file => file.toLowerCase().endsWith('.gif'));
-
-            // Если GIF нет
-            if (gifs.length === 0) {
+            if (!fs.existsSync(gifsPath)) {
                 return interaction.reply({
-                    content: '❌ GIF для реакции /kiss не найдены.',
+                    content: '❌ Папка с GIF для /kiss не найдена.',
                     ephemeral: true
                 });
             }
 
-            // Выбираем случайный GIF
+            const gifs = fs
+                .readdirSync(gifsPath)
+                .filter(file => file.toLowerCase().endsWith('.gif'));
+
+            if (gifs.length === 0) {
+                return interaction.reply({
+                    content: '❌ В папке с GIF для /kiss нет файлов.',
+                    ephemeral: true
+                });
+            }
+
             const randomGif =
                 gifs[Math.floor(Math.random() * gifs.length)];
 
             const gifPath = path.join(gifsPath, randomGif);
 
-            // Прикрепляем GIF к сообщению
             const attachment = new AttachmentBuilder(gifPath, {
                 name: 'kiss.gif'
             });
@@ -94,11 +87,11 @@ export default {
             });
 
         } catch (error) {
-            console.error('Ошибка при выполнении команды /kiss:', error);
+            console.error('[KISS] Ошибка:', error);
 
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({
-                    content: '❌ Произошла ошибка при выполнении команды.',
+                    content: '❌ Не удалось отправить GIF.',
                     ephemeral: true
                 });
             }
