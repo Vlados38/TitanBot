@@ -34,7 +34,7 @@ export default {
             embeds: [embed]
         });
 
-        logger.info('Birthday info retrieved successfully', {
+        logger.info('День рождения успешно установлен', {
             userId: interaction.user.id,
             targetUserId: targetUser.id,
             guildId,
