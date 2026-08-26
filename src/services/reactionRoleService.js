@@ -19,9 +19,9 @@ const DANGEROUS_PERMISSIONS = [
 function validateGuildId(guildId) {
     if (!guildId || typeof guildId !== 'string' || !/^\d{17,19}$/.test(guildId)) {
         throw createError(
-            `Invalid guild ID: ${guildId}`,
+            `Недействительный ID сервера: ${guildId}`,
             ErrorTypes.VALIDATION,
-            'Invalid server ID provided.',
+            'Указан недействительный ID сервера.',
             { guildId }
         );
     }
@@ -30,9 +30,9 @@ function validateGuildId(guildId) {
 function validateMessageId(messageId) {
     if (!messageId || typeof messageId !== 'string' || !/^\d{17,19}$/.test(messageId)) {
         throw createError(
-            `Invalid message ID: ${messageId}`,
+            `Недействительный ID сообщения: ${messageId}`,
             ErrorTypes.VALIDATION,
-            'Invalid message ID provided.',
+            'Указан недействительный ID сообщения.',
             { messageId }
         );
     }
@@ -41,9 +41,9 @@ function validateMessageId(messageId) {
 function validateRoleId(roleId) {
     if (!roleId || typeof roleId !== 'string' || !/^\d{17,19}$/.test(roleId)) {
         throw createError(
-            `Invalid role ID: ${roleId}`,
+            `Недействительный ID роли: ${roleId}`,
             ErrorTypes.VALIDATION,
-            'Invalid role ID provided.',
+            'Указан недействительный ID роли.',
             { roleId }
         );
     }
@@ -64,9 +64,9 @@ async function validateRoleSafety(client, guildId, roleId) {
     const guild = client.guilds?.cache?.get(guildId) || await client.guilds?.fetch?.(guildId).catch(() => null);
     if (!guild) {
         throw createError(
-            `Guild not found for role validation: ${guildId}`,
+            `Сервер не найден при проверке роли: ${guildId}`,
             ErrorTypes.VALIDATION,
-            'Server not found while validating reaction roles.',
+            'Сервер не найден во время проверки ролей реакций.',
             { guildId, roleId }
         );
     }
@@ -74,18 +74,18 @@ async function validateRoleSafety(client, guildId, roleId) {
     const role = guild.roles.cache.get(roleId) || await guild.roles.fetch(roleId).catch(() => null);
     if (!role) {
         throw createError(
-            `Role not found: ${roleId}`,
+            `Роль не найдена: ${roleId}`,
             ErrorTypes.VALIDATION,
-            'One or more selected roles no longer exist.',
+            'Одна или несколько выбранных ролей больше не существуют.',
             { guildId, roleId }
         );
     }
 
     if (hasDangerousPermissions(role)) {
         throw createError(
-            `Dangerous role permission detected: ${roleId}`,
+            `Обнаружены опасные разрешения у роли: ${roleId}`,
             ErrorTypes.PERMISSION,
-            'For security reasons, high-privilege roles cannot be assigned through reaction roles.',
+            'В целях безопасности роли с высоким уровнем привилегий нельзя назначать через роли реакций.',
             { guildId, roleId, roleName: role.name, dangerousPermissions: DANGEROUS_PERMISSIONS }
         );
     }
@@ -93,9 +93,9 @@ async function validateRoleSafety(client, guildId, roleId) {
     const botHighestRole = guild.members.me?.roles?.highest;
     if (!botHighestRole || role.position >= botHighestRole.position) {
         throw createError(
-            `Role above bot hierarchy: ${roleId}`,
+            `Роль находится выше бота в иерархии: ${roleId}`,
             ErrorTypes.PERMISSION,
-            'I cannot assign this role because it is equal to or above my highest role.',
+            'Я не могу назначить эту роль, потому что она находится на уровне моей высшей роли или выше неё.',
             { guildId, roleId, rolePosition: role.position, botRolePosition: botHighestRole?.position }
         );
     }
@@ -113,11 +113,11 @@ export async function getReactionRoleMessage(client, guildId, messageId) {
         if (error.name === 'TitanBotError') {
             throw error;
         }
-        logger.error(`Error getting reaction role message ${messageId} in guild ${guildId}:`, error);
+        logger.error(`Ошибка получения сообщения роли реакции ${messageId} на сервере ${guildId}:`, error);
         throw createError(
-            `Database error retrieving reaction role message`,
+            'Ошибка базы данных при получении сообщения роли реакции',
             ErrorTypes.DATABASE,
-            'Failed to retrieve reaction role data. Please try again.',
+            'Не удалось получить данные роли реакции. Пожалуйста, попробуйте ещё раз.',
             { guildId, messageId, originalError: error.message }
         );
     }
@@ -130,27 +130,27 @@ export async function createReactionRoleMessage(client, guildId, channelId, mess
         
         if (!channelId || typeof channelId !== 'string' || !/^\d{17,19}$/.test(channelId)) {
             throw createError(
-                `Invalid channel ID: ${channelId}`,
+                `Недействительный ID канала: ${channelId}`,
                 ErrorTypes.VALIDATION,
-                'Invalid channel ID provided.',
+                'Указан недействительный ID канала.',
                 { channelId }
             );
         }
         
         if (!Array.isArray(roleIds) || roleIds.length === 0) {
             throw createError(
-                'No roles provided',
+                'Роли не указаны',
                 ErrorTypes.VALIDATION,
-                'You must provide at least one role.',
+                'Необходимо указать хотя бы одну роль.',
                 { roleIds }
             );
         }
         
         if (roleIds.length > MAX_ROLES_PER_MESSAGE) {
             throw createError(
-                `Too many roles: ${roleIds.length}`,
+                `Слишком много ролей: ${roleIds.length}`,
                 ErrorTypes.VALIDATION,
-                `You can only add up to ${MAX_ROLES_PER_MESSAGE} roles per reaction role message.`,
+                `В одном сообщении с ролями реакций можно добавить не более ${MAX_ROLES_PER_MESSAGE} ролей.`,
                 { roleIds, limit: MAX_ROLES_PER_MESSAGE }
             );
         }
@@ -171,17 +171,17 @@ export async function createReactionRoleMessage(client, guildId, channelId, mess
         const key = getReactionRoleKey(guildId, messageId);
         await client.db.set(key, reactionRoleData);
         
-        logger.info(`Created reaction role message ${messageId} in guild ${guildId} with ${roleIds.length} roles`);
+        logger.info(`Создано сообщение ролей реакций ${messageId} на сервере ${guildId} с ${roleIds.length} ролями`);
         return reactionRoleData;
     } catch (error) {
         if (error.name === 'TitanBotError') {
             throw error;
         }
-        logger.error(`Error creating reaction role message in guild ${guildId}:`, error);
+        logger.error(`Ошибка создания сообщения роли реакции на сервере ${guildId}:`, error);
         throw createError(
-            `Database error creating reaction role message`,
+            'Ошибка базы данных при создании сообщения роли реакции',
             ErrorTypes.DATABASE,
-            'Failed to save reaction role data. Please try again.',
+            'Не удалось сохранить данные роли реакции. Пожалуйста, попробуйте ещё раз.',
             { guildId, messageId, originalError: error.message }
         );
     }
@@ -205,17 +205,17 @@ export async function addReactionRole(client, guildId, messageId, emoji, roleId)
         data.roles[emoji] = roleId;
         
         await client.db.set(key, data);
-        logger.info(`Added reaction role for emoji ${emoji} to message ${messageId} in guild ${guildId}`);
+        logger.info(`Добавлена роль реакции для эмодзи ${emoji} в сообщение ${messageId} на сервере ${guildId}`);
         return true;
     } catch (error) {
         if (error.name === 'TitanBotError') {
             throw error;
         }
-        logger.error(`Error adding reaction role in guild ${guildId}:`, error);
+        logger.error(`Ошибка добавления роли реакции на сервере ${guildId}:`, error);
         throw createError(
-            `Database error adding reaction role`,
+            'Ошибка базы данных при добавлении роли реакции',
             ErrorTypes.DATABASE,
-            'Failed to add reaction role. Please try again.',
+            'Не удалось добавить роль реакции. Пожалуйста, попробуйте ещё раз.',
             { guildId, messageId, originalError: error.message }
         );
     }
@@ -230,23 +230,22 @@ export async function deleteReactionRoleMessage(client, guildId, messageId) {
         const data = await getReactionRoleMessage(client, guildId, messageId);
         
         if (!data) {
-            
-            logger.debug(`Reaction role message ${messageId} does not exist in guild ${guildId}, nothing to delete`);
+            logger.debug(`Сообщение роли реакции ${messageId} не существует на сервере ${guildId}, удаление не требуется`);
             return true;
         }
         
         await client.db.delete(key);
-        logger.info(`Deleted reaction role message ${messageId} in guild ${guildId}`);
+        logger.info(`Удалено сообщение роли реакции ${messageId} на сервере ${guildId}`);
         return true;
     } catch (error) {
         if (error.name === 'TitanBotError') {
             throw error;
         }
-        logger.error(`Error deleting reaction role message in guild ${guildId}:`, error);
+        logger.error(`Ошибка удаления сообщения роли реакции на сервере ${guildId}:`, error);
         throw createError(
-            `Database error deleting reaction role message`,
+            'Ошибка базы данных при удалении сообщения роли реакции',
             ErrorTypes.DATABASE,
-            'Failed to delete reaction role message. Please try again.',
+            'Не удалось удалить сообщение роли реакции. Пожалуйста, попробуйте ещё раз.',
             { guildId, messageId, originalError: error.message }
         );
     }
@@ -268,10 +267,10 @@ export async function removeReactionRole(client, guildId, messageId, emoji) {
 
         if (Object.keys(data.roles).length === 0) {
             await client.db.delete(key);
-            logger.info(`Removed last reaction role from message ${messageId}, deleted message data`);
+            logger.info(`Из сообщения ${messageId} удалена последняя роль реакции, данные сообщения удалены`);
         } else {
             await client.db.set(key, data);
-            logger.info(`Removed reaction role for emoji ${emoji} from message ${messageId}`);
+            logger.info(`Роль реакции для эмодзи ${emoji} удалена из сообщения ${messageId}`);
         }
         
         return true;
@@ -279,11 +278,11 @@ export async function removeReactionRole(client, guildId, messageId, emoji) {
         if (error.name === 'TitanBotError') {
             throw error;
         }
-        logger.error(`Error removing reaction role in guild ${guildId}:`, error);
+        logger.error(`Ошибка удаления роли реакции на сервере ${guildId}:`, error);
         throw createError(
-            `Database error removing reaction role`,
+            'Ошибка базы данных при удалении роли реакции',
             ErrorTypes.DATABASE,
-            'Failed to remove reaction role. Please try again.',
+            'Не удалось удалить роль реакции. Пожалуйста, попробуйте ещё раз.',
             { guildId, messageId, originalError: error.message }
         );
     }
@@ -319,11 +318,11 @@ export async function getAllReactionRoleMessages(client, guildId) {
                 return [];
             }
         } catch (listError) {
-            logger.error(`Error listing reaction role keys for guild ${guildId}:`, listError);
+            logger.error(`Ошибка получения ключей ролей реакций для сервера ${guildId}:`, listError);
             throw createError(
-                'Database error listing reaction roles',
+                'Ошибка базы данных при получении списка ролей реакций',
                 ErrorTypes.DATABASE,
-                'Failed to retrieve reaction role list. Please try again.',
+                'Не удалось получить список ролей реакций. Пожалуйста, попробуйте ещё раз.',
                 { guildId, originalError: listError.message }
             );
         }
@@ -351,12 +350,11 @@ export async function getAllReactionRoleMessages(client, guildId) {
                     if (actualData && actualData.messageId && actualData.channelId) {
                         messages.push(actualData);
                     } else if (actualData) {
-                        logger.warn(`Skipping malformed reaction role data for guild ${guildId}:`, actualData);
+                        logger.warn(`Пропущены повреждённые данные роли реакции для сервера ${guildId}:`, actualData);
                     }
                 }
             } catch (dataError) {
-                logger.warn(`Error getting data for reaction role key ${key}:`, dataError);
-                
+                logger.warn(`Ошибка получения данных для ключа роли реакции ${key}:`, dataError);
             }
         }
 
@@ -365,11 +363,11 @@ export async function getAllReactionRoleMessages(client, guildId) {
         if (error.name === 'TitanBotError') {
             throw error;
         }
-        logger.error(`Error getting all reaction role messages for guild ${guildId}:`, error);
+        logger.error(`Ошибка получения всех сообщений ролей реакций для сервера ${guildId}:`, error);
         throw createError(
-            'Database error retrieving reaction roles',
+            'Ошибка базы данных при получении ролей реакций',
             ErrorTypes.DATABASE,
-            'Failed to retrieve reaction role messages. Please try again.',
+            'Не удалось получить сообщения ролей реакций. Пожалуйста, попробуйте ещё раз.',
             { guildId, originalError: error.message }
         );
     }
@@ -382,9 +380,9 @@ export async function setReactionRoleChannel(client, guildId, messageId, channel
         
         if (!channelId || typeof channelId !== 'string' || !/^\d{17,19}$/.test(channelId)) {
             throw createError(
-                `Invalid channel ID: ${channelId}`,
+                `Недействительный ID канала: ${channelId}`,
                 ErrorTypes.VALIDATION,
-                'Invalid channel ID provided.',
+                'Указан недействительный ID канала.',
                 { channelId }
             );
         }
@@ -399,17 +397,17 @@ export async function setReactionRoleChannel(client, guildId, messageId, channel
 
         data.channelId = channelId;
         await client.db.set(key, data);
-        logger.info(`Set channel ${channelId} for reaction role message ${messageId}`);
+        logger.info(`Установлен канал ${channelId} для сообщения роли реакции ${messageId}`);
         return true;
     } catch (error) {
         if (error.name === 'TitanBotError') {
             throw error;
         }
-        logger.error(`Error setting channel for reaction role message ${messageId}:`, error);
+        logger.error(`Ошибка установки канала для сообщения роли реакции ${messageId}:`, error);
         throw createError(
-            `Database error setting reaction role channel`,
+            'Ошибка базы данных при установке канала роли реакции',
             ErrorTypes.DATABASE,
-            'Failed to update reaction role channel. Please try again.',
+            'Не удалось обновить канал роли реакции. Пожалуйста, попробуйте ещё раз.',
             { guildId, messageId, channelId, originalError: error.message }
         );
     }
@@ -436,7 +434,10 @@ export async function reconcileReactionRoleMessages(client, guildId = null) {
                 reactionRoleMessages = await getAllReactionRoleMessages(client, targetGuildId);
             } catch (error) {
                 summary.errors += 1;
-                logger.warn(`Failed to fetch reaction role messages for reconciliation in guild ${targetGuildId}:`, error);
+                logger.warn(
+                    `Не удалось получить сообщения ролей реакций для проверки на сервере ${targetGuildId}:`,
+                    error
+                );
                 continue;
             }
 
@@ -444,14 +445,21 @@ export async function reconcileReactionRoleMessages(client, guildId = null) {
                 continue;
             }
 
-            const guild = client.guilds.cache.get(targetGuildId) || await client.guilds.fetch(targetGuildId).catch(() => null);
+            const guild = client.guilds.cache.get(targetGuildId)
+                || await client.guilds.fetch(targetGuildId).catch(() => null);
+
             if (!guild) {
                 for (const reactionRoleMessage of reactionRoleMessages) {
                     summary.scannedMessages += 1;
-                    await client.db.delete(getReactionRoleKey(targetGuildId, reactionRoleMessage.messageId));
+                    await client.db.delete(
+                        getReactionRoleKey(targetGuildId, reactionRoleMessage.messageId)
+                    );
                     summary.removedMessages += 1;
                 }
-                logger.info(`Removed ${reactionRoleMessages.length} stale reaction role message(s) for unavailable guild ${targetGuildId}`);
+
+                logger.info(
+                    `Удалено ${reactionRoleMessages.length} устаревших сообщений ролей реакций для недоступного сервера ${targetGuildId}`
+                );
                 continue;
             }
 
@@ -463,20 +471,27 @@ export async function reconcileReactionRoleMessages(client, guildId = null) {
                         || await guild.channels.fetch(reactionRoleMessage.channelId).catch(() => null);
 
                     if (!channel || !channel.isTextBased?.()) {
-                        await client.db.delete(getReactionRoleKey(targetGuildId, reactionRoleMessage.messageId));
+                        await client.db.delete(
+                            getReactionRoleKey(targetGuildId, reactionRoleMessage.messageId)
+                        );
                         summary.removedMessages += 1;
                         continue;
                     }
 
-                    const message = await channel.messages.fetch(reactionRoleMessage.messageId).catch(() => null);
+                    const message = await channel.messages
+                        .fetch(reactionRoleMessage.messageId)
+                        .catch(() => null);
+
                     if (!message) {
-                        await client.db.delete(getReactionRoleKey(targetGuildId, reactionRoleMessage.messageId));
+                        await client.db.delete(
+                            getReactionRoleKey(targetGuildId, reactionRoleMessage.messageId)
+                        );
                         summary.removedMessages += 1;
                     }
                 } catch (messageCheckError) {
                     summary.errors += 1;
                     logger.warn(
-                        `Failed to validate reaction role message ${reactionRoleMessage.messageId} during reconciliation:`,
+                        `Не удалось проверить сообщение роли реакции ${reactionRoleMessage.messageId} во время проверки:`,
                         messageCheckError
                     );
                 }
@@ -484,12 +499,12 @@ export async function reconcileReactionRoleMessages(client, guildId = null) {
         }
 
         logger.info(
-            `Reaction role reconciliation complete: scanned ${summary.scannedMessages} message(s) across ${summary.scannedGuilds} guild(s), removed ${summary.removedMessages}, errors ${summary.errors}`
+            `Проверка ролей реакций завершена: проверено ${summary.scannedMessages} сообщений на ${summary.scannedGuilds} серверах, удалено ${summary.removedMessages}, ошибок ${summary.errors}`
         );
 
         return summary;
     } catch (error) {
-        logger.error('Unexpected error during reaction role reconciliation:', error);
+        logger.error('Непредвиденная ошибка во время проверки ролей реакций:', error);
         summary.errors += 1;
         return summary;
     }
