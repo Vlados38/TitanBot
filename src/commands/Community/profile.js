@@ -19,6 +19,47 @@ import {
 
 const ACHIEVEMENTS_PER_PAGE = 5;
 
+const COLORS = Object.freeze({
+    primary: 0x5865F2,
+    success: 0x57F287,
+    warning: 0xFEE75C,
+    purple: 0x9B59B6,
+    gold: 0xF1C40F,
+    dark: 0x2B2D31,
+});
+
+const RARITY_INFO = Object.freeze({
+    common: {
+        name: 'Обычное',
+        emoji: '⚪',
+        color: 0x95A5A6,
+    },
+
+    uncommon: {
+        name: 'Необычное',
+        emoji: '🟢',
+        color: 0x2ECC71,
+    },
+
+    rare: {
+        name: 'Редкое',
+        emoji: '🔵',
+        color: 0x3498DB,
+    },
+
+    epic: {
+        name: 'Эпическое',
+        emoji: '🟣',
+        color: 0x9B59B6,
+    },
+
+    legendary: {
+        name: 'Легендарное',
+        emoji: '🟡',
+        color: 0xF1C40F,
+    },
+});
+
 export default {
     data: new SlashCommandBuilder()
         .setName('profile')
@@ -124,9 +165,23 @@ export async function getProfileData({
         ),
     ]);
 
-    const level = Number(levelData?.level) || 0;
-    const xp = Number(levelData?.xp) || 0;
-    const totalXp = Number(levelData?.totalXp) || 0;
+    const level =
+        Math.max(
+            0,
+            Number(levelData?.level) || 0
+        );
+
+    const xp =
+        Math.max(
+            0,
+            Number(levelData?.xp) || 0
+        );
+
+    const totalXp =
+        Math.max(
+            0,
+            Number(levelData?.totalXp) || 0
+        );
 
     const nextLevel = level + 1;
 
@@ -134,33 +189,55 @@ export async function getProfileData({
 
     try {
         nextLevelXp =
-            Number(getXpForLevel(nextLevel)) || 0;
+            Number(
+                getXpForLevel(nextLevel)
+            ) || 0;
     } catch {
         nextLevelXp = 0;
     }
 
-    const progress = calculateProgress(
-        xp,
-        nextLevelXp
-    );
+    const progress =
+        calculateProgress(
+            xp,
+            nextLevelXp
+        );
 
     const wallet =
-        Number(economyData?.wallet) || 0;
+        Math.max(
+            0,
+            Number(economyData?.wallet) || 0
+        );
 
     const bank =
-        Number(economyData?.bank) || 0;
+        Math.max(
+            0,
+            Number(economyData?.bank) || 0
+        );
 
     const totalBalance =
         wallet + bank;
 
     const achievements =
-        achievementProfile?.achievements ?? [];
+        Array.isArray(
+            achievementProfile?.achievements
+        )
+            ? achievementProfile.achievements
+            : [];
 
     const unlockedAchievements =
         achievements.filter(
             (achievement) =>
-                achievement.unlocked
+                achievement?.unlocked
         );
+
+    const recentAchievements =
+        [...unlockedAchievements]
+            .sort(
+                (a, b) =>
+                    Number(b.unlockedAt || 0) -
+                    Number(a.unlockedAt || 0)
+            )
+            .slice(0, 5);
 
     return {
         user,
@@ -180,13 +257,35 @@ export async function getProfileData({
 
         achievements,
         unlockedAchievements,
+        recentAchievements,
+
+        achievementProgress:
+            achievementProfile?.progress ?? {
+                total: achievements.length,
+                unlocked: unlockedAchievements.length,
+                remaining: Math.max(
+                    achievements.length -
+                    unlockedAchievements.length,
+                    0
+                ),
+                percentage:
+                    achievements.length > 0
+                        ? Math.round(
+                            (
+                                unlockedAchievements.length /
+                                achievements.length
+                            ) * 100
+                        )
+                        : 0,
+            },
 
         joinedAt:
             member.joinedTimestamp
                 ? new Date(member.joinedTimestamp)
                 : null,
 
-        createdAt: user.createdAt,
+        createdAt:
+            user.createdAt,
     };
 }
 
@@ -203,6 +302,7 @@ export function buildProfileEmbed(data) {
         xp,
         totalXp,
 
+        nextLevel,
         nextLevelXp,
         progress,
 
@@ -212,6 +312,9 @@ export function buildProfileEmbed(data) {
 
         achievements,
         unlockedAchievements,
+        recentAchievements,
+
+        achievementProgress,
 
         joinedAt,
     } = data;
@@ -223,50 +326,82 @@ export function buildProfileEmbed(data) {
         createProgressBar(
             progress,
             100,
-            20
+            18
         );
 
-    const badges =
-        unlockedAchievements
-            .slice(0, 6)
-            .map(
-                (achievement) =>
-                    `${achievement.emoji}`
-            )
-            .join(' ') ||
-        'Пока нет достижений';
-
-    const achievementProgress =
+    const achievementBar =
         createProgressBar(
             unlockedAchievements.length,
             achievements.length,
             12
         );
 
+    const avatar =
+        user.displayAvatarURL({
+            extension: 'png',
+            size: 256,
+        });
+
+    const guildIcon =
+        member.guild.iconURL({
+            extension: 'png',
+            size: 64,
+        });
+
+    const badges =
+        unlockedAchievements
+            .slice(0, 8)
+            .map(
+                (achievement) =>
+                    achievement?.emoji || '🏅'
+            )
+            .join(' ') ||
+        'Пока нет достижений';
+
+    const recentText =
+        recentAchievements.length > 0
+            ? recentAchievements
+                .map((achievement) => {
+                    const rarity =
+                        getRarityInfo(
+                            achievement.rarity
+                        );
+
+                    return `${achievement.emoji || '🏅'} **${achievement.name}** ${rarity.emoji}`;
+                })
+                .join('\n')
+            : 'Пока нет полученных достижений.';
+
+    const achievementPercentage =
+        Number(
+            achievementProgress?.percentage
+        ) || 0;
+
+    const memberSince =
+        joinedAt
+            ? `<t:${Math.floor(
+                joinedAt.getTime() / 1000
+            )}:R>`
+            : 'Неизвестно';
+
     const embed =
         new EmbedBuilder()
             .setColor(accentColor)
 
             .setAuthor({
-                name: member.displayName,
-                iconURL: user.displayAvatarURL({
-                    extension: 'png',
-                    size: 128,
-                }),
+                name:
+                    `${member.displayName}`,
+                iconURL: avatar,
             })
 
-            .setThumbnail(
-                user.displayAvatarURL({
-                    extension: 'png',
-                    size: 256,
-                })
-            )
+            .setThumbnail(avatar)
 
             .setDescription(
                 [
+                    `### ${getLevelTitle(level)}`,
                     `**@${user.username}**`,
                     '',
-                    `✦ **LEVEL ${level}**`,
+                    `**Уровень ${level}**  →  **${nextLevel}**`,
                     `${progressBar} **${progress}%**`,
                     `\`${formatNumber(xp)} / ${formatNumber(nextLevelXp)} XP\``,
                 ].join('\n')
@@ -274,7 +409,7 @@ export function buildProfileEmbed(data) {
 
             .addFields(
                 {
-                    name: '💰 Баланс',
+                    name: '💰 Капитал',
                     value:
                         `**${formatMoney(totalBalance)}**`,
                     inline: true,
@@ -283,12 +418,13 @@ export function buildProfileEmbed(data) {
                 {
                     name: '🏆 Достижения',
                     value:
-                        `**${unlockedAchievements.length} / ${achievements.length}**`,
+                        `**${unlockedAchievements.length} / ${achievements.length}**\n` +
+                        `${achievementBar} ${achievementPercentage}%`,
                     inline: true,
                 },
 
                 {
-                    name: '⭐ Всего XP',
+                    name: '⚡ Всего XP',
                     value:
                         `**${formatNumber(totalXp)}**`,
                     inline: true,
@@ -297,31 +433,35 @@ export function buildProfileEmbed(data) {
                 {
                     name: '💵 Кошелёк',
                     value:
-                        formatMoney(wallet),
+                        `**${formatMoney(wallet)}**`,
                     inline: true,
                 },
 
                 {
                     name: '🏦 Банк',
                     value:
-                        formatMoney(bank),
+                        `**${formatMoney(bank)}**`,
                     inline: true,
                 },
 
                 {
                     name: '📅 На сервере',
-                    value: joinedAt
-                        ? `<t:${Math.floor(
-                            joinedAt.getTime() / 1000
-                        )}:R>`
-                        : 'Неизвестно',
+                    value:
+                        memberSince,
                     inline: true,
                 },
 
                 {
-                    name: '🏅 Badges',
+                    name: '🏅 Значки',
                     value:
-                        `${badges}\n\n${achievementProgress}`,
+                        badges,
+                    inline: false,
+                },
+
+                {
+                    name: '✨ Последние достижения',
+                    value:
+                        recentText,
                     inline: false,
                 }
             )
@@ -330,10 +470,7 @@ export function buildProfileEmbed(data) {
                 text:
                     `TitanBot • ${member.guild.name}`,
                 iconURL:
-                    member.guild.iconURL({
-                        extension: 'png',
-                        size: 64,
-                    }) ||
+                    guildIcon ||
                     undefined,
             })
 
@@ -358,7 +495,7 @@ export function buildProfileButtons(
             .setCustomId(
                 `profile:badges:${targetUserId}:0`
             )
-            .setLabel('Badges')
+            .setLabel('Достижения')
             .setEmoji('🏅')
             .setStyle(
                 ButtonStyle.Secondary
@@ -368,7 +505,7 @@ export function buildProfileButtons(
             .setCustomId(
                 `profile:stats:${targetUserId}`
             )
-            .setLabel('Statistics')
+            .setLabel('Статистика')
             .setEmoji('📊')
             .setStyle(
                 ButtonStyle.Secondary
@@ -391,18 +528,26 @@ export function buildBadgesPage(
         achievements,
     } = data;
 
+    const safeAchievements =
+        Array.isArray(achievements)
+            ? achievements
+            : [];
+
     const totalPages =
         Math.max(
             1,
             Math.ceil(
-                achievements.length /
+                safeAchievements.length /
                 ACHIEVEMENTS_PER_PAGE
             )
         );
 
     const safePage =
         Math.min(
-            Math.max(0, page),
+            Math.max(
+                0,
+                Number(page) || 0
+            ),
             totalPages - 1
         );
 
@@ -411,50 +556,84 @@ export function buildBadgesPage(
         ACHIEVEMENTS_PER_PAGE;
 
     const currentAchievements =
-        achievements.slice(
+        safeAchievements.slice(
             start,
             start + ACHIEVEMENTS_PER_PAGE
         );
 
     const unlocked =
-        achievements.filter(
+        safeAchievements.filter(
             (achievement) =>
-                achievement.unlocked
+                achievement?.unlocked
         ).length;
 
     const description =
         currentAchievements
             .map((achievement) => {
-                if (achievement.unlocked) {
+                const isSecret =
+                    Boolean(
+                        achievement.secret ||
+                        achievement.hidden
+                    );
+
+                if (
+                    !achievement.unlocked &&
+                    isSecret
+                ) {
                     return [
-                        `${achievement.emoji} **${achievement.name}**`,
-                        `> ${achievement.description}`,
-                        '> ✅ **Открыто**',
+                        '🔒 **Секретное достижение**',
+                        '> Выполните особое условие, чтобы открыть его.',
                     ].join('\n');
                 }
 
-                if (achievement.hidden) {
+                const rarity =
+                    getRarityInfo(
+                        achievement.rarity
+                    );
+
+                if (achievement.unlocked) {
                     return [
-                        '🔒 **Скрытое достижение**',
-                        '> Выполните особое условие, чтобы узнать больше.',
-                    ].join('\n');
+                        `${achievement.emoji || '🏅'} **${achievement.name}**`,
+                        `${rarity.emoji} ${rarity.name}`,
+                        `> ${achievement.description}`,
+                        `> ✅ **Получено**`,
+                        achievement.unlockedAt
+                            ? `> <t:${Math.floor(
+                                Number(
+                                    achievement.unlockedAt
+                                ) / 1000
+                            )}:d>`
+                            : '',
+                    ]
+                        .filter(Boolean)
+                        .join('\n');
                 }
 
                 return [
-                    `${achievement.emoji} **${achievement.name}**`,
+                    `${achievement.emoji || '🏅'} **${achievement.name}**`,
+                    `${rarity.emoji} ${rarity.name}`,
                     `> ${achievement.description}`,
                     `> 🔒 ${achievement.requirementText ?? getRequirementText(achievement)}`,
                 ].join('\n');
             })
             .join('\n\n');
 
+    const progress =
+        safeAchievements.length > 0
+            ? Math.round(
+                (unlocked /
+                    safeAchievements.length) *
+                100
+            )
+            : 0;
+
     const embed =
         new EmbedBuilder()
-            .setColor('#A855F7')
+            .setColor(COLORS.purple)
 
             .setAuthor({
                 name:
-                    `${user.username} • Achievements`,
+                    `${user.username} • Достижения`,
                 iconURL:
                     user.displayAvatarURL({
                         extension: 'png',
@@ -462,7 +641,7 @@ export function buildBadgesPage(
                     }),
             })
 
-            .setTitle('🏅 Коллекция достижений')
+            .setTitle('🏆 Коллекция достижений')
 
             .setDescription(
                 description ||
@@ -470,14 +649,14 @@ export function buildBadgesPage(
             )
 
             .addFields({
-                name: 'Прогресс',
+                name: '📈 Общий прогресс',
                 value:
-                    `**${unlocked} / ${achievements.length}** открыто\n` +
-                    `\`${createProgressBar(
+                    `**${unlocked} / ${safeAchievements.length}** открыто • **${progress}%**\n` +
+                    `${createProgressBar(
                         unlocked,
-                        achievements.length,
+                        safeAchievements.length,
                         20
-                    )}\``,
+                    )}`,
                 inline: false,
             })
 
@@ -502,23 +681,32 @@ export function buildStatisticsPage(
 ) {
     const {
         user,
+        member,
+
         level,
+        xp,
+        nextLevelXp,
+        progress,
+
         totalXp,
         totalBalance,
         wallet,
         bank,
+
         unlockedAchievements,
         achievements,
+
         joinedAt,
+        createdAt,
     } = data;
 
     const embed =
         new EmbedBuilder()
-            .setColor('#5865F2')
+            .setColor(COLORS.primary)
 
             .setAuthor({
                 name:
-                    `${user.username} • Statistics`,
+                    `${user.username} • Статистика`,
                 iconURL:
                     user.displayAvatarURL({
                         extension: 'png',
@@ -527,6 +715,18 @@ export function buildStatisticsPage(
             })
 
             .setTitle('📊 Статистика пользователя')
+
+            .setDescription(
+                [
+                    `**Уровень ${level}**`,
+                    `${createProgressBar(
+                        progress,
+                        100,
+                        18
+                    )} **${progress}%**`,
+                    `\`${formatNumber(xp)} / ${formatNumber(nextLevelXp)} XP\``,
+                ].join('\n')
+            )
 
             .addFields(
                 {
@@ -560,31 +760,53 @@ export function buildStatisticsPage(
                 {
                     name: '💵 Кошелёк',
                     value:
-                        formatMoney(wallet),
+                        `**${formatMoney(wallet)}**`,
                     inline: true,
                 },
 
                 {
                     name: '🏦 Банк',
                     value:
-                        formatMoney(bank),
+                        `**${formatMoney(bank)}**`,
                     inline: true,
                 },
 
                 {
-                    name: '📅 Дата вступления',
-                    value: joinedAt
-                        ? `<t:${Math.floor(
-                            joinedAt.getTime() / 1000
-                        )}:D>`
-                        : 'Неизвестно',
-                    inline: false,
+                    name: '📅 На сервере',
+                    value:
+                        joinedAt
+                            ? `<t:${Math.floor(
+                                joinedAt.getTime() / 1000
+                            )}:D>`
+                            : 'Неизвестно',
+                    inline: true,
+                },
+
+                {
+                    name: '🗓️ Аккаунт Discord',
+                    value:
+                        createdAt
+                            ? `<t:${Math.floor(
+                                createdAt.getTime() / 1000
+                            )}:D>`
+                            : 'Неизвестно',
+                    inline: true,
+                },
+
+                {
+                    name: '👤 Участник',
+                    value:
+                        member.displayName,
+                    inline: true,
                 }
             )
 
             .setFooter({
-                text: 'TitanBot • Statistics',
-            });
+                text:
+                    'TitanBot • Statistics',
+            })
+
+            .setTimestamp();
 
     return embed;
 }
@@ -597,7 +819,10 @@ function calculateProgress(
     current,
     required
 ) {
-    if (!required || required <= 0) {
+    if (
+        !Number.isFinite(required) ||
+        required <= 0
+    ) {
         return 100;
     }
 
@@ -618,7 +843,12 @@ function createProgressBar(
     total,
     size = 20
 ) {
-    if (!total || total <= 0) {
+    if (
+        !Number.isFinite(
+            Number(total)
+        ) ||
+        Number(total) <= 0
+    ) {
         return '░'.repeat(size);
     }
 
@@ -627,7 +857,8 @@ function createProgressBar(
             1,
             Math.max(
                 0,
-                current / total
+                Number(current || 0) /
+                Number(total)
             )
         );
 
@@ -637,7 +868,10 @@ function createProgressBar(
         );
 
     const empty =
-        size - filled;
+        Math.max(
+            0,
+            size - filled
+        );
 
     return (
         '█'.repeat(filled) +
@@ -652,16 +886,16 @@ function formatNumber(value) {
 }
 
 function formatMoney(value) {
-    return `💰 ${formatNumber(value)}`;
+    return `$${formatNumber(value)}`;
 }
 
 function getProfileColor(level) {
     if (level >= 100) {
-        return 0xF1C40F;
+        return COLORS.gold;
     }
 
     if (level >= 50) {
-        return 0x9B59B6;
+        return COLORS.purple;
     }
 
     if (level >= 25) {
@@ -669,10 +903,45 @@ function getProfileColor(level) {
     }
 
     if (level >= 10) {
-        return 0x2ECC71;
+        return COLORS.success;
     }
 
-    return 0x5865F2;
+    return COLORS.primary;
+}
+
+function getLevelTitle(level) {
+    if (level >= 100) {
+        return '👑 Легенда';
+    }
+
+    if (level >= 75) {
+        return '💎 Элита';
+    }
+
+    if (level >= 50) {
+        return '🔥 Ветеран';
+    }
+
+    if (level >= 25) {
+        return '⚔️ Опытный игрок';
+    }
+
+    if (level >= 10) {
+        return '⭐ Опытный участник';
+    }
+
+    if (level >= 5) {
+        return '🌟 Новичок';
+    }
+
+    return '🌱 Начинающий участник';
+}
+
+function getRarityInfo(rarity) {
+    return (
+        RARITY_INFO[rarity] ||
+        RARITY_INFO.common
+    );
 }
 
 function getRequirementText(achievement) {
@@ -686,6 +955,24 @@ function getRequirementText(achievement) {
     switch (requirement.type) {
         case 'level':
             return `Достичь ${requirement.value} уровня`;
+
+        case 'totalXp':
+            return `Получить ${formatNumber(requirement.value)} XP`;
+
+        case 'balance':
+            return `Накопить ${formatNumber(requirement.value)} монет`;
+
+        case 'robCount':
+            return `Совершить ${formatNumber(requirement.value)} ограблений`;
+
+        case 'daysOnServer':
+            return `Провести ${requirement.value} дней на сервере`;
+
+        case 'serverBooster':
+            return 'Бустить сервер';
+
+        case 'earlyMember':
+            return 'Быть одним из первых участников';
 
         default:
             return 'Выполнить особое условие';
