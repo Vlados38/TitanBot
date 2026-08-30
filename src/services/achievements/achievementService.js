@@ -10,10 +10,16 @@
  * - проверку требований;
  * - выдачу новых достижений;
  * - расчёт прогресса;
- * - работу с данными пользователя.
+ * - работу с данными пользователя;
+ * - уведомления о получении достижений.
  *
- * Discord-уведомления здесь НЕ отправляются.
+ * Discord-уведомления отправляются в тот же канал,
+ * который используется для уведомлений о повышении уровня.
  */
+
+import {
+    EmbedBuilder,
+} from 'discord.js';
 
 import {
     getUserAchievements,
@@ -25,6 +31,14 @@ import {
     ACHIEVEMENTS,
     ACHIEVEMENT_CATEGORIES,
 } from './achievementDefinitions.js';
+
+import {
+    getLevelingConfig,
+} from '../leveling/leveling.js';
+
+import {
+    logger,
+} from '../../utils/logger.js';
 
 /**
  * ============================================================
@@ -195,6 +209,300 @@ function cloneAchievement(achievement) {
 
 /**
  * ============================================================
+ * ACHIEVEMENT NOTIFICATION
+ * ============================================================
+ *
+ * Использует тот же канал, что и level-up:
+ *
+ * config.levelUpChannel
+ *
+ * Если канал не настроен:
+ *
+ * guild.systemChannel
+ *
+ * Уведомления достижений НЕ зависят от
+ * config.announceLevelUp.
+ */
+
+/**
+ * Получить канал уведомлений.
+ */
+async function getAchievementNotificationChannel(
+    client,
+    guildId
+) {
+    try {
+        if (
+            !client ||
+            !guildId
+        ) {
+            return null;
+        }
+
+        const guild =
+            client.guilds.cache.get(
+                guildId
+            );
+
+        if (!guild) {
+            logger.warn(
+                `[ACHIEVEMENTS] Сервер ${guildId} не найден в кэше`
+            );
+
+            return null;
+        }
+
+        const config =
+            await getLevelingConfig(
+                client,
+                guildId
+            );
+
+        const channelId =
+            config?.levelUpChannel;
+
+        const channel =
+            channelId
+                ? guild.channels.cache.get(
+                      channelId
+                  )
+                : guild.systemChannel;
+
+        if (
+            !channel ||
+            !channel.isTextBased()
+        ) {
+            logger.debug(
+                `[ACHIEVEMENTS] Не найден канал уведомлений для сервера ${guildId}`
+            );
+
+            return null;
+        }
+
+        return channel;
+    } catch (error) {
+        logger.error(
+            `[ACHIEVEMENTS] Ошибка получения канала уведомлений для ${guildId}:`,
+            error
+        );
+
+        return null;
+    }
+}
+
+/**
+ * Проверка прав бота.
+ */
+function canSendAchievementNotification(
+    channel,
+    guild
+) {
+    try {
+        if (
+            !channel ||
+            !guild
+        ) {
+            return false;
+        }
+
+        const botMember =
+            guild.members.me;
+
+        if (!botMember) {
+            return false;
+        }
+
+        const permissions =
+            channel.permissionsFor(
+                botMember
+            );
+
+        if (!permissions) {
+            return false;
+        }
+
+        return permissions.has([
+            'SendMessages',
+            'EmbedLinks',
+        ]);
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Отправить уведомление о получении
+ * одного или нескольких достижений.
+ */
+async function sendAchievementNotification(
+    client,
+    guildId,
+    userId,
+    achievements
+) {
+    try {
+        if (
+            !Array.isArray(
+                achievements
+            ) ||
+            achievements.length === 0
+        ) {
+            return false;
+        }
+
+        const guild =
+            client.guilds.cache.get(
+                guildId
+            );
+
+        if (!guild) {
+            return false;
+        }
+
+        const channel =
+            await getAchievementNotificationChannel(
+                client,
+                guildId
+            );
+
+        if (!channel) {
+            return false;
+        }
+
+        if (
+            !canSendAchievementNotification(
+                channel,
+                guild
+            )
+        ) {
+            logger.warn(
+                `[ACHIEVEMENTS] Недостаточно прав для отправки уведомления в канал ${channel.id}`
+            );
+
+            return false;
+        }
+
+        const member =
+            await guild.members
+                .fetch(userId)
+                .catch(() => null);
+
+        const user =
+            member?.user ||
+            client.users.cache.get(
+                userId
+            );
+
+        if (!user) {
+            return false;
+        }
+
+        const primaryAchievement =
+            achievements[0];
+
+        const rarity =
+            getAchievementRarity(
+                primaryAchievement?.rarity
+            );
+
+        const embed =
+            new EmbedBuilder()
+                .setColor(
+                    rarity.color
+                )
+                .setAuthor({
+                    name:
+                        achievements.length === 1
+                            ? '🏆 Достижение получено!'
+                            : `🏆 Получено достижений: ${achievements.length}`,
+                    iconURL:
+                        user.displayAvatarURL({
+                            extension: 'png',
+                            size: 128,
+                        }),
+                })
+                .setDescription(
+                    `${user} **получает награду за свои достижения!** 🎉`
+                )
+                .setThumbnail(
+                    user.displayAvatarURL({
+                        extension: 'png',
+                        size: 256,
+                    })
+                );
+
+        for (
+            const achievement of
+                achievements.slice(0, 10)
+        ) {
+            const achievementRarity =
+                getAchievementRarity(
+                    achievement.rarity
+                );
+
+            embed.addFields({
+                name:
+                    `${achievement.emoji || '🏆'} ${achievement.name}`,
+                value:
+                    [
+                        achievement.description ||
+                            'Новое достижение разблокировано!',
+                        '',
+                        `${achievementRarity.emoji} **${achievementRarity.name}**`,
+                    ].join('\n'),
+                inline:
+                    achievements.length <= 2,
+            });
+        }
+
+        if (
+            achievements.length > 10
+        ) {
+            embed.addFields({
+                name: '📋 Остальные',
+                value:
+                    `И ещё **${achievements.length - 10}** достижений.`,
+                inline: false,
+            });
+        }
+
+        embed
+            .setFooter({
+                text:
+                    `${guild.name} • TitanBot Achievements`,
+                iconURL:
+                    guild.iconURL({
+                        extension: 'png',
+                        size: 64,
+                    }) || undefined,
+            })
+            .setTimestamp();
+
+        await channel.send({
+            embeds: [embed],
+        });
+
+        logger.info(
+            `[ACHIEVEMENTS] Отправлено уведомление о получении ${achievements.length} достижений пользователем ${userId} на сервере ${guildId}`
+        );
+
+        return true;
+    } catch (error) {
+        /*
+         * Ошибка уведомления не должна ломать
+         * выдачу самого достижения.
+         */
+        logger.error(
+            `[ACHIEVEMENTS] Ошибка отправки уведомления для ${userId}:`,
+            error
+        );
+
+        return false;
+    }
+}
+
+/**
+ * ============================================================
  * PUBLIC API — DEFINITIONS
  * ============================================================
  */
@@ -252,16 +560,8 @@ export function getAchievementsByCategory(category) {
         ]
     ) {
         /*
-         * ACHIEVEMENT_CATEGORIES содержит:
-         *
-         * PROGRESSION
-         * ACTIVITY
-         * ECONOMY
-         * SOCIAL
-         * SPECIAL
-         *
-         * Поэтому дополнительно проверяем
-         * реальные значения категорий.
+         * Дополнительная проверка не нужна.
+         * Просто возвращаем совпадения ниже.
          */
     }
 
@@ -456,21 +756,22 @@ export async function getUserAchievement(
 /**
  * Выдать достижение пользователю.
  *
- * Возвращает:
+ * options:
  *
  * {
- *     unlocked: true,
- *     achievement: {...}
+ *     notify: true
  * }
  *
- * если достижение новое.
+ * notify можно отключить для массовой проверки,
+ * чтобы потом отправить одно общее уведомление.
  */
 export async function unlockAchievement(
     client,
     guildId,
     userId,
     achievementId,
-    metadata = null
+    metadata = null,
+    options = {}
 ) {
     const id =
         normalizeAchievementId(
@@ -540,21 +841,37 @@ export async function unlockAchievement(
         };
     }
 
+    const unlockedAchievement = {
+        ...achievement,
+
+        unlockedAt:
+            Date.now(),
+
+        ...(metadata
+            ? {
+                  metadata,
+              }
+            : {}),
+    };
+
+    /*
+     * По умолчанию уведомление отправляется.
+     */
+    if (
+        options?.notify !== false
+    ) {
+        await sendAchievementNotification(
+            client,
+            guildId,
+            userId,
+            [unlockedAchievement]
+        );
+    }
+
     return {
         unlocked: true,
-
-        achievement: {
-            ...achievement,
-
-            unlockedAt:
-                Date.now(),
-
-            ...(metadata
-                ? {
-                      metadata,
-                  }
-                : {}),
-        },
+        achievement:
+            unlockedAchievement,
     };
 }
 
@@ -740,9 +1057,6 @@ export function checkAchievementRequirement(
     }
 
     switch (type) {
-        /**
-         * Уровень пользователя.
-         */
         case 'level': {
             const level =
                 Number(
@@ -755,9 +1069,6 @@ export function checkAchievementRequirement(
             );
         }
 
-        /**
-         * Общее количество XP.
-         */
         case 'totalXp': {
             const totalXp =
                 Number(
@@ -770,9 +1081,6 @@ export function checkAchievementRequirement(
             );
         }
 
-        /**
-         * Общий баланс пользователя.
-         */
         case 'balance': {
             const balance =
                 Number(
@@ -785,15 +1093,6 @@ export function checkAchievementRequirement(
             );
         }
 
-        /**
-         * Количество совершённых ограблений.
-         *
-         * В context ожидается:
-         *
-         * {
-         *     robCount: number
-         * }
-         */
         case 'robCount': {
             const robCount =
                 Number(
@@ -806,9 +1105,6 @@ export function checkAchievementRequirement(
             );
         }
 
-        /**
-         * Количество дней на сервере.
-         */
         case 'daysOnServer': {
             const daysOnServer =
                 Number(
@@ -821,9 +1117,6 @@ export function checkAchievementRequirement(
             );
         }
 
-        /**
-         * Ранний участник.
-         */
         case 'earlyMember': {
             return (
                 Boolean(
@@ -833,9 +1126,6 @@ export function checkAchievementRequirement(
             );
         }
 
-        /**
-         * Буст сервера.
-         */
         case 'serverBooster': {
             return (
                 Boolean(
@@ -873,9 +1163,6 @@ export async function checkAndUnlockAchievement(
         return null;
     }
 
-    /*
-     * Уже получено?
-     */
     const alreadyUnlocked =
         await userHasAchievement(
             client,
@@ -893,13 +1180,6 @@ export async function checkAndUnlockAchievement(
         };
     }
 
-    /*
-     * Если requirement отсутствует,
-     * такое достижение можно выдать
-     * напрямую через unlockAchievement().
-     *
-     * Автоматически здесь его НЕ выдаём.
-     */
     if (!achievement.requirement) {
         return {
             unlocked: false,
@@ -909,9 +1189,6 @@ export async function checkAndUnlockAchievement(
         };
     }
 
-    /*
-     * Проверяем условие.
-     */
     const requirementMet =
         checkAchievementRequirement(
             achievement,
@@ -927,9 +1204,6 @@ export async function checkAndUnlockAchievement(
         };
     }
 
-    /*
-     * Выдаём достижение.
-     */
     return unlockAchievement(
         client,
         guildId,
@@ -949,6 +1223,9 @@ export async function checkAndUnlockAchievement(
  * Проверить все достижения пользователя.
  *
  * Возвращает только реально новые достижения.
+ *
+ * Если получено несколько достижений одновременно,
+ * отправляется одно общее уведомление.
  */
 export async function checkAndUnlockAchievements(
     client,
@@ -967,7 +1244,7 @@ export async function checkAndUnlockAchievements(
     ) {
         try {
             const result =
-                await checkAndUnlockAchievement(
+                await checkAndUnlockAchievementInternal(
                     client,
                     guildId,
                     userId,
@@ -984,14 +1261,109 @@ export async function checkAndUnlockAchievements(
                 );
             }
         } catch (error) {
-            console.error(
+            logger.error(
                 `[ACHIEVEMENTS] Failed to check "${achievement.id}" for ${userId}:`,
                 error
             );
         }
     }
 
+    /*
+     * Отправляем ОДНО сообщение,
+     * если было получено несколько достижений.
+     */
+    if (
+        unlocked.length > 0
+    ) {
+        await sendAchievementNotification(
+            client,
+            guildId,
+            userId,
+            unlocked
+        );
+    }
+
     return unlocked;
+}
+
+/**
+ * Внутренняя версия проверки одного достижения.
+ *
+ * Отличается от публичной тем, что не отправляет
+ * уведомление сразу.
+ */
+async function checkAndUnlockAchievementInternal(
+    client,
+    guildId,
+    userId,
+    achievementId,
+    context = {},
+    metadata = null
+) {
+    const achievement =
+        getAchievement(
+            achievementId
+        );
+
+    if (!achievement) {
+        return null;
+    }
+
+    const alreadyUnlocked =
+        await userHasAchievement(
+            client,
+            guildId,
+            userId,
+            achievement.id
+        );
+
+    if (alreadyUnlocked) {
+        return {
+            unlocked: false,
+            achievement,
+            reason:
+                'already_unlocked',
+        };
+    }
+
+    if (!achievement.requirement) {
+        return {
+            unlocked: false,
+            achievement,
+            reason:
+                'no_requirement',
+        };
+    }
+
+    const requirementMet =
+        checkAchievementRequirement(
+            achievement,
+            context
+        );
+
+    if (!requirementMet) {
+        return {
+            unlocked: false,
+            achievement,
+            reason:
+                'requirement_not_met',
+        };
+    }
+
+    /*
+     * notify: false — уведомление будет
+     * отправлено после проверки всех достижений.
+     */
+    return unlockAchievement(
+        client,
+        guildId,
+        userId,
+        achievement.id,
+        metadata,
+        {
+            notify: false,
+        }
+    );
 }
 
 /**
