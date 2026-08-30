@@ -7,9 +7,6 @@ import { logger } from './logger.js';
 import { validateDiscordId, validateNumber } from './validation.js';
 import { DEFAULT_ECONOMY_DATA } from './constants.js';
 import { createError, ErrorTypes, wrapServiceBoundary } from './errorHandler.js';
-import {
-    checkAndUnlockAchievements,
-} from '../services/achievements/achievementService.js';
 
 
 const ECONOMY_CONFIG = BotConfig.economy || {};
