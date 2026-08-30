@@ -14,11 +14,7 @@ import {
 import { getEconomyData } from '../../utils/economy.js';
 
 import {
-    buildAchievementContext,
-} from '../../services/achievements/achievementContext.js';
-
-import {
-    getAchievementProgress,
+    getUserAchievementProfile,
 } from '../../services/achievements/achievementService.js';
 
 const ACHIEVEMENTS_PER_PAGE = 5;
@@ -72,7 +68,8 @@ export default {
             const embed = buildProfileEmbed(profileData);
 
             const components = buildProfileButtons(
-                targetUser.id
+                targetUser.id,
+                interaction.user.id
             );
 
             return interaction.editReply({
@@ -103,17 +100,10 @@ async function getProfileData({
     member,
     user,
 }) {
-    /*
-     * Основные данные профиля.
-     *
-     * Важно:
-     * достижения загружаются отдельно ниже.
-     * Ошибка achievement-системы больше не ломает /profile.
-     */
-
     const [
         levelData,
         economyData,
+        achievementProfile,
     ] = await Promise.all([
         getUserLevelData(
             client,
@@ -122,6 +112,12 @@ async function getProfileData({
         ),
 
         getEconomyData(
+            client,
+            guild.id,
+            user.id
+        ),
+
+        getUserAchievementProfile(
             client,
             guild.id,
             user.id
@@ -137,14 +133,10 @@ async function getProfileData({
     let nextLevelXp = 0;
 
     try {
-        nextLevelXp = Number(
-            getXpForLevel(nextLevel)
-        ) || 0;
-    } catch (error) {
-        console.error(
-            '[PROFILE] Failed to calculate next level XP:',
-            error
-        );
+        nextLevelXp =
+            Number(getXpForLevel(nextLevel)) || 0;
+    } catch {
+        nextLevelXp = 0;
     }
 
     const progress = calculateProgress(
@@ -152,58 +144,22 @@ async function getProfileData({
         nextLevelXp
     );
 
-    const wallet = Number(
-        economyData?.wallet
-    ) || 0;
+    const wallet =
+        Number(economyData?.wallet) || 0;
 
-    const bank = Number(
-        economyData?.bank
-    ) || 0;
+    const bank =
+        Number(economyData?.bank) || 0;
 
-    const totalBalance = wallet + bank;
+    const totalBalance =
+        wallet + bank;
 
-    /*
-     * -------------------------------------------------------
-     * ACHIEVEMENTS
-     * -------------------------------------------------------
-     *
-     * Здесь специально стоит отдельный try/catch.
-     *
-     * Если achievementService сейчас содержит ошибку,
-     * профиль всё равно будет показываться.
-     */
-
-    let achievements = [];
-
-    try {
-        const achievementContext =
-            await buildAchievementContext({
-                client,
-                guild,
-                userId: user.id,
-            });
-
-        const result =
-            getAchievementProgress(
-                achievementContext
-            );
-
-        if (Array.isArray(result)) {
-            achievements = result;
-        }
-    } catch (error) {
-        console.error(
-            `[PROFILE] Failed to load achievements for ${user.id}:`,
-            error
-        );
-
-        achievements = [];
-    }
+    const achievements =
+        achievementProfile?.achievements ?? [];
 
     const unlockedAchievements =
         achievements.filter(
             (achievement) =>
-                achievement?.unlocked === true
+                achievement.unlocked
         );
 
     return {
@@ -260,46 +216,32 @@ function buildProfileEmbed(data) {
         joinedAt,
     } = data;
 
-    const safeAchievements =
-        Array.isArray(achievements)
-            ? achievements
-            : [];
-
-    const safeUnlockedAchievements =
-        Array.isArray(unlockedAchievements)
-            ? unlockedAchievements
-            : [];
-
     const accentColor =
         getProfileColor(level);
 
     const progressBar =
-        createPercentageProgressBar(
+        createProgressBar(
             progress,
+            100,
             20
         );
 
     const badges =
-        safeUnlockedAchievements
+        unlockedAchievements
             .slice(0, 6)
             .map(
                 (achievement) =>
-                    achievement?.emoji || '🏅'
+                    `${achievement.emoji}`
             )
             .join(' ') ||
         'Пока нет достижений';
 
     const achievementProgress =
         createProgressBar(
-            safeUnlockedAchievements.length,
-            safeAchievements.length,
+            unlockedAchievements.length,
+            achievements.length,
             12
         );
-
-    const achievementText =
-        safeAchievements.length > 0
-            ? `**${safeUnlockedAchievements.length} / ${safeAchievements.length}**`
-            : '**0 / 0**';
 
     const embed =
         new EmbedBuilder()
@@ -341,7 +283,7 @@ function buildProfileEmbed(data) {
                 {
                     name: '🏆 Достижения',
                     value:
-                        achievementText,
+                        `**${unlockedAchievements.length} / ${achievements.length}**`,
                     inline: true,
                 },
 
@@ -405,7 +347,8 @@ function buildProfileEmbed(data) {
  * ======================================================= */
 
 function buildProfileButtons(
-    targetUserId
+    targetUserId,
+    viewerUserId
 ) {
     const row =
         new ActionRowBuilder();
@@ -443,12 +386,10 @@ export function buildBadgesPage(
     data,
     page = 0
 ) {
-    const user = data?.user;
-
-    const achievements =
-        Array.isArray(data?.achievements)
-            ? data.achievements
-            : [];
+    const {
+        user,
+        achievements,
+    } = data;
 
     const totalPages =
         Math.max(
@@ -461,7 +402,7 @@ export function buildBadgesPage(
 
     const safePage =
         Math.min(
-            Math.max(0, Number(page) || 0),
+            Math.max(0, page),
             totalPages - 1
         );
 
@@ -478,21 +419,21 @@ export function buildBadgesPage(
     const unlocked =
         achievements.filter(
             (achievement) =>
-                achievement?.unlocked === true
+                achievement.unlocked
         ).length;
 
     const description =
         currentAchievements
             .map((achievement) => {
-                if (achievement?.unlocked) {
+                if (achievement.unlocked) {
                     return [
-                        `${achievement.emoji || '🏅'} **${achievement.name || 'Достижение'}**`,
-                        `> ${achievement.description || 'Достижение разблокировано.'}`,
+                        `${achievement.emoji} **${achievement.name}**`,
+                        `> ${achievement.description}`,
                         '> ✅ **Открыто**',
                     ].join('\n');
                 }
 
-                if (achievement?.secret) {
+                if (achievement.hidden) {
                     return [
                         '🔒 **Скрытое достижение**',
                         '> Выполните особое условие, чтобы узнать больше.',
@@ -500,9 +441,9 @@ export function buildBadgesPage(
                 }
 
                 return [
-                    `${achievement?.emoji || '🏅'} **${achievement?.name || 'Достижение'}**`,
-                    `> ${achievement?.description || 'Описание отсутствует.'}`,
-                    `> 🔒 ${achievement?.requirementText || 'Условие скрыто.'}`,
+                    `${achievement.emoji} **${achievement.name}**`,
+                    `> ${achievement.description}`,
+                    `> 🔒 ${achievement.requirementText ?? getRequirementText(achievement)}`,
                 ].join('\n');
             })
             .join('\n\n');
@@ -513,9 +454,9 @@ export function buildBadgesPage(
 
             .setAuthor({
                 name:
-                    `${user?.username || 'Пользователь'} • Achievements`,
+                    `${user.username} • Achievements`,
                 iconURL:
-                    user?.displayAvatarURL({
+                    user.displayAvatarURL({
                         extension: 'png',
                         size: 128,
                     }),
@@ -571,16 +512,6 @@ export function buildStatisticsPage(
         joinedAt,
     } = data;
 
-    const safeAchievements =
-        Array.isArray(achievements)
-            ? achievements
-            : [];
-
-    const safeUnlockedAchievements =
-        Array.isArray(unlockedAchievements)
-            ? unlockedAchievements
-            : [];
-
     const embed =
         new EmbedBuilder()
             .setColor('#5865F2')
@@ -615,7 +546,7 @@ export function buildStatisticsPage(
                 {
                     name: '🏅 Достижения',
                     value:
-                        `**${safeUnlockedAchievements.length} / ${safeAchievements.length}**`,
+                        `**${unlockedAchievements.length} / ${achievements.length}**`,
                     inline: true,
                 },
 
@@ -682,34 +613,6 @@ function calculateProgress(
     );
 }
 
-function createPercentageProgressBar(
-    percentage,
-    size = 20
-) {
-    const safePercentage =
-        Math.min(
-            100,
-            Math.max(
-                0,
-                Number(percentage) || 0
-            )
-        );
-
-    const filled =
-        Math.round(
-            (safePercentage / 100) *
-            size
-        );
-
-    const empty =
-        size - filled;
-
-    return (
-        '█'.repeat(filled) +
-        '░'.repeat(empty)
-    );
-}
-
 function createProgressBar(
     current,
     total,
@@ -770,4 +673,21 @@ function getProfileColor(level) {
     }
 
     return 0x5865F2;
+}
+
+function getRequirementText(achievement) {
+    const requirement =
+        achievement?.requirement;
+
+    if (!requirement) {
+        return 'Особое условие';
+    }
+
+    switch (requirement.type) {
+        case 'level':
+            return `Достичь ${requirement.value} уровня`;
+
+        default:
+            return 'Выполнить особое условие';
+    }
 }
