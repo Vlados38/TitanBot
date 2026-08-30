@@ -19,10 +19,6 @@ import {
 
 const ACHIEVEMENTS_PER_PAGE = 5;
 
-/* =========================================================
- * COMMAND
- * ======================================================= */
-
 export default {
     data: new SlashCommandBuilder()
         .setName('profile')
@@ -72,7 +68,8 @@ export default {
             const embed = buildProfileEmbed(profileData);
 
             const components = buildProfileButtons(
-                targetUser.id
+                targetUser.id,
+                interaction.user.id
             );
 
             return interaction.editReply({
@@ -97,7 +94,7 @@ export default {
  * PROFILE DATA
  * ======================================================= */
 
-export async function getProfileData({
+async function getProfileData({
     client,
     guild,
     member,
@@ -127,17 +124,11 @@ export async function getProfileData({
         ),
     ]);
 
-    const level =
-        Number(levelData?.level) || 0;
+    const level = Number(levelData?.level) || 0;
+    const xp = Number(levelData?.xp) || 0;
+    const totalXp = Number(levelData?.totalXp) || 0;
 
-    const xp =
-        Number(levelData?.xp) || 0;
-
-    const totalXp =
-        Number(levelData?.totalXp) || 0;
-
-    const nextLevel =
-        level + 1;
+    const nextLevel = level + 1;
 
     let nextLevelXp = 0;
 
@@ -148,11 +139,10 @@ export async function getProfileData({
         nextLevelXp = 0;
     }
 
-    const progress =
-        calculateProgress(
-            xp,
-            nextLevelXp
-        );
+    const progress = calculateProgress(
+        xp,
+        nextLevelXp
+    );
 
     const wallet =
         Number(economyData?.wallet) || 0;
@@ -196,8 +186,7 @@ export async function getProfileData({
                 ? new Date(member.joinedTimestamp)
                 : null,
 
-        createdAt:
-            user.createdAt,
+        createdAt: user.createdAt,
     };
 }
 
@@ -205,7 +194,7 @@ export async function getProfileData({
  * MAIN PROFILE EMBED
  * ======================================================= */
 
-export function buildProfileEmbed(data) {
+function buildProfileEmbed(data) {
     const {
         user,
         member,
@@ -357,8 +346,9 @@ export function buildProfileEmbed(data) {
  * PROFILE BUTTONS
  * ======================================================= */
 
-export function buildProfileButtons(
-    targetUserId
+function buildProfileButtons(
+    targetUserId,
+    viewerUserId
 ) {
     const row =
         new ActionRowBuilder();
@@ -412,10 +402,7 @@ export function buildBadgesPage(
 
     const safePage =
         Math.min(
-            Math.max(
-                0,
-                Number(page) || 0
-            ),
+            Math.max(0, page),
             totalPages - 1
         );
 
@@ -596,8 +583,7 @@ export function buildStatisticsPage(
             )
 
             .setFooter({
-                text:
-                    'TitanBot • Statistics',
+                text: 'TitanBot • Statistics',
             });
 
     return embed;
@@ -611,10 +597,7 @@ function calculateProgress(
     current,
     required
 ) {
-    if (
-        !required ||
-        required <= 0
-    ) {
+    if (!required || required <= 0) {
         return 100;
     }
 
@@ -635,10 +618,7 @@ function createProgressBar(
     total,
     size = 20
 ) {
-    if (
-        !total ||
-        total <= 0
-    ) {
+    if (!total || total <= 0) {
         return '░'.repeat(size);
     }
 
@@ -695,9 +675,7 @@ function getProfileColor(level) {
     return 0x5865F2;
 }
 
-function getRequirementText(
-    achievement
-) {
+function getRequirementText(achievement) {
     const requirement =
         achievement?.requirement;
 
@@ -705,9 +683,7 @@ function getRequirementText(
         return 'Особое условие';
     }
 
-    switch (
-        requirement.type
-    ) {
+    switch (requirement.type) {
         case 'level':
             return `Достичь ${requirement.value} уровня`;
 
