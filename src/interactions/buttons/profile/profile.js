@@ -6,33 +6,45 @@ import {
 
 import {
     getProfileData,
+    buildProfileEmbed,
     buildProfileButtons,
     buildBadgesPage,
     buildStatisticsPage,
-    buildProfileEmbed,
 } from '../../../commands/Community/profile.js';
 
+const BUTTON_NAME = 'profile';
 
 export default {
-    name: 'profile',
+    name: BUTTON_NAME,
 
-    async execute(interaction, client, args = []) {
-        const [action, targetUserId, pageArg] = args;
+    async execute(interaction, client, args) {
+        const type = args[0];
+        const targetUserId = args[1];
+        const page = Number(args[2] ?? 0);
+
+        if (!type) {
+            return;
+        }
+
+        if (!targetUserId) {
+            return interaction.reply({
+                content:
+                    '❌ Не удалось определить пользователя профиля.',
+                ephemeral: true,
+            });
+        }
 
         if (!interaction.guild) {
             return interaction.reply({
-                content: '❌ Эта кнопка доступна только на сервере.',
+                content:
+                    '❌ Эта кнопка работает только на сервере.',
                 ephemeral: true,
             });
         }
 
-        if (!action || !targetUserId) {
-            return interaction.reply({
-                content: '❌ Некорректная кнопка профиля.',
-                ephemeral: true,
-            });
-        }
-
+        /*
+         * Получаем пользователя.
+         */
         const targetUser =
             await client.users
                 .fetch(targetUserId)
@@ -40,11 +52,15 @@ export default {
 
         if (!targetUser) {
             return interaction.reply({
-                content: '❌ Пользователь не найден.',
+                content:
+                    '❌ Пользователь не найден.',
                 ephemeral: true,
             });
         }
 
+        /*
+         * Получаем участника сервера.
+         */
         const member =
             await interaction.guild.members
                 .fetch(targetUserId)
@@ -53,205 +69,210 @@ export default {
         if (!member) {
             return interaction.reply({
                 content:
-                    '❌ Пользователь больше не находится на этом сервере.',
+                    '❌ Пользователь не найден на этом сервере.',
                 ephemeral: true,
             });
         }
 
-        const profileData =
-            await getProfileData({
-                client,
-                guild: interaction.guild,
-                member,
-                user: targetUser,
-            });
+        try {
+            /*
+             * =================================================
+             * BADGES
+             * =================================================
+             */
 
-        switch (action) {
-            case 'badges': {
-                const requestedPage =
-                    Number.parseInt(pageArg ?? '0', 10);
+            if (type === 'badges') {
+                const data =
+                    await getProfileData({
+                        client,
+                        guild: interaction.guild,
+                        member,
+                        user: targetUser,
+                    });
 
-                const page =
-                    Number.isFinite(requestedPage)
-                        ? requestedPage
-                        : 0;
+                const result =
+                    buildBadgesPage(
+                        data,
+                        page
+                    );
 
-                const {
-                    embed,
-                    page: safePage,
-                    totalPages,
-                } = buildBadgesPage(
-                    profileData,
-                    page
+                const row =
+                    new ActionRowBuilder();
+
+                /*
+                 * Назад к основному профилю.
+                 */
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(
+                            `profile:back:${targetUserId}`
+                        )
+                        .setLabel('Профиль')
+                        .setEmoji('👤')
+                        .setStyle(
+                            ButtonStyle.Secondary
+                        )
                 );
 
-                const components =
-                    buildBadgesButtons(
-                        targetUserId,
-                        safePage,
-                        totalPages
-                    );
+                /*
+                 * Предыдущая страница.
+                 */
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(
+                            `profile:badges:${targetUserId}:${result.page - 1}`
+                        )
+                        .setLabel('Назад')
+                        .setEmoji('◀️')
+                        .setStyle(
+                            ButtonStyle.Secondary
+                        )
+                        .setDisabled(
+                            result.page <= 0
+                        )
+                );
+
+                /*
+                 * Следующая страница.
+                 */
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(
+                            `profile:badges:${targetUserId}:${result.page + 1}`
+                        )
+                        .setLabel('Вперёд')
+                        .setEmoji('▶️')
+                        .setStyle(
+                            ButtonStyle.Secondary
+                        )
+                        .setDisabled(
+                            result.page >=
+                            result.totalPages - 1
+                        )
+                );
 
                 return interaction.update({
-                    embeds: [embed],
-                    components,
+                    embeds: [
+                        result.embed,
+                    ],
+                    components: [
+                        row,
+                    ],
                 });
             }
 
-            case 'stats': {
+            /*
+             * =================================================
+             * STATISTICS
+             * =================================================
+             */
+
+            if (type === 'stats') {
+                const data =
+                    await getProfileData({
+                        client,
+                        guild: interaction.guild,
+                        member,
+                        user: targetUser,
+                    });
+
                 const embed =
                     buildStatisticsPage(
-                        profileData
+                        data
                     );
 
-                const components =
-                    buildStatisticsButtons(
-                        targetUserId
-                    );
+                const row =
+                    new ActionRowBuilder();
+
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(
+                            `profile:back:${targetUserId}`
+                        )
+                        .setLabel('Профиль')
+                        .setEmoji('👤')
+                        .setStyle(
+                            ButtonStyle.Secondary
+                        )
+                );
 
                 return interaction.update({
-                    embeds: [embed],
-                    components,
+                    embeds: [
+                        embed,
+                    ],
+                    components: [
+                        row,
+                    ],
                 });
             }
 
-            case 'main': {
+            /*
+             * =================================================
+             * BACK TO PROFILE
+             * =================================================
+             */
+
+            if (type === 'back') {
+                const data =
+                    await getProfileData({
+                        client,
+                        guild: interaction.guild,
+                        member,
+                        user: targetUser,
+                    });
+
                 const embed =
                     buildProfileEmbed(
-                        profileData
+                        data
                     );
 
                 const components =
                     buildProfileButtons(
-                        targetUserId,
-                        interaction.user.id
+                        targetUserId
                     );
 
                 return interaction.update({
-                    embeds: [embed],
+                    embeds: [
+                        embed,
+                    ],
                     components,
                 });
             }
 
-            default: {
+            /*
+             * Неизвестный тип кнопки.
+             */
+            return interaction.reply({
+                content:
+                    '❌ Неизвестная кнопка профиля.',
+                ephemeral: true,
+            });
+        } catch (error) {
+            console.error(
+                '[PROFILE BUTTON] Failed:',
+                error
+            );
+
+            /*
+             * Если interaction ещё не был подтверждён,
+             * отправляем ephemeral-ошибку.
+             */
+            if (
+                !interaction.replied &&
+                !interaction.deferred
+            ) {
                 return interaction.reply({
                     content:
-                        '❌ Неизвестное действие профиля.',
+                        '❌ Не удалось обработать кнопку профиля.',
                     ephemeral: true,
                 });
             }
+
+            /*
+             * Если update/reply уже был сделан,
+             * просто пробрасываем ошибку в общий обработчик.
+             */
+            throw error;
         }
     },
 };
-
-
-/* =========================================================
- * BADGES BUTTONS
- * ======================================================= */
-
-function buildBadgesButtons(
-    targetUserId,
-    page,
-    totalPages
-) {
-    const row =
-        new ActionRowBuilder();
-
-    const previousPage =
-        Math.max(
-            0,
-            page - 1
-        );
-
-    const nextPage =
-        Math.min(
-            Math.max(totalPages - 1, 0),
-            page + 1
-        );
-
-    row.addComponents(
-        new ButtonBuilder()
-            .setCustomId(
-                `profile:main:${targetUserId}`
-            )
-            .setLabel('Профиль')
-            .setEmoji('👤')
-            .setStyle(
-                ButtonStyle.Secondary
-            ),
-
-        new ButtonBuilder()
-            .setCustomId(
-                `profile:badges:${targetUserId}:${previousPage}`
-            )
-            .setLabel('Назад')
-            .setEmoji('◀️')
-            .setStyle(
-                ButtonStyle.Secondary
-            )
-            .setDisabled(
-                page <= 0
-            ),
-
-        new ButtonBuilder()
-            .setCustomId(
-                `profile:badges:${targetUserId}:${nextPage}`
-            )
-            .setLabel('Вперёд')
-            .setEmoji('▶️')
-            .setStyle(
-                ButtonStyle.Secondary
-            )
-            .setDisabled(
-                page >= totalPages - 1
-            ),
-
-        new ButtonBuilder()
-            .setCustomId(
-                `profile:stats:${targetUserId}`
-            )
-            .setLabel('Statistics')
-            .setEmoji('📊')
-            .setStyle(
-                ButtonStyle.Secondary
-            )
-    );
-
-    return [row];
-}
-
-
-/* =========================================================
- * STATISTICS BUTTONS
- * ======================================================= */
-
-function buildStatisticsButtons(
-    targetUserId
-) {
-    const row =
-        new ActionRowBuilder();
-
-    row.addComponents(
-        new ButtonBuilder()
-            .setCustomId(
-                `profile:main:${targetUserId}`
-            )
-            .setLabel('Профиль')
-            .setEmoji('👤')
-            .setStyle(
-                ButtonStyle.Secondary
-            ),
-
-        new ButtonBuilder()
-            .setCustomId(
-                `profile:badges:${targetUserId}:0`
-            )
-            .setLabel('Badges')
-            .setEmoji('🏅')
-            .setStyle(
-                ButtonStyle.Secondary
-            )
-    );
-
-    return [row];
-}
