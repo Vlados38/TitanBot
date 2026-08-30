@@ -9,6 +9,21 @@
  * ВАЖНО:
  * Этот файл ничего не изменяет в БД.
  * Он только собирает данные.
+ *
+ * Поддерживаемые данные:
+ * - level
+ * - xp
+ * - totalXp
+ * - wallet
+ * - bank
+ * - balance
+ * - daysOnServer
+ * - earlyMember
+ * - serverBooster
+ * - robCount
+ * - member
+ * - user
+ * - guild
  * ============================================================
  */
 
@@ -25,6 +40,12 @@ import {
 } from '../../utils/logger.js';
 
 
+/**
+ * ============================================================
+ * BUILD ACHIEVEMENT CONTEXT
+ * ============================================================
+ */
+
 export async function buildAchievementContext({
     client,
     guild,
@@ -39,7 +60,7 @@ export async function buildAchievementContext({
     }
 
     try {
-        /*
+        /**
          * ======================================================
          * LEVEL / XP
          * ======================================================
@@ -52,7 +73,8 @@ export async function buildAchievementContext({
                 userId
             );
 
-        /*
+
+        /**
          * ======================================================
          * ECONOMY
          * ======================================================
@@ -65,7 +87,8 @@ export async function buildAchievementContext({
                 userId
             );
 
-        /*
+
+        /**
          * ======================================================
          * MEMBER
          * ======================================================
@@ -76,7 +99,21 @@ export async function buildAchievementContext({
                 .fetch(userId)
                 .catch(() => null);
 
-        /*
+
+        /**
+         * ======================================================
+         * USER
+         * ======================================================
+         */
+
+        const user =
+            member?.user ||
+            await client.users
+                ?.fetch(userId)
+                .catch(() => null);
+
+
+        /**
          * ======================================================
          * LEVEL
          * ======================================================
@@ -97,7 +134,8 @@ export async function buildAchievementContext({
                 levelData?.totalXp
             ) || 0;
 
-        /*
+
+        /**
          * ======================================================
          * ECONOMY
          * ======================================================
@@ -116,7 +154,30 @@ export async function buildAchievementContext({
         const balance =
             wallet + bank;
 
-        /*
+
+        /**
+         * ======================================================
+         * ROB COUNT
+         * ======================================================
+         *
+         * Поддержка будущих достижений вида:
+         *
+         * {
+         *     type: 'robCount',
+         *     value: 10
+         * }
+         *
+         * Если счётчик ещё не существует в экономике,
+         * безопасно используем 0.
+         */
+
+        const robCount =
+            Number(
+                economyData?.robCount
+            ) || 0;
+
+
+        /**
          * ======================================================
          * SERVER MEMBERSHIP
          * ======================================================
@@ -128,19 +189,28 @@ export async function buildAchievementContext({
             member?.joinedTimestamp
         ) {
             const millisecondsOnServer =
-                Date.now() -
-                member.joinedTimestamp;
+                Math.max(
+                    0,
+                    Date.now() -
+                    member.joinedTimestamp
+                );
 
             daysOnServer =
                 Math.floor(
                     millisecondsOnServer /
-                    (24 * 60 * 60 * 1000)
+                    (
+                        24 *
+                        60 *
+                        60 *
+                        1000
+                    )
                 );
         }
 
-        /*
+
+        /**
          * ======================================================
-         * SPECIAL
+         * SPECIAL — SERVER BOOSTER
          * ======================================================
          */
 
@@ -149,29 +219,60 @@ export async function buildAchievementContext({
                 member?.premiumSinceTimestamp
             );
 
-        /*
-         * Early member.
+
+        /**
+         * ======================================================
+         * SPECIAL — EARLY MEMBER
+         * ======================================================
          *
-         * Здесь используется позиция пользователя
-         * среди участников сервера.
+         * Первые 10 участников сервера считаются
+         * ранними участниками.
          *
-         * Первые 10 участников считаются ранними.
+         * Discord API не гарантирует, что обычный fetch
+         * участников вернёт весь сервер.
          *
-         * Если сервер уже большой, Discord может не вернуть
-         * полный список участников — поэтому ошибка безопасно
-         * превращается в false.
+         * Поэтому:
+         *
+         * 1. Сначала используем уже загруженный cache.
+         * 2. Если пользователя там недостаточно — пробуем
+         *    получить участников через fetch.
+         * 3. Ошибка не ломает систему достижений.
          */
 
         let earlyMember = false;
 
         try {
-            const members =
-                await guild.members
-                    .fetch({
-                        withPresences: false,
-                        limit: 100,
-                    })
-                    .catch(() => null);
+            let members =
+                guild.members.cache;
+
+            /*
+             * Если пользователь уже находится в cache,
+             * используем его.
+             *
+             * Если cache маленький, пытаемся получить
+             * дополнительные данные.
+             */
+
+            if (
+                !members.has(userId) ||
+                members.size < 10
+            ) {
+                const fetchedMembers =
+                    await guild.members
+                        .fetch({
+                            withPresences: false,
+                            limit: 100,
+                        })
+                        .catch(() => null);
+
+                if (
+                    fetchedMembers &&
+                    fetchedMembers.size > 0
+                ) {
+                    members =
+                        fetchedMembers;
+                }
+            }
 
             if (
                 members &&
@@ -192,7 +293,8 @@ export async function buildAchievementContext({
                 const memberIndex =
                     sortedMembers.findIndex(
                         (guildMember) =>
-                            guildMember.id === userId
+                            guildMember.id ===
+                            userId
                     );
 
                 if (
@@ -202,36 +304,74 @@ export async function buildAchievementContext({
                     earlyMember = true;
                 }
             }
-        } catch {
+        } catch (error) {
+            logger.debug(
+                `[ACHIEVEMENTS] Не удалось определить earlyMember ` +
+                `для ${userId}:`,
+                error?.message
+            );
+
             earlyMember = false;
         }
 
-        /*
+
+        /**
          * ======================================================
          * RETURN CONTEXT
          * ======================================================
          */
 
         return {
+            /*
+             * Идентификаторы
+             */
+
             userId,
             guildId: guild.id,
+
+            /*
+             * Discord entities
+             */
+
+            guild,
+            member,
+            user,
+
+            /*
+             * Leveling
+             */
 
             level,
             xp,
             totalXp,
 
+            /*
+             * Economy
+             */
+
             wallet,
             bank,
             balance,
 
+            /*
+             * Activity
+             */
+
+            robCount,
+
+            /*
+             * Membership
+             */
+
             daysOnServer,
+
+            /*
+             * Special
+             */
 
             earlyMember,
             serverBooster,
-
-            member,
         };
-
     } catch (error) {
         logger.error(
             `[ACHIEVEMENTS] Failed to build context for ${userId}:`,
@@ -240,12 +380,17 @@ export async function buildAchievementContext({
 
         /*
          * Возвращаем безопасный context,
-         * чтобы проверка достижений не ломала команду.
+         * чтобы проверка достижений никогда
+         * не ломала основную команду.
          */
 
         return {
             userId,
-            guildId: guild.id,
+            guildId: guild?.id || null,
+
+            guild,
+            member: null,
+            user: null,
 
             level: 0,
             xp: 0,
@@ -255,12 +400,12 @@ export async function buildAchievementContext({
             bank: 0,
             balance: 0,
 
+            robCount: 0,
+
             daysOnServer: 0,
 
             earlyMember: false,
             serverBooster: false,
-
-            member: null,
         };
     }
 }
