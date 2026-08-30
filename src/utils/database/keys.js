@@ -60,6 +60,21 @@ export function getUserLevelPrefix(guildId) {
     return `guild:${guildId}:leveling:users:`;
 }
 
+/**
+ * Achievements
+ *
+ * Individual user achievements are stored under:
+ *
+ * guild:{guildId}:achievements:users:{userId}
+ */
+export function getUserAchievementsKey(guildId, userId) {
+    return `guild:${guildId}:achievements:users:${userId}`;
+}
+
+export function getUserAchievementsPrefix(guildId) {
+    return `guild:${guildId}:achievements:users:`;
+}
+
 export function getApplicationRolesKey(guildId) {
     return `guild:${guildId}:applications:roles`;
 }
@@ -194,6 +209,7 @@ export function getLegacyVariantsForCanonical(canonicalKey) {
 
     for (const { pattern, toCanonical } of LEGACY_KEY_RESOLVERS) {
         const sample = canonicalKey;
+
         const match = sample.match(/^guild:([^:]+):economy:([^:]+)$/);
         if (match && toCanonical(['', match[1], match[2]]) === canonicalKey) {
             variants.push(`economy:${match[1]}:${match[2]}`);
@@ -237,7 +253,7 @@ export function getLegacyVariantsForCanonical(canonicalKey) {
         }
 
         const countersMatch = sample.match(/^guild:([^:]+):counters$/);
-        if (countersMatch && toCanonical(['', countersMatch[1]]) === canonicalKey) {
+        if (countersMatch && toCanonical(['', match[1]]) === canonicalKey) {
             variants.push(`counters:${countersMatch[1]}`);
             continue;
         }
