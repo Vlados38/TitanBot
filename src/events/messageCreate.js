@@ -14,9 +14,7 @@ import { addXp } from '../services/leveling/xpSystem.js';
 
 import { checkRateLimit } from '../utils/rateLimiter.js';
 
-import {
-  parsePrefixCommand,
-} from '../utils/prefixParser.js';
+import { parsePrefixCommand } from '../utils/prefixParser.js';
 
 import {
   supportsPrefixExecution,
@@ -50,9 +48,7 @@ import {
   formatCooldownDuration,
 } from '../utils/abuseProtection.js';
 
-import {
-  createEmbed,
-} from '../utils/embeds.js';
+import { createEmbed } from '../utils/embeds.js';
 
 import {
   isCommandEnabled,
@@ -107,10 +103,6 @@ export default {
         `Message received from ${message.author.tag}: ${message.content}`
       );
 
-      /*
-       * Counting game должен иметь приоритет.
-       */
-
       const countingProcessed =
         await handleCountingGame(
           message,
@@ -121,18 +113,10 @@ export default {
         return;
       }
 
-      /*
-       * Prefix commands.
-       */
-
       await handlePrefixCommand(
         message,
         client
       );
-
-      /*
-       * XP + achievements.
-       */
 
       await handleLeveling(
         message,
@@ -237,10 +221,6 @@ async function handlePrefixCommand(
       return;
     }
 
-    /*
-     * Maintenance mode.
-     */
-
     if (
       isMaintenanceMode() &&
       !isBotOwner(
@@ -269,10 +249,6 @@ async function handlePrefixCommand(
       return;
     }
 
-    /*
-     * Category disabled.
-     */
-
     if (
       !isCommandCategoryEnabled(
         command.category
@@ -299,10 +275,6 @@ async function handlePrefixCommand(
 
       return;
     }
-
-    /*
-     * Prefix restrictions.
-     */
 
     const restriction =
       getPrefixRestriction(
@@ -343,10 +315,6 @@ async function handlePrefixCommand(
       return;
     }
 
-    /*
-     * Server command access.
-     */
-
     if (
       !(
         await isCommandEnabled(
@@ -380,10 +348,6 @@ async function handlePrefixCommand(
 
       return;
     }
-
-    /*
-     * Abuse protection.
-     */
 
     const mockInteractionForProtection = {
       guildId:
@@ -553,10 +517,6 @@ async function handleLeveling(
   client
 ) {
   try {
-    /*
-     * XP rate limit.
-     */
-
     const rateLimitKey =
       `xp-event:${message.guild.id}:${message.author.id}`;
 
@@ -571,10 +531,6 @@ async function handleLeveling(
       return;
     }
 
-    /*
-     * Leveling config.
-     */
-
     const levelingConfig =
       await getLevelingConfig(
         client,
@@ -587,10 +543,6 @@ async function handleLeveling(
       return;
     }
 
-    /*
-     * Ignored channels.
-     */
-
     if (
       levelingConfig.ignoredChannels
         ?.includes(
@@ -599,10 +551,6 @@ async function handleLeveling(
     ) {
       return;
     }
-
-    /*
-     * Ignored roles.
-     */
 
     if (
       levelingConfig.ignoredRoles
@@ -628,10 +576,6 @@ async function handleLeveling(
       }
     }
 
-    /*
-     * Blacklisted users.
-     */
-
     if (
       levelingConfig
         .blacklistedUsers
@@ -642,10 +586,6 @@ async function handleLeveling(
       return;
     }
 
-    /*
-     * Empty messages.
-     */
-
     if (
       !message.content ||
       message.content
@@ -655,20 +595,12 @@ async function handleLeveling(
       return;
     }
 
-    /*
-     * User level data.
-     */
-
     const userData =
       await getUserLevelData(
         client,
         message.guild.id,
         message.author.id
       );
-
-    /*
-     * XP cooldown.
-     */
 
     const cooldownTime =
       levelingConfig.xpCooldown ||
@@ -687,10 +619,6 @@ async function handleLeveling(
     ) {
       return;
     }
-
-    /*
-     * XP range.
-     */
 
     const minXP =
       levelingConfig.xpRange?.min ||
@@ -725,10 +653,6 @@ async function handleLeveling(
       ) +
       safeMinXP;
 
-    /*
-     * XP multiplier.
-     */
-
     let finalXP =
       xpToGive;
 
@@ -744,7 +668,9 @@ async function handleLeveling(
     }
 
     /*
-     * Add XP.
+     * ========================================================
+     * ADD XP
+     * ========================================================
      */
 
     const result =
@@ -754,10 +680,6 @@ async function handleLeveling(
         message.member,
         finalXP
       );
-
-    /*
-     * Level up log.
-     */
 
     if (
       result?.leveledUp
@@ -771,32 +693,36 @@ async function handleLeveling(
      * ========================================================
      * ACHIEVEMENTS
      * ========================================================
-     *
-     * Проверяем достижения только после того,
-     * как пользователь действительно получил XP.
-     *
-     * Это позволяет не создавать лишние запросы
-     * на каждое сообщение во время XP cooldown.
      */
 
     try {
+      /*
+       * После addXp() данные уже сохранены
+       * системой XP.
+       *
+       * Поэтому buildAchievementContext()
+       * получает актуальные значения.
+       */
+
       const achievementContext =
         await buildAchievementContext({
           client,
+
           guild:
             message.guild,
+
           userId:
             message.author.id,
         });
 
       /*
-       * addXp() уже вернул актуальный уровень/XP,
-       * поэтому используем их, если они доступны.
+       * Дополнительно используем результат addXp(),
+       * чтобы не зависеть от возможной задержки
+       * чтения данных.
        */
 
       if (
-        result &&
-        result.level !== undefined
+        result?.level !== undefined
       ) {
         achievementContext.level =
           Number(
@@ -806,8 +732,7 @@ async function handleLeveling(
       }
 
       if (
-        result &&
-        result.totalXp !== undefined
+        result?.totalXp !== undefined
       ) {
         achievementContext.totalXp =
           Number(
@@ -817,39 +742,116 @@ async function handleLeveling(
       }
 
       /*
-       * Проверяем все зарегистрированные достижения.
+       * Проверяем все достижения.
        *
-       * Функция возвращает только те достижения,
-       * которые были выданы прямо сейчас.
+       * Возвращаются только новые достижения.
        */
 
       const unlockedAchievements =
         await checkAndUnlockAchievements(
           client,
+
           message.guild.id,
+
           message.author.id,
+
           achievementContext
         );
 
       /*
-       * Отправляем уведомления.
+       * Если достижений нет —
+       * ничего не отправляем.
        */
 
       if (
-        unlockedAchievements.length > 0
+        unlockedAchievements.length === 0
       ) {
-        await sendAchievementNotifications(
-          message,
+        return;
+      }
+
+      /*
+       * ======================================================
+       * FIND LEVEL-UP CHANNEL
+       * ======================================================
+       *
+       * Используем ТО ЖЕ поле,
+       * которое использует xpSystem.js:
+       *
+       * levelingConfig.levelUpChannel
+       *
+       * Если он не установлен —
+       * используем системный канал сервера.
+       */
+
+      const notificationChannel =
+        levelingConfig.levelUpChannel
+          ? message.guild.channels.cache.get(
+              levelingConfig.levelUpChannel
+            )
+          : message.guild.systemChannel;
+
+      /*
+       * Если канал недоступен,
+       * просто записываем предупреждение.
+       *
+       * Сама система достижений при этом
+       * продолжает работать.
+       */
+
+      if (
+        !notificationChannel ||
+        !notificationChannel.isTextBased()
+      ) {
+        logger.warn(
+          `Не удалось найти канал уведомлений о достижениях для сервера ${message.guild.id}`
+        );
+
+        return;
+      }
+
+      /*
+       * Проверяем права бота.
+       */
+
+      const permissions =
+        notificationChannel.permissionsFor(
+          message.guild.members.me
+        );
+
+      if (
+        !permissions ||
+        !permissions.has([
+          'SendMessages',
+          'EmbedLinks',
+        ])
+      ) {
+        logger.warn(
+          `Недостаточно прав для отправки уведомления о достижении в канал ${notificationChannel.id}`
+        );
+
+        return;
+      }
+
+      /*
+       * Отправляем уведомление для каждого
+       * нового достижения.
+       */
+
+      for (
+        const achievement of
           unlockedAchievements
+      ) {
+        await sendAchievementNotification(
+          notificationChannel,
+          message,
+          achievement
         );
       }
 
     } catch (achievementError) {
       /*
-       * Ошибка достижений НЕ должна ломать leveling.
-       *
-       * Если achievement system временно упадёт,
-       * пользователь всё равно должен получать XP.
+       * Ошибка достижений НИКОГДА не должна
+       * ломать XP-систему.
        */
 
       logger.error(
@@ -869,80 +871,93 @@ async function handleLeveling(
 
 /*
  * ============================================================
- * ACHIEVEMENT NOTIFICATIONS
+ * ACHIEVEMENT NOTIFICATION
  * ============================================================
  */
 
-async function sendAchievementNotifications(
+async function sendAchievementNotification(
+  channel,
   message,
-  achievements
+  achievement
 ) {
-  if (
-    !Array.isArray(
-      achievements
-    ) ||
-    achievements.length === 0
-  ) {
-    return;
-  }
-
-  for (
-    const achievement of achievements
-  ) {
-    try {
-      const rarity =
-        getAchievementRarity(
-          achievement.rarity
-        );
-
-      const embed =
-        new EmbedBuilder()
-          .setColor(
-            rarity.color
-          )
-
-          .setAuthor({
-            name:
-              '🏆 Новое достижение!',
-            iconURL:
-              message.author.displayAvatarURL({
-                extension: 'png',
-                size: 128,
-              }),
-          })
-
-          .setTitle(
-            `${achievement.emoji || '🏆'} ${achievement.name}`
-          )
-
-          .setDescription(
-            [
-              `${message.author} получил новое достижение!`,
-              '',
-              `> ${achievement.description}`,
-              '',
-              `${rarity.emoji} **Редкость:** ${rarity.name}`,
-            ].join('\n')
-          )
-
-          .setFooter({
-            text:
-              'TitanBot • Achievements',
-          })
-
-          .setTimestamp();
-
-      await message.channel.send({
-        embeds: [
-          embed,
-        ],
-      });
-
-    } catch (error) {
-      logger.error(
-        `Failed to send achievement notification for ${achievement?.id}:`,
-        error
+  try {
+    const rarity =
+      getAchievementRarity(
+        achievement?.rarity
       );
-    }
+
+    const rarityName =
+      rarity?.name ||
+      'Обычное';
+
+    const rarityEmoji =
+      rarity?.emoji ||
+      '⚪';
+
+    const rarityColor =
+      rarity?.color ||
+      '#95A5A6';
+
+    const embed =
+      new EmbedBuilder()
+
+        .setColor(
+          rarityColor
+        )
+
+        .setAuthor({
+          name:
+            '🏆 Новое достижение!',
+
+          iconURL:
+            message.author.displayAvatarURL({
+              extension: 'png',
+              size: 128,
+            }),
+        })
+
+        .setTitle(
+          `${achievement?.emoji || '🏆'} ${achievement?.name || 'Новое достижение'}`
+        )
+
+        .setDescription(
+          [
+            `${message.author} получил новое достижение!`,
+
+            '',
+
+            `> ${achievement?.description || 'Достижение разблокировано.'}`,
+
+            '',
+
+            `${rarityEmoji} **Редкость:** ${rarityName}`,
+          ].join('\n')
+        )
+
+        .setThumbnail(
+          message.author.displayAvatarURL({
+            extension: 'png',
+            size: 256,
+          })
+        )
+
+        .setFooter({
+          text:
+            `${message.guild.name} • TitanBot`,
+        })
+
+        .setTimestamp();
+
+    await channel.send({
+      embeds: [
+        embed,
+      ],
+    });
+
+  } catch (error) {
+    logger.error(
+      `Не удалось отправить уведомление о достижении ${achievement?.id}:`,
+      error
+    );
   }
 }
