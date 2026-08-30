@@ -94,7 +94,7 @@ export default {
  * PROFILE DATA
  * ======================================================= */
 
-async function getProfileData({
+export async function getProfileData({
     client,
     guild,
     member,
@@ -194,7 +194,7 @@ async function getProfileData({
  * MAIN PROFILE EMBED
  * ======================================================= */
 
-function buildProfileEmbed(data) {
+export function buildProfileEmbed(data) {
     const {
         user,
         member,
@@ -346,7 +346,7 @@ function buildProfileEmbed(data) {
  * PROFILE BUTTONS
  * ======================================================= */
 
-function buildProfileButtons(
+export function buildProfileButtons(
     targetUserId,
     viewerUserId
 ) {
