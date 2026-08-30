@@ -7,12 +7,12 @@
  * - реестр достижений;
  * - получение информации о достижении;
  * - получение всех достижений;
- * - проверку полученных достижений;
+ * - проверку требований;
  * - выдачу новых достижений;
  * - расчёт прогресса;
+ * - работу с данными пользователя.
  *
- * Сам сервис не занимается Discord-уведомлениями.
- * Уведомления будут подключены отдельно через AchievementNotifier.
+ * Discord-уведомления здесь НЕ отправляются.
  */
 
 import {
@@ -21,92 +21,29 @@ import {
     unlockUserAchievement,
 } from '../../utils/database.js';
 
+import {
+    ACHIEVEMENTS,
+    ACHIEVEMENT_CATEGORIES,
+} from './achievementDefinitions.js';
 
 /**
  * ============================================================
- * ACHIEVEMENT DEFINITIONS
+ * INTERNAL MAP
  * ============================================================
  *
- * Все достижения проекта находятся здесь.
+ * achievementDefinitions.js хранит достижения в массиве.
  *
- * В будущем сюда можно добавить:
- * - reward;
- * - hidden;
- * - progress;
- * - category;
- * - rarity;
- * - season;
- *
- * ID достижения никогда не следует менять после релиза,
- * поскольку именно ID хранится в базе данных.
+ * Для быстрого поиска по ID создаём отдельную Map/Object.
  */
 
-export const ACHIEVEMENTS = {
-    first_step: {
-        id: 'first_step',
-
-        name: 'Первый шаг',
-        description: 'Отправить своё первое сообщение на сервере.',
-
-        emoji: '🌱',
-        rarity: 'common',
-        category: 'social',
-
-        hidden: false,
-
-        reward: {
-            xp: 0,
-            coins: 0,
-        },
-    },
-
-    level_5: {
-        id: 'level_5',
-
-        name: 'Осваиваюсь',
-        description: 'Достичь 5 уровня.',
-
-        emoji: '⭐',
-        rarity: 'common',
-        category: 'leveling',
-
-        hidden: false,
-
-        reward: {
-            xp: 0,
-            coins: 0,
-        },
-
-        requirement: {
-            type: 'level',
-            value: 5,
-        },
-    },
-
-    level_10: {
-        id: 'level_10',
-
-        name: 'Свой человек',
-        description: 'Достичь 10 уровня.',
-
-        emoji: '🔥',
-        rarity: 'rare',
-        category: 'leveling',
-
-        hidden: false,
-
-        reward: {
-            xp: 0,
-            coins: 0,
-        },
-
-        requirement: {
-            type: 'level',
-            value: 10,
-        },
-    },
-};
-
+const ACHIEVEMENT_MAP = Object.freeze(
+    Object.fromEntries(
+        ACHIEVEMENTS.map((achievement) => [
+            achievement.id,
+            achievement,
+        ])
+    )
+);
 
 /**
  * ============================================================
@@ -114,7 +51,7 @@ export const ACHIEVEMENTS = {
  * ============================================================
  */
 
-export const ACHIEVEMENT_RARITIES = {
+export const ACHIEVEMENT_RARITIES = Object.freeze({
     common: {
         id: 'common',
         name: 'Обычное',
@@ -149,25 +86,22 @@ export const ACHIEVEMENT_RARITIES = {
         color: '#F1C40F',
         emoji: '🟡',
     },
-};
-
+});
 
 /**
  * ============================================================
  * CATEGORY
  * ============================================================
+ *
+ * achievementDefinitions.js хранит категории как строки.
+ *
+ * Здесь добавляем человекочитаемые данные для Discord/UI.
  */
 
-export const ACHIEVEMENT_CATEGORIES = {
-    social: {
-        id: 'social',
-        name: 'Общение',
-        emoji: '💬',
-    },
-
-    leveling: {
-        id: 'leveling',
-        name: 'Уровни',
+export const ACHIEVEMENT_CATEGORY_INFO = Object.freeze({
+    progression: {
+        id: 'progression',
+        name: 'Прогресс',
         emoji: '📈',
     },
 
@@ -183,13 +117,18 @@ export const ACHIEVEMENT_CATEGORIES = {
         emoji: '💰',
     },
 
+    social: {
+        id: 'social',
+        name: 'Общение',
+        emoji: '💬',
+    },
+
     special: {
         id: 'special',
         name: 'Особые',
         emoji: '✨',
     },
-};
-
+});
 
 /**
  * ============================================================
@@ -197,25 +136,34 @@ export const ACHIEVEMENT_CATEGORIES = {
  * ============================================================
  */
 
-/**
- * Нормализует ID достижения.
- */
-function normalizeAchievementId(achievementId) {
-    if (typeof achievementId !== 'string') {
+function normalizeAchievementId(
+    achievementId
+) {
+    if (
+        typeof achievementId !==
+        'string'
+    ) {
         return null;
     }
 
-    const normalized = achievementId.trim();
+    const normalized =
+        achievementId.trim();
 
     return normalized || null;
 }
 
-
 /**
  * Нормализует запись полученного достижения.
  */
-function normalizeUnlockedAchievement(achievement) {
-    if (!achievement || typeof achievement !== 'object') {
+
+function normalizeUnlockedAchievement(
+    achievement
+) {
+    if (
+        !achievement ||
+        typeof achievement !==
+            'object'
+    ) {
         return null;
     }
 
@@ -225,21 +173,28 @@ function normalizeUnlockedAchievement(achievement) {
 
     return {
         id: achievement.id,
-        unlockedAt: Number(achievement.unlockedAt) || null,
+
+        unlockedAt:
+            Number(
+                achievement.unlockedAt
+            ) || null,
+
         ...(achievement.metadata
-            ? { metadata: achievement.metadata }
+            ? {
+                  metadata:
+                      achievement.metadata,
+              }
             : {}),
     };
 }
 
-
 /**
- * Возвращает безопасную копию объекта достижения.
- *
- * Это предотвращает случайное изменение глобального
- * ACHIEVEMENTS из другого места приложения.
+ * Безопасная копия определения достижения.
  */
-function cloneAchievement(achievement) {
+
+function cloneAchievement(
+    achievement
+) {
     if (!achievement) {
         return null;
     }
@@ -248,15 +203,19 @@ function cloneAchievement(achievement) {
         ...achievement,
 
         reward: achievement.reward
-            ? { ...achievement.reward }
+            ? {
+                  ...achievement.reward,
+              }
             : undefined,
 
-        requirement: achievement.requirement
-            ? { ...achievement.requirement }
-            : undefined,
+        requirement:
+            achievement.requirement
+                ? {
+                      ...achievement.requirement,
+                  }
+                : undefined,
     };
 }
-
 
 /**
  * ============================================================
@@ -267,68 +226,115 @@ function cloneAchievement(achievement) {
 /**
  * Получить конкретное достижение.
  */
-export function getAchievement(achievementId) {
-    const id = normalizeAchievementId(achievementId);
+
+export function getAchievement(
+    achievementId
+) {
+    const id =
+        normalizeAchievementId(
+            achievementId
+        );
 
     if (!id) {
         return null;
     }
 
     return cloneAchievement(
-        ACHIEVEMENTS[id]
+        ACHIEVEMENT_MAP[id]
     );
 }
 
-
 /**
- * Проверить, существует ли достижение.
+ * Проверить существование достижения.
  */
-export function achievementExists(achievementId) {
-    const id = normalizeAchievementId(achievementId);
+
+export function achievementExists(
+    achievementId
+) {
+    const id =
+        normalizeAchievementId(
+            achievementId
+        );
 
     return Boolean(
         id &&
-        ACHIEVEMENTS[id]
+            ACHIEVEMENT_MAP[id]
     );
 }
-
 
 /**
  * Получить все достижения.
  */
-export function getAllAchievements() {
-    return Object.values(ACHIEVEMENTS)
-        .map(cloneAchievement);
-}
 
+export function getAllAchievements() {
+    return ACHIEVEMENTS.map(
+        cloneAchievement
+    );
+}
 
 /**
- * Получить достижения определённой категории.
+ * Получить достижения категории.
  */
-export function getAchievementsByCategory(category) {
-    if (!category || !ACHIEVEMENT_CATEGORIES[category]) {
-        return [];
+
+export function getAchievementsByCategory(
+    category
+) {
+    if (
+        !category ||
+        !ACHIEVEMENT_CATEGORIES[
+            String(category).toUpperCase()
+        ]
+    ) {
+        /*
+         * ACHIEVEMENT_CATEGORIES содержит:
+         *
+         * PROGRESSION
+         * ACTIVITY
+         * ECONOMY
+         * SOCIAL
+         * SPECIAL
+         *
+         * Поэтому дополнительно проверяем
+         * реальные значения категорий.
+         */
     }
 
-    return Object.values(ACHIEVEMENTS)
-        .filter(achievement => achievement.category === category)
-        .map(cloneAchievement);
+    return ACHIEVEMENTS.filter(
+        (achievement) =>
+            achievement.category ===
+            category
+    ).map(cloneAchievement);
 }
-
 
 /**
  * Получить достижения определённой редкости.
  */
-export function getAchievementsByRarity(rarity) {
-    if (!rarity || !ACHIEVEMENT_RARITIES[rarity]) {
+
+export function getAchievementsByRarity(
+    rarity
+) {
+    if (
+        !rarity ||
+        !ACHIEVEMENT_RARITIES[rarity]
+    ) {
         return [];
     }
 
-    return Object.values(ACHIEVEMENTS)
-        .filter(achievement => achievement.rarity === rarity)
-        .map(cloneAchievement);
-}
+    /*
+     * Некоторые старые достижения могут
+     * не иметь rarity.
+     *
+     * Для таких достижений считаем
+     * редкость common.
+     */
 
+    return ACHIEVEMENTS.filter(
+        (achievement) =>
+            (achievement.rarity ||
+                'common') ===
+            rarity
+    ).map(cloneAchievement);
+}
 
 /**
  * ============================================================
@@ -339,63 +345,86 @@ export function getAchievementsByRarity(rarity) {
 /**
  * Получить все достижения пользователя.
  */
+
 export async function getUserAchievementData(
     client,
     guildId,
     userId
 ) {
-    if (!client || !guildId || !userId) {
+    if (
+        !client ||
+        !guildId ||
+        !userId
+    ) {
         return [];
     }
 
-    const achievements = await getUserAchievements(
-        client,
-        guildId,
-        userId
-    );
+    const achievements =
+        await getUserAchievements(
+            client,
+            guildId,
+            userId
+        );
+
+    if (
+        !Array.isArray(
+            achievements
+        )
+    ) {
+        return [];
+    }
 
     return achievements
-        .map(normalizeUnlockedAchievement)
+        .map(
+            normalizeUnlockedAchievement
+        )
         .filter(Boolean);
 }
-
 
 /**
  * Получить только ID полученных достижений.
  */
+
 export async function getUserAchievementIds(
     client,
     guildId,
     userId
 ) {
-    const achievements = await getUserAchievementData(
-        client,
-        guildId,
-        userId
-    );
+    const achievements =
+        await getUserAchievementData(
+            client,
+            guildId,
+            userId
+        );
 
     return achievements.map(
-        achievement => achievement.id
+        (achievement) =>
+            achievement.id
     );
 }
-
 
 /**
  * Проверить, получил ли пользователь достижение.
  */
+
 export async function userHasAchievement(
     client,
     guildId,
     userId,
     achievementId
 ) {
-    const id = normalizeAchievementId(achievementId);
+    const id =
+        normalizeAchievementId(
+            achievementId
+        );
 
     if (!id) {
         return false;
     }
 
-    if (!achievementExists(id)) {
+    if (
+        !achievementExists(id)
+    ) {
         return false;
     }
 
@@ -407,34 +436,26 @@ export async function userHasAchievement(
     );
 }
 
-
 /**
  * Получить конкретное достижение пользователя
- * вместе с его описанием.
- *
- * Возвращает:
- *
- * {
- *     id,
- *     name,
- *     description,
- *     emoji,
- *     rarity,
- *     category,
- *     unlockedAt
- * }
- *
- * либо null.
+ * вместе с его определением.
  */
+
 export async function getUserAchievement(
     client,
     guildId,
     userId,
     achievementId
 ) {
-    const id = normalizeAchievementId(achievementId);
+    const id =
+        normalizeAchievementId(
+            achievementId
+        );
 
-    if (!id || !achievementExists(id)) {
+    if (
+        !id ||
+        !achievementExists(id)
+    ) {
         return null;
     }
 
@@ -445,9 +466,11 @@ export async function getUserAchievement(
             userId
         );
 
-    const unlocked = userAchievements.find(
-        achievement => achievement.id === id
-    );
+    const unlocked =
+        userAchievements.find(
+            (achievement) =>
+                achievement.id === id
+        );
 
     if (!unlocked) {
         return null;
@@ -462,16 +485,21 @@ export async function getUserAchievement(
 
     return {
         ...definition,
-        unlockedAt: unlocked.unlockedAt,
+
+        unlockedAt:
+            unlocked.unlockedAt,
+
         ...(unlocked.metadata
-            ? { metadata: unlocked.metadata }
+            ? {
+                  metadata:
+                      unlocked.metadata,
+              }
             : {}),
     };
 }
 
-
 /**
- ============================================================
+ * ============================================================
  * PUBLIC API — UNLOCK
  * ============================================================
  */
@@ -487,15 +515,8 @@ export async function getUserAchievement(
  * }
  *
  * если достижение новое.
- *
- * Если оно уже получено:
- *
- * {
- *     unlocked: false,
- *     achievement: {...},
- *     reason: 'already_unlocked'
- * }
  */
+
 export async function unlockAchievement(
     client,
     guildId,
@@ -503,7 +524,10 @@ export async function unlockAchievement(
     achievementId,
     metadata = null
 ) {
-    const id = normalizeAchievementId(achievementId);
+    const id =
+        normalizeAchievementId(
+            achievementId
+        );
 
     if (!id) {
         return {
@@ -543,8 +567,11 @@ export async function unlockAchievement(
 
         return {
             unlocked: false,
-            achievement: existing || achievement,
-            reason: 'already_unlocked',
+            achievement:
+                existing ||
+                achievement,
+            reason:
+                'already_unlocked',
         };
     }
 
@@ -560,7 +587,8 @@ export async function unlockAchievement(
         return {
             unlocked: false,
             achievement,
-            reason: 'database_error',
+            reason:
+                'database_error',
         };
     }
 
@@ -570,15 +598,17 @@ export async function unlockAchievement(
         achievement: {
             ...achievement,
 
-            unlockedAt: Date.now(),
+            unlockedAt:
+                Date.now(),
 
             ...(metadata
-                ? { metadata }
+                ? {
+                      metadata,
+                  }
                 : {}),
         },
     };
 }
-
 
 /**
  * ============================================================
@@ -588,15 +618,8 @@ export async function unlockAchievement(
 
 /**
  * Получить общий прогресс пользователя.
- *
- * Например:
- *
- * {
- *     total: 3,
- *     unlocked: 1,
- *     percentage: 33
- * }
  */
+
 export async function getUserAchievementProgress(
     client,
     guildId,
@@ -615,7 +638,8 @@ export async function getUserAchievementProgress(
     const unlockedIds =
         new Set(
             userAchievements.map(
-                achievement => achievement.id
+                (achievement) =>
+                    achievement.id
             )
         );
 
@@ -624,13 +648,19 @@ export async function getUserAchievementProgress(
 
     const unlocked =
         allAchievements.filter(
-            achievement =>
-                unlockedIds.has(achievement.id)
+            (achievement) =>
+                unlockedIds.has(
+                    achievement.id
+                )
         ).length;
 
     const percentage =
         total > 0
-            ? Math.round((unlocked / total) * 100)
+            ? Math.round(
+                  (unlocked /
+                      total) *
+                      100
+              )
             : 0;
 
     return {
@@ -644,7 +674,6 @@ export async function getUserAchievementProgress(
     };
 }
 
-
 /**
  * ============================================================
  * PUBLIC API — PROFILE DATA
@@ -652,16 +681,9 @@ export async function getUserAchievementProgress(
  */
 
 /**
- * Получить полностью подготовленные данные
- * достижений пользователя для /profile.
- *
- * Здесь мы объединяем:
- *
- * - список всех достижений;
- * - полученные достижения;
- * - прогресс;
- * - информацию о дате получения.
+ * Подготовить достижения для /profile.
  */
+
 export async function getUserAchievementProfile(
     client,
     guildId,
@@ -680,7 +702,7 @@ export async function getUserAchievementProfile(
     const unlockedMap =
         new Map(
             userAchievements.map(
-                achievement => [
+                (achievement) => [
                     achievement.id,
                     achievement,
                 ]
@@ -689,7 +711,7 @@ export async function getUserAchievementProfile(
 
     const achievements =
         allAchievements.map(
-            achievement => {
+            (achievement) => {
                 const unlocked =
                     unlockedMap.get(
                         achievement.id
@@ -698,13 +720,30 @@ export async function getUserAchievementProfile(
                 return {
                     ...achievement,
 
-                    unlocked: Boolean(unlocked),
+                    /*
+                     * Старые определения могут
+                     * не иметь rarity.
+                     *
+                     * Для UI используем common.
+                     */
+                    rarity:
+                        achievement.rarity ||
+                        'common',
+
+                    unlocked:
+                        Boolean(
+                            unlocked
+                        ),
 
                     unlockedAt:
-                        unlocked?.unlockedAt || null,
+                        unlocked
+                            ?.unlockedAt ||
+                        null,
 
                     metadata:
-                        unlocked?.metadata || null,
+                        unlocked
+                            ?.metadata ||
+                        null,
                 };
             }
         );
@@ -722,7 +761,6 @@ export async function getUserAchievementProfile(
     };
 }
 
-
 /**
  * ============================================================
  * PUBLIC API — REQUIREMENTS
@@ -730,29 +768,25 @@ export async function getUserAchievementProfile(
  */
 
 /**
- * Проверяет простое требование достижения.
+ * Проверяет требование достижения.
  *
- * Пока поддерживаются:
+ * Поддерживаемые типы:
  *
  * level
- *
- * В будущем сюда можно добавить:
- *
- * messages
- * voice_minutes
- * invites
- * coins
- * warnings
- * giveaways
- * reactions
- * birthdays
- * etc.
+ * totalXp
+ * balance
+ * daysOnServer
+ * earlyMember
+ * serverBooster
  */
+
 export function checkAchievementRequirement(
     achievement,
     context = {}
 ) {
-    if (!achievement?.requirement) {
+    if (
+        !achievement?.requirement
+    ) {
         return false;
     }
 
@@ -768,9 +802,68 @@ export function checkAchievementRequirement(
     switch (type) {
         case 'level': {
             const level =
-                Number(context.level) || 0;
+                Number(
+                    context.level
+                ) || 0;
 
-            return level >= Number(value);
+            return (
+                level >=
+                Number(value)
+            );
+        }
+
+        case 'totalXp': {
+            const totalXp =
+                Number(
+                    context.totalXp
+                ) || 0;
+
+            return (
+                totalXp >=
+                Number(value)
+            );
+        }
+
+        case 'balance': {
+            const balance =
+                Number(
+                    context.balance
+                ) || 0;
+
+            return (
+                balance >=
+                Number(value)
+            );
+        }
+
+        case 'daysOnServer': {
+            const daysOnServer =
+                Number(
+                    context.daysOnServer
+                ) || 0;
+
+            return (
+                daysOnServer >=
+                Number(value)
+            );
+        }
+
+        case 'earlyMember': {
+            return (
+                Boolean(
+                    context.earlyMember
+                ) ===
+                Boolean(value)
+            );
+        }
+
+        case 'serverBooster': {
+            return (
+                Boolean(
+                    context.serverBooster
+                ) ===
+                Boolean(value)
+            );
         }
 
         default:
@@ -778,14 +871,12 @@ export function checkAchievementRequirement(
     }
 }
 
-
 /**
- * Проверить одно достижение по текущему контексту
- * и при необходимости выдать его.
- *
- * Возвращает null, если достижение не требует
- * проверки через context.
+ * ============================================================
+ * CHECK + UNLOCK ONE
+ * ============================================================
  */
+
 export async function checkAndUnlockAchievement(
     client,
     guildId,
@@ -795,16 +886,18 @@ export async function checkAndUnlockAchievement(
     metadata = null
 ) {
     const achievement =
-        getAchievement(achievementId);
+        getAchievement(
+            achievementId
+        );
 
     if (!achievement) {
         return null;
     }
 
     /*
-     * Если достижение уже получено,
-     * ничего не делаем.
+     * Уже получено?
      */
+
     const alreadyUnlocked =
         await userHasAchievement(
             client,
@@ -817,23 +910,31 @@ export async function checkAndUnlockAchievement(
         return {
             unlocked: false,
             achievement,
-            reason: 'already_unlocked',
+            reason:
+                'already_unlocked',
         };
     }
 
     /*
-     * Достижение без requirement означает,
-     * что оно должно быть выдано напрямую.
+     * Если requirement отсутствует,
+     * такое достижение можно выдать
+     * напрямую через unlockAchievement().
+     *
+     * Автоматически здесь его НЕ выдаём.
      */
+
     if (!achievement.requirement) {
-        return unlockAchievement(
-            client,
-            guildId,
-            userId,
-            achievement.id,
-            metadata
-        );
+        return {
+            unlocked: false,
+            achievement,
+            reason:
+                'no_requirement',
+        };
     }
+
+    /*
+     * Проверяем условие.
+     */
 
     const requirementMet =
         checkAchievementRequirement(
@@ -845,9 +946,14 @@ export async function checkAndUnlockAchievement(
         return {
             unlocked: false,
             achievement,
-            reason: 'requirement_not_met',
+            reason:
+                'requirement_not_met',
         };
     }
+
+    /*
+     * Выдаём достижение.
+     */
 
     return unlockAchievement(
         client,
@@ -858,18 +964,18 @@ export async function checkAndUnlockAchievement(
     );
 }
 
+/**
+ * ============================================================
+ * CHECK + UNLOCK ALL
+ * ============================================================
+ */
 
 /**
- * Проверить несколько достижений одновременно.
+ * Проверить все достижения пользователя.
  *
- * Например, после повышения уровня:
- *
- * checkAndUnlockAchievements(client, guildId, userId, {
- *     level: 10
- * });
- *
- * Вернётся массив только реально новых достижений.
+ * Возвращает только реально новые достижения.
  */
+
 export async function checkAndUnlockAchievements(
     client,
     guildId,
@@ -881,19 +987,32 @@ export async function checkAndUnlockAchievements(
 
     const unlocked = [];
 
-    for (const achievement of achievements) {
-        const result =
-            await checkAndUnlockAchievement(
-                client,
-                guildId,
-                userId,
-                achievement.id,
-                context
-            );
+    for (
+        const achievement of
+            achievements
+    ) {
+        try {
+            const result =
+                await checkAndUnlockAchievement(
+                    client,
+                    guildId,
+                    userId,
+                    achievement.id,
+                    context
+                );
 
-        if (result?.unlocked) {
-            unlocked.push(
+            if (
+                result?.unlocked &&
                 result.achievement
+            ) {
+                unlocked.push(
+                    result.achievement
+                );
+            }
+        } catch (error) {
+            console.error(
+                `[ACHIEVEMENTS] Failed to check "${achievement.id}" for ${userId}:`,
+                error
             );
         }
     }
@@ -901,19 +1020,16 @@ export async function checkAndUnlockAchievements(
     return unlocked;
 }
 
-
 /**
  * ============================================================
- * PUBLIC API — UTILITY
+ * UTILITY
  * ============================================================
  */
 
 /**
  * Форматирует дату получения достижения.
- *
- * Возвращает Date, чтобы Discord-слой сам решал,
- * как её показывать.
  */
+
 export function getAchievementUnlockDate(
     unlockedAt
 ) {
@@ -924,50 +1040,66 @@ export function getAchievementUnlockDate(
     const timestamp =
         Number(unlockedAt);
 
-    if (!Number.isFinite(timestamp)) {
+    if (
+        !Number.isFinite(
+            timestamp
+        )
+    ) {
         return null;
     }
 
     const date =
         new Date(timestamp);
 
-    if (Number.isNaN(date.getTime())) {
+    if (
+        Number.isNaN(
+            date.getTime()
+        )
+    ) {
         return null;
     }
 
     return date;
 }
 
-
 /**
  * Получить информацию о редкости.
  */
+
 export function getAchievementRarity(
     rarity
 ) {
-    return ACHIEVEMENT_RARITIES[rarity]
-        || ACHIEVEMENT_RARITIES.common;
+    return (
+        ACHIEVEMENT_RARITIES[
+            rarity
+        ] ||
+        ACHIEVEMENT_RARITIES.common
+    );
 }
-
 
 /**
  * Получить информацию о категории.
  */
+
 export function getAchievementCategory(
     category
 ) {
-    return ACHIEVEMENT_CATEGORIES[category]
-        || null;
+    return (
+        ACHIEVEMENT_CATEGORY_INFO[
+            category
+        ] || null
+    );
 }
-
 
 /**
  * Получить цвет достижения.
  */
+
 export function getAchievementColor(
     achievement
 ) {
     return getAchievementRarity(
-        achievement?.rarity
+        achievement?.rarity ||
+            'common'
     ).color;
 }
