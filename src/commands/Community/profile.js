@@ -459,7 +459,7 @@ export function buildProfileEmbed(data) {
                 },
 
                 {
-                    name: '✨ Последние достижения',
+                    name: '',
                     value:
                         recentText,
                     inline: false,
