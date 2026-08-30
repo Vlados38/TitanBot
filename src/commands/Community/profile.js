@@ -72,8 +72,7 @@ export default {
             const embed = buildProfileEmbed(profileData);
 
             const components = buildProfileButtons(
-                targetUser.id,
-                interaction.user.id
+                targetUser.id
             );
 
             return interaction.editReply({
@@ -104,10 +103,17 @@ async function getProfileData({
     member,
     user,
 }) {
+    /*
+     * Основные данные профиля.
+     *
+     * Важно:
+     * достижения загружаются отдельно ниже.
+     * Ошибка achievement-системы больше не ломает /profile.
+     */
+
     const [
         levelData,
         economyData,
-        achievementContext,
     ] = await Promise.all([
         getUserLevelData(
             client,
@@ -120,12 +126,6 @@ async function getProfileData({
             guild.id,
             user.id
         ),
-
-        buildAchievementContext({
-            client,
-            guild,
-            userId: user.id,
-        }),
     ]);
 
     const level = Number(levelData?.level) || 0;
@@ -140,8 +140,11 @@ async function getProfileData({
         nextLevelXp = Number(
             getXpForLevel(nextLevel)
         ) || 0;
-    } catch {
-        nextLevelXp = 0;
+    } catch (error) {
+        console.error(
+            '[PROFILE] Failed to calculate next level XP:',
+            error
+        );
     }
 
     const progress = calculateProgress(
@@ -159,15 +162,48 @@ async function getProfileData({
 
     const totalBalance = wallet + bank;
 
-    const achievements =
-        getAchievementProgress(
-            achievementContext
+    /*
+     * -------------------------------------------------------
+     * ACHIEVEMENTS
+     * -------------------------------------------------------
+     *
+     * Здесь специально стоит отдельный try/catch.
+     *
+     * Если achievementService сейчас содержит ошибку,
+     * профиль всё равно будет показываться.
+     */
+
+    let achievements = [];
+
+    try {
+        const achievementContext =
+            await buildAchievementContext({
+                client,
+                guild,
+                userId: user.id,
+            });
+
+        const result =
+            getAchievementProgress(
+                achievementContext
+            );
+
+        if (Array.isArray(result)) {
+            achievements = result;
+        }
+    } catch (error) {
+        console.error(
+            `[PROFILE] Failed to load achievements for ${user.id}:`,
+            error
         );
+
+        achievements = [];
+    }
 
     const unlockedAchievements =
         achievements.filter(
             (achievement) =>
-                achievement.unlocked
+                achievement?.unlocked === true
         );
 
     return {
@@ -224,31 +260,46 @@ function buildProfileEmbed(data) {
         joinedAt,
     } = data;
 
+    const safeAchievements =
+        Array.isArray(achievements)
+            ? achievements
+            : [];
+
+    const safeUnlockedAchievements =
+        Array.isArray(unlockedAchievements)
+            ? unlockedAchievements
+            : [];
+
     const accentColor =
         getProfileColor(level);
 
     const progressBar =
-        createProgressBar(
+        createPercentageProgressBar(
             progress,
             20
         );
 
     const badges =
-        unlockedAchievements
+        safeUnlockedAchievements
             .slice(0, 6)
             .map(
                 (achievement) =>
-                    `${achievement.emoji}`
+                    achievement?.emoji || '🏅'
             )
             .join(' ') ||
         'Пока нет достижений';
 
     const achievementProgress =
         createProgressBar(
-            unlockedAchievements.length,
-            achievements.length,
+            safeUnlockedAchievements.length,
+            safeAchievements.length,
             12
         );
+
+    const achievementText =
+        safeAchievements.length > 0
+            ? `**${safeUnlockedAchievements.length} / ${safeAchievements.length}**`
+            : '**0 / 0**';
 
     const embed =
         new EmbedBuilder()
@@ -290,7 +341,7 @@ function buildProfileEmbed(data) {
                 {
                     name: '🏆 Достижения',
                     value:
-                        `**${unlockedAchievements.length} / ${achievements.length}**`,
+                        achievementText,
                     inline: true,
                 },
 
@@ -354,8 +405,7 @@ function buildProfileEmbed(data) {
  * ======================================================= */
 
 function buildProfileButtons(
-    targetUserId,
-    viewerUserId
+    targetUserId
 ) {
     const row =
         new ActionRowBuilder();
@@ -393,10 +443,12 @@ export function buildBadgesPage(
     data,
     page = 0
 ) {
-    const {
-        user,
-        achievements,
-    } = data;
+    const user = data?.user;
+
+    const achievements =
+        Array.isArray(data?.achievements)
+            ? data.achievements
+            : [];
 
     const totalPages =
         Math.max(
@@ -409,7 +461,7 @@ export function buildBadgesPage(
 
     const safePage =
         Math.min(
-            Math.max(0, page),
+            Math.max(0, Number(page) || 0),
             totalPages - 1
         );
 
@@ -426,21 +478,21 @@ export function buildBadgesPage(
     const unlocked =
         achievements.filter(
             (achievement) =>
-                achievement.unlocked
+                achievement?.unlocked === true
         ).length;
 
     const description =
         currentAchievements
             .map((achievement) => {
-                if (achievement.unlocked) {
+                if (achievement?.unlocked) {
                     return [
-                        `${achievement.emoji} **${achievement.name}**`,
-                        `> ${achievement.description}`,
+                        `${achievement.emoji || '🏅'} **${achievement.name || 'Достижение'}**`,
+                        `> ${achievement.description || 'Достижение разблокировано.'}`,
                         '> ✅ **Открыто**',
                     ].join('\n');
                 }
 
-                if (achievement.secret) {
+                if (achievement?.secret) {
                     return [
                         '🔒 **Скрытое достижение**',
                         '> Выполните особое условие, чтобы узнать больше.',
@@ -448,9 +500,9 @@ export function buildBadgesPage(
                 }
 
                 return [
-                    `${achievement.emoji} **${achievement.name}**`,
-                    `> ${achievement.description}`,
-                    `> 🔒 ${achievement.requirementText}`,
+                    `${achievement?.emoji || '🏅'} **${achievement?.name || 'Достижение'}**`,
+                    `> ${achievement?.description || 'Описание отсутствует.'}`,
+                    `> 🔒 ${achievement?.requirementText || 'Условие скрыто.'}`,
                 ].join('\n');
             })
             .join('\n\n');
@@ -461,9 +513,9 @@ export function buildBadgesPage(
 
             .setAuthor({
                 name:
-                    `${user.username} • Achievements`,
+                    `${user?.username || 'Пользователь'} • Achievements`,
                 iconURL:
-                    user.displayAvatarURL({
+                    user?.displayAvatarURL({
                         extension: 'png',
                         size: 128,
                     }),
@@ -519,6 +571,16 @@ export function buildStatisticsPage(
         joinedAt,
     } = data;
 
+    const safeAchievements =
+        Array.isArray(achievements)
+            ? achievements
+            : [];
+
+    const safeUnlockedAchievements =
+        Array.isArray(unlockedAchievements)
+            ? unlockedAchievements
+            : [];
+
     const embed =
         new EmbedBuilder()
             .setColor('#5865F2')
@@ -553,7 +615,7 @@ export function buildStatisticsPage(
                 {
                     name: '🏅 Достижения',
                     value:
-                        `**${unlockedAchievements.length} / ${achievements.length}**`,
+                        `**${safeUnlockedAchievements.length} / ${safeAchievements.length}**`,
                     inline: true,
                 },
 
@@ -617,6 +679,34 @@ function calculateProgress(
                 100
             )
         )
+    );
+}
+
+function createPercentageProgressBar(
+    percentage,
+    size = 20
+) {
+    const safePercentage =
+        Math.min(
+            100,
+            Math.max(
+                0,
+                Number(percentage) || 0
+            )
+        );
+
+    const filled =
+        Math.round(
+            (safePercentage / 100) *
+            size
+        );
+
+    const empty =
+        size - filled;
+
+    return (
+        '█'.repeat(filled) +
+        '░'.repeat(empty)
     );
 }
 
