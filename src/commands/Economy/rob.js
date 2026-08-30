@@ -169,17 +169,27 @@ export default {
         }
 
         // ==========================================
+        // ПОПЫТКА ОГРАБЛЕНИЯ НАЧАЛАСЬ
+        // ==========================================
+        //
+        // С этого момента robCount увеличивается
+        // независимо от результата ограбления.
+        //
+        // Попытки с cooldown, ботами, самим собой
+        // и слишком бедной жертвой сюда не доходят.
+        // ==========================================
+
+        robberData.robCount =
+            (Number(robberData.robCount) || 0) + 1;
+
+        // ==========================================
         // ПРОВЕРКА ЛИЧНОГО СЕЙФА
         // ==========================================
 
         const hasSafe =
-            victimData.inventory['personal_safe'] || 0;
+            victimData.inventory?.['personal_safe'] || 0;
 
         if (hasSafe > 0) {
-            // Попытка считается совершённой.
-            robberData.robCount =
-                (Number(robberData.robCount) || 0) + 1;
-
             robberData.lastRob = now;
 
             await setEconomyData(
@@ -217,10 +227,6 @@ export default {
                 (robberData.wallet || 0) - fineAmount
             );
 
-            // Попытка считается совершённой.
-            robberData.robCount =
-                (Number(robberData.robCount) || 0) + 1;
-
             robberData.lastRob = now;
 
             // Сохраняем только данные грабителя.
@@ -245,7 +251,7 @@ export default {
 
             resultEmbed.addFields(
                 {
-                    name: `💰 Ваши наличные`,
+                    name: '💰 Ваши наличные',
                     value: `$${robberData.wallet.toLocaleString()}`,
                     inline: true
                 },
@@ -310,16 +316,10 @@ export default {
                 FINE_PERCENTAGE
             );
 
-            if (
-                (robberData.wallet || 0) <
-                fineAmount
-            ) {
-                robberData.wallet = 0;
-            } else {
-                robberData.wallet =
-                    (robberData.wallet || 0) -
-                    fineAmount;
-            }
+            robberData.wallet = Math.max(
+                0,
+                (robberData.wallet || 0) - fineAmount
+            );
 
             resultEmbed = buildUserErrorEmbed(
                 'unknown',
@@ -330,13 +330,6 @@ export default {
                 }
             );
         }
-
-        // ==========================================
-        // УВЕЛИЧИВАЕМ СЧЁТЧИК ОГРАБЛЕНИЙ
-        // ==========================================
-
-        robberData.robCount =
-            (Number(robberData.robCount) || 0) + 1;
 
         // ==========================================
         // ОБНОВЛЯЕМ COOLDOWN
