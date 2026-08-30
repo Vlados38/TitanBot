@@ -17,10 +17,22 @@ import { Mutex } from '../../utils/mutex.js';
 import { wrapServiceBoundary } from '../../utils/errorHandler.js';
 import { getColor } from '../../config/bot.js';
 
+import {
+  checkAndUnlockAchievements,
+} from '../achievements/achievementService.js';
+
 /**
+ * ============================================================
+ * ADD XP
+ * ============================================================
+ *
  * Начисляет XP участнику.
- * Возвращает null, если XP не начисляется
- * (система отключена или указано некорректное количество).
+ *
+ * Дополнительно:
+ * - проверяет достижения;
+ * - выдаёт новые достижения;
+ * - отправляет уведомление в тот же канал,
+ *   который используется для повышения уровня.
  */
 export const addXp = wrapServiceBoundary(
   async function addXp(client, guild, member, xpToAdd) {
@@ -31,7 +43,10 @@ export const addXp = wrapServiceBoundary(
         return null;
       }
 
-      const config = await getLevelingConfig(client, guild.id);
+      const config = await getLevelingConfig(
+        client,
+        guild.id
+      );
 
       if (!config.enabled) {
         return null;
@@ -47,11 +62,18 @@ export const addXp = wrapServiceBoundary(
       levelData.totalXp += xpToAdd;
       levelData.lastMessage = Date.now();
 
-      let xpNeededForNextLevel = getXpForLevel(levelData.level);
+      let xpNeededForNextLevel =
+        getXpForLevel(levelData.level);
 
       let didLevelUp = false;
 
       const initialLevel = levelData.level;
+
+      /*
+       * ========================================================
+       * LEVEL UP
+       * ========================================================
+       */
 
       while (
         levelData.xp >= xpNeededForNextLevel &&
@@ -62,14 +84,17 @@ export const addXp = wrapServiceBoundary(
 
         didLevelUp = true;
 
-        xpNeededForNextLevel = getXpForLevel(levelData.level);
+        xpNeededForNextLevel =
+          getXpForLevel(levelData.level);
 
         logger.info(
           `🎉 ${member.user.tag} повысил уровень до ${levelData.level} ` +
           `на сервере ${guild.name}`
         );
 
-        // Награда за уровень
+        /*
+         * Награда за уровень
+         */
         if (
           config.roleRewards &&
           config.roleRewards[levelData.level]
@@ -83,7 +108,77 @@ export const addXp = wrapServiceBoundary(
         }
       }
 
-      // Уведомление о повышении уровня
+      /*
+       * ========================================================
+       * СОХРАНЯЕМ XP
+       * ========================================================
+       */
+
+      await saveUserLevelData(
+        client,
+        guild.id,
+        member.user.id,
+        levelData
+      );
+
+      /*
+       * ========================================================
+       * ДОСТИЖЕНИЯ
+       * ========================================================
+       *
+       * Проверяем достижения после сохранения XP.
+       *
+       * Передаём полный контекст, чтобы achievementService
+       * мог проверять:
+       *
+       * - level
+       * - totalXp
+       * - XP и другие будущие условия
+       */
+
+      let unlockedAchievements = [];
+
+      try {
+        unlockedAchievements =
+          await checkAndUnlockAchievements(
+            client,
+            guild.id,
+            member.user.id,
+            {
+              level: levelData.level,
+              totalXp: levelData.totalXp,
+              xp: levelData.xp,
+              member,
+              user: member.user,
+              guild,
+            }
+          );
+
+        if (unlockedAchievements.length > 0) {
+          logger.info(
+            `🏆 ${member.user.tag} получил ${unlockedAchievements.length} ` +
+            `новых достижений на сервере ${guild.name}: ` +
+            unlockedAchievements
+              .map((achievement) => achievement.id)
+              .join(', ')
+          );
+        }
+      } catch (achievementError) {
+        /*
+         * Ошибка достижений не должна ломать систему XP.
+         */
+        logger.error(
+          `Ошибка проверки достижений для ${member.user.id}:`,
+          achievementError
+        );
+      }
+
+      /*
+       * ========================================================
+       * УВЕДОМЛЕНИЕ О ПОВЫШЕНИИ УРОВНЯ
+       * ========================================================
+       */
+
       if (didLevelUp) {
         if (config.announceLevelUp) {
           await sendLevelUpAnnouncement(
@@ -94,7 +189,9 @@ export const addXp = wrapServiceBoundary(
           );
         }
 
-        // Логирование
+        /*
+         * Логирование повышения уровня
+         */
         try {
           await logEvent({
             client,
@@ -117,7 +214,10 @@ export const addXp = wrapServiceBoundary(
 
                 formatLogLine(
                   'Получено уровней',
-                  (levelData.level - initialLevel).toString()
+                  (
+                    levelData.level -
+                    initialLevel
+                  ).toString()
                 ),
 
                 formatLogLine(
@@ -137,33 +237,77 @@ export const addXp = wrapServiceBoundary(
         }
       }
 
-      await saveUserLevelData(
-        client,
-        guild.id,
-        member.user.id,
-        levelData
-      );
+      /*
+       * ========================================================
+       * УВЕДОМЛЕНИЕ О ДОСТИЖЕНИЯХ
+       * ========================================================
+       *
+       * Отправляется независимо от уведомления уровня.
+       *
+       * Используется ТОТ ЖЕ канал:
+       *
+       * config.levelUpChannel
+       *
+       * или:
+       *
+       * guild.systemChannel
+       */
+
+      if (unlockedAchievements.length > 0) {
+        await sendAchievementAnnouncement(
+          guild,
+          member,
+          unlockedAchievements,
+          config
+        );
+      }
+
+      /*
+       * ========================================================
+       * RESULT
+       * ========================================================
+       */
 
       return {
         level: levelData.level,
         xp: levelData.xp,
         totalXp: levelData.totalXp,
-        xpNeeded: getXpForLevel(levelData.level + 1),
+
+        xpNeeded:
+          getXpForLevel(
+            levelData.level + 1
+          ),
+
         leveledUp: didLevelUp,
+
+        /*
+         * Новое поле.
+         *
+         * Если достижения были получены:
+         * [
+         *   achievement,
+         *   achievement
+         * ]
+         */
+        unlockedAchievements,
       };
     });
   },
   {
     service: 'xpSystem',
     operation: 'addXp',
+
     userMessage:
       'Не удалось начислить XP. Пожалуйста, попробуйте ещё раз.',
   }
 );
 
 /**
- * Выдача роли за достижение уровня.
+ * ============================================================
+ * ROLE REWARD
+ * ============================================================
  */
+
 async function awardRoleReward(
   guild,
   member,
@@ -171,7 +315,8 @@ async function awardRoleReward(
   level
 ) {
   try {
-    const role = guild.roles.cache.get(roleId);
+    const role =
+      guild.roles.cache.get(roleId);
 
     if (!role) {
       logger.warn(
@@ -205,8 +350,11 @@ async function awardRoleReward(
 }
 
 /**
- * Отправляет красивое уведомление о повышении уровня.
+ * ============================================================
+ * LEVEL UP ANNOUNCEMENT
+ * ============================================================
  */
+
 async function sendLevelUpAnnouncement(
   guild,
   member,
@@ -214,9 +362,12 @@ async function sendLevelUpAnnouncement(
   config
 ) {
   try {
-    const levelUpChannel = config.levelUpChannel
-      ? guild.channels.cache.get(config.levelUpChannel)
-      : guild.systemChannel;
+    const levelUpChannel =
+      config.levelUpChannel
+        ? guild.channels.cache.get(
+            config.levelUpChannel
+          )
+        : guild.systemChannel;
 
     if (
       !levelUpChannel ||
@@ -226,7 +377,9 @@ async function sendLevelUpAnnouncement(
     }
 
     const permissions =
-      levelUpChannel.permissionsFor(guild.members.me);
+      levelUpChannel.permissionsFor(
+        guild.members.me
+      );
 
     if (
       !permissions ||
@@ -243,15 +396,14 @@ async function sendLevelUpAnnouncement(
       return;
     }
 
-    // Цвет берём из твоего конфига.
-    const primaryColor = getColor('primary');
+    const primaryColor =
+      getColor('primary');
 
-    // XP до следующего уровня.
-    const xpNeeded = getXpForLevel(
-      levelData.level + 1
-    );
+    const xpNeeded =
+      getXpForLevel(
+        levelData.level + 1
+      );
 
-    // Сохраняем поддержку старых переменных.
     const customMessage =
       config.levelUpMessage
         ?.replace(
@@ -272,51 +424,65 @@ async function sendLevelUpAnnouncement(
         ) ||
       'Продолжай в том же духе и прокачивай свой уровень! 🚀';
 
-    // Красивый Embed.
-    const embed = new EmbedBuilder()
-      .setColor(primaryColor)
-      .setAuthor({
-        name: '🎉 Новый уровень!',
-        iconURL: member.user.displayAvatarURL({
-          extension: 'png',
-          size: 128,
-        }),
-      })
-      .setDescription(
-        `### Поздравляем, ${member}!\n\n` +
-        `Ты достиг нового уровня! ✨`
-      )
-      .addFields(
-        {
-          name: '⭐ Уровень',
-          value: `## ${levelData.level}`,
-          inline: true,
-        },
-        {
-          name: '✨ XP',
-          value: `${levelData.xp} / ${xpNeeded}`,
-          inline: true,
-        },
-        {
-          name: '🏆 Всего XP',
-          value: `${levelData.totalXp}`,
-          inline: true,
-        }
-      )
-      .addFields({
-        name: '💬 Сообщение',
-        value: customMessage,
-      })
-      .setThumbnail(
-        member.user.displayAvatarURL({
-          extension: 'png',
-          size: 256,
+    const embed =
+      new EmbedBuilder()
+        .setColor(primaryColor)
+
+        .setAuthor({
+          name: '🎉 Новый уровень!',
+          iconURL:
+            member.user.displayAvatarURL({
+              extension: 'png',
+              size: 128,
+            }),
         })
-      )
-      .setFooter({
-        text: `${guild.name} • Продолжай прокачиваться!`,
-      })
-      .setTimestamp();
+
+        .setDescription(
+          `### Поздравляем, ${member}!\n\n` +
+          `Ты достиг нового уровня! ✨`
+        )
+
+        .addFields(
+          {
+            name: '⭐ Уровень',
+            value:
+              `## ${levelData.level}`,
+            inline: true,
+          },
+
+          {
+            name: '✨ XP',
+            value:
+              `${levelData.xp} / ${xpNeeded}`,
+            inline: true,
+          },
+
+          {
+            name: '🏆 Всего XP',
+            value:
+              `${levelData.totalXp}`,
+            inline: true,
+          }
+        )
+
+        .addFields({
+          name: '💬 Сообщение',
+          value: customMessage,
+        })
+
+        .setThumbnail(
+          member.user.displayAvatarURL({
+            extension: 'png',
+            size: 256,
+          })
+        )
+
+        .setFooter({
+          text:
+            `${guild.name} • Продолжай прокачиваться!`,
+        })
+
+        .setTimestamp();
 
     await levelUpChannel
       .send({
@@ -332,6 +498,203 @@ async function sendLevelUpAnnouncement(
   } catch (error) {
     logger.error(
       'Ошибка при отправке уведомления о повышении уровня:',
+      error
+    );
+  }
+}
+
+/**
+ * ============================================================
+ * ACHIEVEMENT ANNOUNCEMENT
+ * ============================================================
+ *
+ * Отправляет уведомление о новых достижениях.
+ *
+ * ВАЖНО:
+ * Используется тот же канал, что и level-up.
+ */
+
+async function sendAchievementAnnouncement(
+  guild,
+  member,
+  achievements,
+  config
+) {
+  try {
+    const achievementChannel =
+      config.levelUpChannel
+        ? guild.channels.cache.get(
+            config.levelUpChannel
+          )
+        : guild.systemChannel;
+
+    if (
+      !achievementChannel ||
+      !achievementChannel.isTextBased()
+    ) {
+      logger.debug(
+        `Канал уведомлений достижений не найден ` +
+        `для сервера ${guild.id}`
+      );
+
+      return;
+    }
+
+    const permissions =
+      achievementChannel.permissionsFor(
+        guild.members.me
+      );
+
+    if (
+      !permissions ||
+      !permissions.has([
+        'SendMessages',
+        'EmbedLinks',
+      ])
+    ) {
+      logger.warn(
+        `Недостаточно прав для отправки уведомления ` +
+        `о достижении в канале ${achievementChannel.id}`
+      );
+
+      return;
+    }
+
+    /*
+     * Если по одному действию получено несколько
+     * достижений — отправляем их одним сообщением.
+     */
+
+    const achievementLines =
+      achievements
+        .map((achievement) => {
+          const emoji =
+            achievement.emoji || '🏆';
+
+          const name =
+            achievement.name ||
+            achievement.id ||
+            'Новое достижение';
+
+          const description =
+            achievement.description ||
+            'Достижение разблокировано!';
+
+          return (
+            `${emoji} **${name}**\n` +
+            `> ${description}`
+          );
+        })
+        .join('\n\n');
+
+    /*
+     * Определяем цвет по редкости.
+     *
+     * legendary → золотой
+     * epic → фиолетовый
+     * rare → синий
+     * uncommon → зелёный
+     * common → серый
+     */
+
+    const colors = {
+      common: 0x95A5A6,
+      uncommon: 0x2ECC71,
+      rare: 0x3498DB,
+      epic: 0x9B59B6,
+      legendary: 0xF1C40F,
+    };
+
+    /*
+     * Если среди достижений есть легендарное —
+     * используем золотой цвет.
+     *
+     * Иначе берём максимальную редкость.
+     */
+
+    const rarityPriority = {
+      common: 1,
+      uncommon: 2,
+      rare: 3,
+      epic: 4,
+      legendary: 5,
+    };
+
+    const highestRarity =
+      achievements.reduce(
+        (current, achievement) => {
+          const currentPriority =
+            rarityPriority[current] || 0;
+
+          const achievementPriority =
+            rarityPriority[
+              achievement.rarity
+            ] || 0;
+
+          return achievementPriority >
+            currentPriority
+            ? achievement.rarity
+            : current;
+        },
+        'common'
+      );
+
+    const color =
+      colors[highestRarity] ||
+      colors.common;
+
+    const embed =
+      new EmbedBuilder()
+        .setColor(color)
+
+        .setAuthor({
+          name: '🏆 Новое достижение!',
+          iconURL:
+            member.user.displayAvatarURL({
+              extension: 'png',
+              size: 128,
+            }),
+        })
+
+        .setDescription(
+          `### Поздравляем, ${member}!\n\n` +
+          `Ты разблокировал ${
+            achievements.length === 1
+              ? 'новое достижение'
+              : 'новые достижения'
+          }! 🎉\n\n` +
+          achievementLines
+        )
+
+        .setThumbnail(
+          member.user.displayAvatarURL({
+            extension: 'png',
+            size: 256,
+          })
+        )
+
+        .setFooter({
+          text:
+            `${guild.name} • Продолжай собирать достижения!`,
+        })
+
+        .setTimestamp();
+
+    await achievementChannel
+      .send({
+        content: member.toString(),
+        embeds: [embed],
+      })
+      .catch((error) => {
+        logger.error(
+          `Не удалось отправить уведомление о достижении ` +
+          `в канале ${achievementChannel.id}:`,
+          error
+        );
+      });
+  } catch (error) {
+    logger.error(
+      'Ошибка при отправке уведомления о достижении:',
       error
     );
   }
