@@ -431,14 +431,14 @@ export function buildProfileEmbed(data) {
                 },
 
                 {
-                    name: '💵 Кошелёк',
+                    name: '💵 Кошелёк:',
                     value:
                         `**${formatMoney(wallet)}**`,
                     inline: true,
                 },
 
                 {
-                    name: '🏦 Банк',
+                    name: '🏦 Банк:',
                     value:
                         `**${formatMoney(bank)}**`,
                     inline: true,
@@ -452,7 +452,7 @@ export function buildProfileEmbed(data) {
                 },
 
                 {
-                    name: '🏅 Значки',
+                    name: '🏅 Достижения:',
                     value:
                         badges,
                     inline: false,
