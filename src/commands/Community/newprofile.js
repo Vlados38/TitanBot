@@ -18,6 +18,17 @@ import {
     generateProfileCard,
 } from '../../services/profile/profileCard.js';
 
+
+/*
+ * =========================================================
+ * TEST RECIPIENT
+ * =========================================================
+ *
+ * Сюда будет отправляться готовая PNG-карточка.
+ */
+const TEST_USER_ID = '718716021497790504';
+
+
 export default {
     data: new SlashCommandBuilder()
         .setName('newprofile')
@@ -33,7 +44,9 @@ export default {
     category: 'Community',
 
     async execute(interaction, config, client) {
-        await interaction.deferReply();
+        await interaction.deferReply({
+            ephemeral: true,
+        });
 
         const targetUser =
             interaction.options.getUser('user') ??
@@ -60,6 +73,12 @@ export default {
         }
 
         try {
+            /*
+             * =====================================================
+             * LOAD PROFILE DATA
+             * =====================================================
+             */
+
             const [
                 levelData,
                 economyData,
@@ -84,6 +103,13 @@ export default {
                 ),
             ]);
 
+
+            /*
+             * =====================================================
+             * LEVEL
+             * =====================================================
+             */
+
             const level =
                 Number(levelData?.level) || 0;
 
@@ -101,13 +127,18 @@ export default {
             try {
                 nextLevelXp =
                     Number(
-                        getXpForLevel(
-                            nextLevel
-                        )
+                        getXpForLevel(nextLevel)
                     ) || 0;
             } catch {
                 nextLevelXp = 0;
             }
+
+
+            /*
+             * =====================================================
+             * ECONOMY
+             * =====================================================
+             */
 
             const wallet =
                 Number(
@@ -122,6 +153,13 @@ export default {
             const totalBalance =
                 wallet + bank;
 
+
+            /*
+             * =====================================================
+             * ACHIEVEMENTS
+             * =====================================================
+             */
+
             const achievements =
                 achievementProfile
                     ?.achievements ?? [];
@@ -131,6 +169,13 @@ export default {
                     (achievement) =>
                         achievement.unlocked
                 );
+
+
+            /*
+             * =====================================================
+             * CARD DATA
+             * =====================================================
+             */
 
             const cardData = {
                 user: targetUser,
@@ -151,32 +196,104 @@ export default {
                 unlockedAchievements,
             };
 
+
+            console.log(
+                `[NEWPROFILE] Generating card for ${targetUser.tag} (${targetUser.id})`
+            );
+
+
+            /*
+             * =====================================================
+             * GENERATE IMAGE
+             * =====================================================
+             */
+
             const image =
                 await generateProfileCard(
                     cardData
                 );
+
+
+            console.log(
+                `[NEWPROFILE] Card generated successfully. Size: ${image.length} bytes`
+            );
+
+
+            /*
+             * =====================================================
+             * CREATE ATTACHMENT
+             * =====================================================
+             */
 
             const attachment =
                 new AttachmentBuilder(
                     image,
                     {
                         name:
-                            'titan-profile.png',
+                            `titan-profile-${targetUser.id}.png`,
                     }
                 );
 
-            return interaction.editReply({
+
+            /*
+             * =====================================================
+             * SEND TO TEST DISCORD USER
+             * =====================================================
+             */
+
+            console.log(
+                `[NEWPROFILE] Fetching test recipient ${TEST_USER_ID}...`
+            );
+
+            const testUser =
+                await client.users.fetch(
+                    TEST_USER_ID
+                );
+
+
+            console.log(
+                `[NEWPROFILE] Sending profile card to ${testUser.tag} (${TEST_USER_ID})...`
+            );
+
+
+            await testUser.send({
+                content:
+                    `🎨 **TitanBot RPG Profile**\n` +
+                    `Профиль пользователя: **${targetUser.username}**`,
                 files: [attachment],
             });
-        } catch (error) {
-            console.error(
-                '[NEWPROFILE] Failed to generate profile:',
-                error
+
+
+            console.log(
+                `[NEWPROFILE] Profile card successfully sent to ${TEST_USER_ID}`
             );
+
+
+            /*
+             * =====================================================
+             * CONFIRM IN COMMAND
+             * =====================================================
+             */
 
             return interaction.editReply({
                 content:
-                    '❌ Не удалось создать RPG-профиль. Проверьте логи Railway.',
+                    `✅ Карточка **${targetUser.username}** ` +
+                    `успешно отправлена в личные сообщения ` +
+                    `пользователю <@${TEST_USER_ID}>.`,
+            });
+
+        } catch (error) {
+
+            console.error(
+                '[NEWPROFILE] Failed to generate/send profile:',
+                error
+            );
+
+
+            return interaction.editReply({
+                content:
+                    '❌ Не удалось создать или отправить RPG-профиль. ' +
+                    'Проверьте логи Railway.',
             });
         }
     },
