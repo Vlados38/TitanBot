@@ -3,14 +3,8 @@
  * TITANBOT — ACHIEVEMENT CHECKER
  * ============================================================
  *
- * Дополнительный слой над AchievementService.
- *
- * Здесь собирается актуальный контекст пользователя,
- * после чего AchievementService проверяет все достижения.
- *
- * ВАЖНО:
- * Этот файл не импортируется из economy.js.
- * Это предотвращает циклические зависимости.
+ * Проверяет достижения пользователя и после успешной выдачи
+ * передаёт их в систему уведомлений.
  */
 
 import {
@@ -21,19 +15,19 @@ import {
     buildAchievementContext,
 } from './achievementContext.js';
 
+import {
+    notifyAchievements,
+} from './achievementNotifier.js';
+
 import { logger } from '../../utils/logger.js';
 
 /**
- * Проверить все автоматические достижения пользователя.
- *
- * Возвращает массив только тех достижений,
- * которые были получены прямо сейчас.
+ * Проверить все достижения пользователя.
  *
  * @param {Object} options
  * @param {Object} options.client
  * @param {Object} options.guild
  * @param {string} options.userId
- *
  * @returns {Promise<Array>}
  */
 export async function checkAchievements({
@@ -61,10 +55,38 @@ export async function checkAchievements({
                 context
             );
 
-        if (unlocked.length > 0) {
-            logger.info(
-                `[ACHIEVEMENT] Пользователь ${userId} получил ${unlocked.length} новых достижений на сервере ${guild.id}`
-            );
+        if (
+            !Array.isArray(unlocked) ||
+            unlocked.length === 0
+        ) {
+            return [];
+        }
+
+        logger.info(
+            `[ACHIEVEMENT] Пользователь ${userId} получил ${unlocked.length} новых достижений на сервере ${guild.id}`
+        );
+
+        /*
+         * Получаем участника сервера.
+         */
+        const member =
+            await guild.members
+                .fetch(userId)
+                .catch(() => null);
+
+        /*
+         * Отправляем уведомление.
+         *
+         * Если участника уже нет на сервере —
+         * достижение всё равно остаётся выданным.
+         */
+        if (member) {
+            await notifyAchievements({
+                client,
+                guild,
+                member,
+                achievements: unlocked,
+            });
         }
 
         return unlocked;
@@ -79,17 +101,7 @@ export async function checkAchievements({
 }
 
 /**
- * Проверка достижений после экономической операции.
- *
- * Используется после:
- *
- * - daily
- * - work
- * - crime
- * - rob
- * - покупки
- * - продажи
- * - других изменений баланса
+ * Проверка после экономических операций.
  */
 export async function checkEconomyAchievements({
     client,
@@ -104,8 +116,7 @@ export async function checkEconomyAchievements({
 }
 
 /**
- * Проверка достижений после получения XP
- * или повышения уровня.
+ * Проверка после получения XP / повышения уровня.
  */
 export async function checkProgressionAchievements({
     client,
