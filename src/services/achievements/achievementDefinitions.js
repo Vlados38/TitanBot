@@ -294,6 +294,85 @@ export const ACHIEVEMENTS = Object.freeze([
     },
 
     /* ========================================================
+     * ROB / CRIME
+     * ====================================================== */
+
+    {
+        id: 'rob_first',
+        category: ACHIEVEMENT_CATEGORIES.ECONOMY,
+        rarity: 'common',
+        emoji: '😈',
+        name: 'Первое дело',
+        description: 'Совершить первое ограбление.',
+        requirementText: '1 ограбление',
+
+        requirement: {
+            type: 'robCount',
+            value: 1,
+        },
+    },
+
+    {
+        id: 'rob_10',
+        category: ACHIEVEMENT_CATEGORIES.ECONOMY,
+        rarity: 'uncommon',
+        emoji: '🥷',
+        name: 'Опытный грабитель',
+        description: 'Совершить 10 ограблений.',
+        requirementText: '10 ограблений',
+
+        requirement: {
+            type: 'robCount',
+            value: 10,
+        },
+    },
+
+    {
+        id: 'rob_50',
+        category: ACHIEVEMENT_CATEGORIES.ECONOMY,
+        rarity: 'rare',
+        emoji: '💀',
+        name: 'Криминальный авторитет',
+        description: 'Совершить 50 ограблений.',
+        requirementText: '50 ограблений',
+
+        requirement: {
+            type: 'robCount',
+            value: 50,
+        },
+    },
+
+    {
+        id: 'rob_100',
+        category: ACHIEVEMENT_CATEGORIES.ECONOMY,
+        rarity: 'epic',
+        emoji: '👑',
+        name: 'Король преступности',
+        description: 'Совершить 100 ограблений.',
+        requirementText: '100 ограблений',
+
+        requirement: {
+            type: 'robCount',
+            value: 100,
+        },
+    },
+
+    {
+        id: 'rob_500',
+        category: ACHIEVEMENT_CATEGORIES.ECONOMY,
+        rarity: 'legendary',
+        emoji: '☠️',
+        name: 'Легенда криминала',
+        description: 'Совершить 500 ограблений.',
+        requirementText: '500 ограблений',
+
+        requirement: {
+            type: 'robCount',
+            value: 500,
+        },
+    },
+
+    /* ========================================================
      * SOCIAL / MEMBERSHIP
      * ====================================================== */
 
