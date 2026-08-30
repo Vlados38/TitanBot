@@ -1,7 +1,3 @@
-import { setupFonts } from './utils/fonts.js';
-
-setupFonts();
-
 import 'dotenv/config';
 import { Client, Collection, GatewayIntentBits } from 'discord.js';
 import { REST } from '@discordjs/rest';
