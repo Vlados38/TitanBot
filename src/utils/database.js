@@ -30,6 +30,11 @@ export {
     getLevelingKey,
     getUserLevelKey,
     getUserLevelPrefix,
+
+        // Achievements
+    getUserAchievementsKey,
+    getUserAchievementsPrefix,
+    
     getApplicationRolesKey,
     getApplicationSettingsKey,
     getUserApplicationsKey,
@@ -76,6 +81,7 @@ import {
     getEconomyKey,
     getAFKKey,
     getUserLevelPrefix,
+    getUserAchievementsKey,
 } from './database/keys.js';
 
 export async function insertVerificationAudit(record) {
@@ -533,6 +539,174 @@ export async function saveUserLevelData(client, guildId, userId, data) {
     } catch (error) {
         logger.error(`Ошибка сохранения данных уровня пользователя ${userId} на сервере ${guildId}:`, error);
         return false;
+    }
+}
+
+/**
+ * Получает список достижений пользователя на конкретном сервере.
+ *
+ * Формат:
+ * [
+ *     {
+ *         id: 'first_step',
+ *         unlockedAt: 1756551234567
+ *     }
+ * ]
+ */
+export async function getUserAchievements(client, guildId, userId) {
+    try {
+        if (!client?.db || typeof client.db.get !== 'function') {
+            logger.error(
+                'Клиент базы данных недоступен для getUserAchievements.'
+            );
+
+            return [];
+        }
+
+        const key = getUserAchievementsKey(guildId, userId);
+
+        const rawData = await client.db.get(key, []);
+        const data = unwrapReplitData(rawData);
+
+        return Array.isArray(data) ? data : [];
+    } catch (error) {
+        logger.error(
+            `Ошибка получения достижений пользователя ${userId} на сервере ${guildId}:`,
+            error
+        );
+
+        return [];
+    }
+}
+
+
+/**
+ * Проверяет, получил ли пользователь конкретное достижение.
+ */
+export async function hasUserAchievement(
+    client,
+    guildId,
+    userId,
+    achievementId
+) {
+    try {
+        const achievements = await getUserAchievements(
+            client,
+            guildId,
+            userId
+        );
+
+        return achievements.some(
+            achievement => achievement?.id === achievementId
+        );
+    } catch (error) {
+        logger.error(
+            `Ошибка проверки достижения ${achievementId} пользователя ${userId}:`,
+            error
+        );
+
+        return false;
+    }
+}
+
+
+/**
+ * Выдаёт пользователю достижение.
+ *
+ * Возвращает:
+ * true  — достижение выдано впервые
+ * false — достижение уже было получено либо произошла ошибка
+ */
+export async function unlockUserAchievement(
+    client,
+    guildId,
+    userId,
+    achievementId
+) {
+    try {
+        if (!client?.db || typeof client.db.set !== 'function') {
+            logger.error(
+                'Клиент базы данных недоступен для unlockUserAchievement.'
+            );
+
+            return false;
+        }
+
+        if (!achievementId) {
+            logger.warn(
+                `Попытка выдать достижение без ID пользователю ${userId}.`
+            );
+
+            return false;
+        }
+
+        const key = getUserAchievementsKey(
+            guildId,
+            userId
+        );
+
+        const achievements = await getUserAchievements(
+            client,
+            guildId,
+            userId
+        );
+
+        const alreadyUnlocked = achievements.some(
+            achievement => achievement?.id === achievementId
+        );
+
+        if (alreadyUnlocked) {
+            return false;
+        }
+
+        achievements.push({
+            id: achievementId,
+            unlockedAt: Date.now(),
+        });
+
+        await client.db.set(
+            key,
+            achievements
+        );
+
+        return true;
+    } catch (error) {
+        logger.error(
+            `Ошибка выдачи достижения ${achievementId} пользователю ${userId}:`,
+            error
+        );
+
+        return false;
+    }
+}
+
+
+/**
+ * Возвращает данные конкретного полученного достижения.
+ */
+export async function getUserAchievement(
+    client,
+    guildId,
+    userId,
+    achievementId
+) {
+    try {
+        const achievements = await getUserAchievements(
+            client,
+            guildId,
+            userId
+        );
+
+        return achievements.find(
+            achievement => achievement?.id === achievementId
+        ) || null;
+    } catch (error) {
+        logger.error(
+            `Ошибка получения достижения ${achievementId} пользователя ${userId}:`,
+            error
+        );
+
+        return null;
     }
 }
 
