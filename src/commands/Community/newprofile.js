@@ -8,9 +8,7 @@ import {
     getXpForLevel,
 } from '../../services/leveling/leveling.js';
 
-import {
-    getEconomyData,
-} from '../../utils/economy.js';
+import { getEconomyData } from '../../utils/economy.js';
 
 import {
     getUserAchievementProfile,
@@ -18,18 +16,16 @@ import {
 
 import {
     generateProfileCard,
-} from '../../utils/profileCard.js';
+} from '../../services/profile/profileCard.js';
 
 export default {
     data: new SlashCommandBuilder()
         .setName('newprofile')
-        .setDescription('Посмотреть RPG-профиль пользователя')
+        .setDescription('Открыть RPG-профиль пользователя')
         .addUserOption((option) =>
             option
                 .setName('user')
-                .setDescription(
-                    'Пользователь, чей профиль нужно посмотреть'
-                )
+                .setDescription('Пользователь')
                 .setRequired(false)
         )
         .setDMPermission(false),
@@ -52,10 +48,9 @@ export default {
             });
         }
 
-        const member =
-            await guild.members
-                .fetch(targetUser.id)
-                .catch(() => null);
+        const member = await guild.members
+            .fetch(targetUser.id)
+            .catch(() => null);
 
         if (!member) {
             return interaction.editReply({
@@ -65,24 +60,108 @@ export default {
         }
 
         try {
-            const profileData =
-                await getNewProfileData({
+            const [
+                levelData,
+                economyData,
+                achievementProfile,
+            ] = await Promise.all([
+                getUserLevelData(
                     client,
-                    guild,
-                    member,
-                    user: targetUser,
-                });
+                    guild.id,
+                    targetUser.id
+                ),
+
+                getEconomyData(
+                    client,
+                    guild.id,
+                    targetUser.id
+                ),
+
+                getUserAchievementProfile(
+                    client,
+                    guild.id,
+                    targetUser.id
+                ),
+            ]);
+
+            const level =
+                Number(levelData?.level) || 0;
+
+            const xp =
+                Number(levelData?.xp) || 0;
+
+            const totalXp =
+                Number(levelData?.totalXp) || 0;
+
+            const nextLevel =
+                level + 1;
+
+            let nextLevelXp = 0;
+
+            try {
+                nextLevelXp =
+                    Number(
+                        getXpForLevel(
+                            nextLevel
+                        )
+                    ) || 0;
+            } catch {
+                nextLevelXp = 0;
+            }
+
+            const wallet =
+                Number(
+                    economyData?.wallet
+                ) || 0;
+
+            const bank =
+                Number(
+                    economyData?.bank
+                ) || 0;
+
+            const totalBalance =
+                wallet + bank;
+
+            const achievements =
+                achievementProfile
+                    ?.achievements ?? [];
+
+            const unlockedAchievements =
+                achievements.filter(
+                    (achievement) =>
+                        achievement.unlocked
+                );
+
+            const cardData = {
+                user: targetUser,
+                member,
+
+                level,
+                xp,
+                totalXp,
+
+                nextLevel,
+                nextLevelXp,
+
+                wallet,
+                bank,
+                totalBalance,
+
+                achievements,
+                unlockedAchievements,
+            };
 
             const image =
                 await generateProfileCard(
-                    profileData
+                    cardData
                 );
 
             const attachment =
                 new AttachmentBuilder(
                     image,
                     {
-                        name: 'profile.png',
+                        name:
+                            'titan-profile.png',
                     }
                 );
 
@@ -91,113 +170,14 @@ export default {
             });
         } catch (error) {
             console.error(
-                `[NEWPROFILE] Failed to generate profile for ${targetUser.id}:`,
+                '[NEWPROFILE] Failed to generate profile:',
                 error
             );
 
             return interaction.editReply({
                 content:
-                    '❌ Не удалось создать карточку профиля. Попробуйте ещё раз позже.',
+                    '❌ Не удалось создать RPG-профиль. Проверьте логи Railway.',
             });
         }
     },
 };
-
-/* =========================================================
- * PROFILE DATA
- * ======================================================= */
-
-async function getNewProfileData({
-    client,
-    guild,
-    member,
-    user,
-}) {
-    const [
-        levelData,
-        economyData,
-        achievementProfile,
-    ] = await Promise.all([
-        getUserLevelData(
-            client,
-            guild.id,
-            user.id
-        ),
-
-        getEconomyData(
-            client,
-            guild.id,
-            user.id
-        ),
-
-        getUserAchievementProfile(
-            client,
-            guild.id,
-            user.id
-        ),
-    ]);
-
-    const level =
-        Number(levelData?.level) || 0;
-
-    const xp =
-        Number(levelData?.xp) || 0;
-
-    const totalXp =
-        Number(levelData?.totalXp) || 0;
-
-    const nextLevel =
-        level + 1;
-
-    let nextLevelXp = 0;
-
-    try {
-        nextLevelXp =
-            Number(
-                getXpForLevel(nextLevel)
-            ) || 0;
-    } catch {
-        nextLevelXp = 0;
-    }
-
-    const wallet =
-        Number(
-            economyData?.wallet
-        ) || 0;
-
-    const bank =
-        Number(
-            economyData?.bank
-        ) || 0;
-
-    const totalBalance =
-        wallet + bank;
-
-    const achievements =
-        achievementProfile?.achievements ?? [];
-
-    const unlockedAchievements =
-        achievements.filter(
-            (achievement) =>
-                achievement.unlocked
-        );
-
-    return {
-        user,
-        member,
-
-        level,
-        xp,
-        totalXp,
-
-        nextLevel,
-        nextLevelXp,
-
-        wallet,
-        bank,
-        totalBalance,
-
-        achievements,
-        unlockedAchievements,
-    };
-}
