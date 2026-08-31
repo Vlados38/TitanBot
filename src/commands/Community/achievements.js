@@ -1,4 +1,3 @@
-код /achievments
 import {
     ActionRowBuilder,
     ButtonBuilder,
