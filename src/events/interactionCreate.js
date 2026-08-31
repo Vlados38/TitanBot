@@ -9,95 +9,159 @@ import {
 } from '../commands/Community/newprofile.js';
 
 
-/*
- * =========================================================
- * INTERACTION CREATE
- * =========================================================
- *
- * Обрабатывает ТОЛЬКО кнопки новой системы /newprofile.
- *
- * Старый /profile здесь НЕ используется.
- *
- * Поддерживаем:
- *
- * newprofile:profile:USER_ID
- * newprofile:achievements:USER_ID:PAGE
- * newprofile:statistics:USER_ID
- *
- * =========================================================
- */
-
 export default {
     name: 'interactionCreate',
 
-    async execute(
-        interaction,
-        client,
-        config
-    ) {
+    async execute(interaction, client) {
 
         /*
          * =====================================================
-         * НЕ BUTTON
+         * SLASH COMMANDS
          * =====================================================
          */
 
-        if (!interaction.isButton()) {
+        if (interaction.isChatInputCommand()) {
+            const command =
+                client.commands?.get(
+                    interaction.commandName
+                );
+
+            if (!command) {
+                console.error(
+                    `[INTERACTION] Command not found: ${interaction.commandName}`
+                );
+
+                return;
+            }
+
+            try {
+                await command.execute(
+                    interaction,
+                    client.config,
+                    client
+                );
+            } catch (error) {
+                console.error(
+                    `[INTERACTION] Command "${interaction.commandName}" failed:`,
+                    error
+                );
+
+                try {
+                    if (interaction.replied || interaction.deferred) {
+                        await interaction.editReply({
+                            content:
+                                '❌ Произошла ошибка при выполнении команды.',
+                        });
+                    } else {
+                        await interaction.reply({
+                            content:
+                                '❌ Произошла ошибка при выполнении команды.',
+                            ephemeral: true,
+                        });
+                    }
+                } catch (replyError) {
+                    console.error(
+                        '[INTERACTION] Failed to send error response:',
+                        replyError
+                    );
+                }
+            }
+
             return;
         }
 
 
         /*
          * =====================================================
-         * ONLY NEWPROFILE
+         * BUTTONS
          * =====================================================
          */
 
-        if (
-            !interaction.customId.startsWith(
-                'newprofile:'
-            )
-        ) {
+        if (interaction.isButton()) {
+
+            const customId =
+                interaction.customId;
+
+
+            /*
+             * -------------------------------------------------
+             * NEW PROFILE
+             * -------------------------------------------------
+             */
+
+            if (
+                customId.startsWith(
+                    'newprofile:'
+                )
+            ) {
+                return handleNewProfileButton(
+                    interaction,
+                    client
+                );
+            }
+
+
+            /*
+             * -------------------------------------------------
+             * OTHER BUTTONS
+             * -------------------------------------------------
+             *
+             * Здесь НЕ трогаем старый /profile.
+             */
+
             return;
         }
+    },
+};
 
 
-        /*
-         * =====================================================
-         * PARSE CUSTOM ID
-         * =====================================================
-         */
+/* =========================================================
+ * NEWPROFILE BUTTON HANDLER
+ * ======================================================= */
+
+async function handleNewProfileButton(
+    interaction,
+    client
+) {
+
+    try {
 
         const parts =
             interaction.customId.split(':');
 
-        const prefix =
-            parts[0];
+        /*
+         * Expected:
+         *
+         * newprofile:profile:USER_ID
+         * newprofile:achievements:USER_ID:PAGE
+         * newprofile:statistics:USER_ID
+         */
 
-        const page =
-            parts[1];
+        const [
+            prefix,
+            page,
+            targetUserId,
+            pageValue,
+        ] = parts;
 
-        const targetUserId =
-            parts[2];
 
-        const achievementPage =
-            Number(parts[3] ?? 0);
+        if (
+            prefix !== 'newprofile'
+        ) {
+            return;
+        }
 
 
         /*
          * =====================================================
-         * VALIDATION
+         * VALIDATE USER
          * =====================================================
          */
 
-        if (
-            prefix !== 'newprofile' ||
-            !page ||
-            !targetUserId
-        ) {
+        if (!targetUserId) {
             return interaction.reply({
                 content:
-                    '❌ Некорректная кнопка профиля.',
+                    '❌ Не удалось определить пользователя профиля.',
                 ephemeral: true,
             });
         }
@@ -115,7 +179,7 @@ export default {
         if (!guild) {
             return interaction.reply({
                 content:
-                    '❌ Эта кнопка доступна только на сервере.',
+                    '❌ Эта карточка доступна только на сервере.',
                 ephemeral: true,
             });
         }
@@ -123,27 +187,7 @@ export default {
 
         /*
          * =====================================================
-         * LOAD USER
-         * =====================================================
-         */
-
-        const targetUser =
-            await client.users
-                .fetch(targetUserId)
-                .catch(() => null);
-
-        if (!targetUser) {
-            return interaction.reply({
-                content:
-                    '❌ Пользователь не найден.',
-                ephemeral: true,
-            });
-        }
-
-
-        /*
-         * =====================================================
-         * LOAD MEMBER
+         * MEMBER
          * =====================================================
          */
 
@@ -155,7 +199,7 @@ export default {
         if (!member) {
             return interaction.reply({
                 content:
-                    '❌ Пользователь больше не находится на сервере.',
+                    '❌ Пользователь не найден на этом сервере.',
                 ephemeral: true,
             });
         }
@@ -163,161 +207,160 @@ export default {
 
         /*
          * =====================================================
-         * ACCESS CHECK
+         * USER
+         * =====================================================
+         */
+
+        const targetUser =
+            await client.users
+                .fetch(targetUserId)
+                .catch(() => null);
+
+        if (!targetUser) {
+            return interaction.reply({
+                content:
+                    '❌ Не удалось загрузить пользователя.',
+                ephemeral: true,
+            });
+        }
+
+
+        /*
+         * =====================================================
+         * DEFER BUTTON UPDATE
          * =====================================================
          *
-         * Пока разрешаем смотреть любой профиль,
-         * как и сам /newprofile.
-         *
-         * Это значит:
-         *
-         * пользователь может нажать кнопку
-         * на чужой карточке.
+         * Это сообщает Discord, что кнопка обработана.
+         */
+
+        await interaction.deferUpdate();
+
+
+        /*
+         * =====================================================
+         * LOAD DATA
+         * =====================================================
+         */
+
+        const profileData =
+            await loadProfileData({
+                client,
+                guild,
+                member,
+                user: targetUser,
+            });
+
+
+        /*
+         * =====================================================
+         * ACHIEVEMENT PAGE
+         * =====================================================
+         */
+
+        if (
+            page === 'achievements'
+        ) {
+            profileData.__achievementPage =
+                Math.max(
+                    0,
+                    Number(pageValue) || 0
+                );
+        }
+
+
+        /*
+         * =====================================================
+         * RENDER
+         * =====================================================
+         */
+
+        const result =
+            await renderNewProfilePage({
+                page,
+                data: profileData,
+            });
+
+
+        /*
+         * =====================================================
+         * BUTTONS
+         * =====================================================
+         */
+
+        const components =
+            buildNavigationButtons(
+                targetUserId,
+                result.currentPage,
+                result.achievementPage,
+                result.totalAchievementPages
+            );
+
+
+        /*
+         * =====================================================
+         * ATTACHMENT
+         * =====================================================
+         */
+
+        const attachment =
+            new AttachmentBuilder(
+                result.buffer,
+                {
+                    name:
+                        `newprofile-${targetUserId}.png`,
+                }
+            );
+
+
+        /*
+         * =====================================================
+         * UPDATE MESSAGE
+         * =====================================================
+         */
+
+        await interaction.editReply({
+            files: [attachment],
+            components,
+        });
+
+    } catch (error) {
+
+        console.error(
+            '[NEWPROFILE BUTTON] Failed:',
+            error
+        );
+
+
+        /*
+         * Если deferUpdate уже был вызван,
+         * отвечаем через editReply.
          */
 
         try {
 
-            /*
-             * =================================================
-             * DEFER
-             * =================================================
-             *
-             * deferUpdate говорит Discord:
-             *
-             * "кнопка нажата, сейчас изменим
-             * существующее сообщение".
-             */
-
-            await interaction.deferUpdate();
-
-
-            /*
-             * =================================================
-             * LOAD DATA
-             * =================================================
-             */
-
-            const data =
-                await loadProfileData({
-                    client,
-                    guild,
-                    member,
-                    user: targetUser,
-                });
-
-
-            /*
-             * =================================================
-             * ACHIEVEMENT PAGE
-             * =================================================
-             *
-             * renderNewProfilePage ожидает номер страницы
-             * в data.__achievementPage.
-             */
-
             if (
-                page === 'achievements'
+                interaction.deferred ||
+                interaction.replied
             ) {
-                data.__achievementPage =
-                    Number.isFinite(
-                        achievementPage
-                    )
-                        ? Math.max(
-                            0,
-                            achievementPage
-                        )
-                        : 0;
+                await interaction.editReply({
+                    content:
+                        '❌ Не удалось открыть эту страницу профиля.',
+                });
+            } else {
+                await interaction.reply({
+                    content:
+                        '❌ Не удалось открыть эту страницу профиля.',
+                    ephemeral: true,
+                });
             }
 
-
-            /*
-             * =================================================
-             * RENDER
-             * =================================================
-             */
-
-            const rendered =
-                await renderNewProfilePage({
-                    page,
-                    data,
-                });
-
-
-            /*
-             * =================================================
-             * ATTACHMENT
-             * =================================================
-             */
-
-            const attachment =
-                new AttachmentBuilder(
-                    rendered.buffer,
-                    {
-                        name:
-                            `newprofile-${targetUserId}-${page}.png`,
-                    }
-                );
-
-
-            /*
-             * =================================================
-             * NAVIGATION
-             * =================================================
-             */
-
-            const components =
-                buildNavigationButtons(
-                    targetUserId,
-
-                    rendered.currentPage,
-
-                    rendered.achievementPage,
-
-                    rendered.totalAchievementPages
-                );
-
-
-            /*
-             * =================================================
-             * UPDATE MESSAGE
-             * =================================================
-             *
-             * Здесь происходит главное:
-             *
-             * старое изображение удаляется,
-             * новое изображение появляется
-             * в том же сообщении.
-             */
-
-            return interaction.editReply({
-                content: '',
-                embeds: [],
-                files: [
-                    attachment,
-                ],
-                components,
-            });
-
-        } catch (error) {
+        } catch (replyError) {
 
             console.error(
-                '[NEWPROFILE BUTTON] Failed to render page:',
-                error
+                '[NEWPROFILE BUTTON] Failed to send error:',
+                replyError
             );
 
-
-            /*
-             * =================================================
-             * ERROR
-             * =================================================
-             */
-
-            return interaction.editReply({
-                content:
-                    '❌ Не удалось открыть раздел профиля.',
-                embeds: [],
-                components: [],
-            }).catch(() => {});
         }
-    },
-};
+    }
+}
