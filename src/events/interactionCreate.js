@@ -47,7 +47,10 @@ export default {
                 );
 
                 try {
-                    if (interaction.replied || interaction.deferred) {
+                    if (
+                        interaction.replied ||
+                        interaction.deferred
+                    ) {
                         await interaction.editReply({
                             content:
                                 '❌ Произошла ошибка при выполнении команды.',
@@ -77,37 +80,22 @@ export default {
          * =====================================================
          */
 
-        if (interaction.isButton()) {
-
+        if (
+            interaction.isButton()
+        ) {
             const customId =
                 interaction.customId;
-
-
-            /*
-             * -------------------------------------------------
-             * NEW PROFILE
-             * -------------------------------------------------
-             */
 
             if (
                 customId.startsWith(
                     'newprofile:'
                 )
             ) {
-                return handleNewProfileButton(
+                await handleNewProfileButton(
                     interaction,
                     client
                 );
             }
-
-
-            /*
-             * -------------------------------------------------
-             * OTHER BUTTONS
-             * -------------------------------------------------
-             *
-             * Здесь НЕ трогаем старый /profile.
-             */
 
             return;
         }
@@ -123,26 +111,27 @@ async function handleNewProfileButton(
     interaction,
     client
 ) {
-
     try {
 
         const parts =
             interaction.customId.split(':');
 
-        /*
-         * Expected:
-         *
-         * newprofile:profile:USER_ID
-         * newprofile:achievements:USER_ID:PAGE
-         * newprofile:statistics:USER_ID
-         */
+        const prefix =
+            parts[0];
 
-        const [
-            prefix,
-            page,
-            targetUserId,
-            pageValue,
-        ] = parts;
+        const page =
+            parts[1];
+
+        const targetUserId =
+            parts[2];
+
+        const pageValue =
+            parts[3];
+
+
+        console.log(
+            `[NEWPROFILE BUTTON] ${interaction.customId}`
+        );
 
 
         if (
@@ -152,26 +141,16 @@ async function handleNewProfileButton(
         }
 
 
-        /*
-         * =====================================================
-         * VALIDATE USER
-         * =====================================================
-         */
-
-        if (!targetUserId) {
+        if (
+            !targetUserId
+        ) {
             return interaction.reply({
                 content:
-                    '❌ Не удалось определить пользователя профиля.',
+                    '❌ Не удалось определить пользователя.',
                 ephemeral: true,
             });
         }
 
-
-        /*
-         * =====================================================
-         * GUILD
-         * =====================================================
-         */
 
         const guild =
             interaction.guild;
@@ -179,7 +158,7 @@ async function handleNewProfileButton(
         if (!guild) {
             return interaction.reply({
                 content:
-                    '❌ Эта карточка доступна только на сервере.',
+                    '❌ Карточка доступна только на сервере.',
                 ephemeral: true,
             });
         }
@@ -187,7 +166,7 @@ async function handleNewProfileButton(
 
         /*
          * =====================================================
-         * MEMBER
+         * LOAD MEMBER
          * =====================================================
          */
 
@@ -199,7 +178,7 @@ async function handleNewProfileButton(
         if (!member) {
             return interaction.reply({
                 content:
-                    '❌ Пользователь не найден на этом сервере.',
+                    '❌ Пользователь не найден на сервере.',
                 ephemeral: true,
             });
         }
@@ -207,7 +186,7 @@ async function handleNewProfileButton(
 
         /*
          * =====================================================
-         * USER
+         * LOAD USER
          * =====================================================
          */
 
@@ -227,10 +206,8 @@ async function handleNewProfileButton(
 
         /*
          * =====================================================
-         * DEFER BUTTON UPDATE
+         * ACKNOWLEDGE BUTTON
          * =====================================================
-         *
-         * Это сообщает Discord, что кнопка обработана.
          */
 
         await interaction.deferUpdate();
@@ -238,11 +215,11 @@ async function handleNewProfileButton(
 
         /*
          * =====================================================
-         * LOAD DATA
+         * LOAD PROFILE
          * =====================================================
          */
 
-        const profileData =
+        const data =
             await loadProfileData({
                 client,
                 guild,
@@ -260,7 +237,7 @@ async function handleNewProfileButton(
         if (
             page === 'achievements'
         ) {
-            profileData.__achievementPage =
+            data.__achievementPage =
                 Math.max(
                     0,
                     Number(pageValue) || 0
@@ -277,7 +254,7 @@ async function handleNewProfileButton(
         const result =
             await renderNewProfilePage({
                 page,
-                data: profileData,
+                data,
             });
 
 
@@ -298,7 +275,7 @@ async function handleNewProfileButton(
 
         /*
          * =====================================================
-         * ATTACHMENT
+         * IMAGE
          * =====================================================
          */
 
@@ -307,21 +284,28 @@ async function handleNewProfileButton(
                 result.buffer,
                 {
                     name:
-                        `newprofile-${targetUserId}.png`,
+                        `newprofile-${targetUserId}-${result.currentPage}.png`,
                 }
             );
 
 
         /*
          * =====================================================
-         * UPDATE MESSAGE
+         * UPDATE EXISTING MESSAGE
          * =====================================================
          */
 
         await interaction.editReply({
+            content: null,
+            embeds: [],
             files: [attachment],
             components,
         });
+
+
+        console.log(
+            `[NEWPROFILE BUTTON] ${page} rendered successfully`
+        );
 
     } catch (error) {
 
@@ -331,13 +315,7 @@ async function handleNewProfileButton(
         );
 
 
-        /*
-         * Если deferUpdate уже был вызван,
-         * отвечаем через editReply.
-         */
-
         try {
-
             if (
                 interaction.deferred ||
                 interaction.replied
@@ -345,6 +323,9 @@ async function handleNewProfileButton(
                 await interaction.editReply({
                     content:
                         '❌ Не удалось открыть эту страницу профиля.',
+                    embeds: [],
+                    files: [],
+                    components: [],
                 });
             } else {
                 await interaction.reply({
@@ -353,14 +334,11 @@ async function handleNewProfileButton(
                     ephemeral: true,
                 });
             }
-
         } catch (replyError) {
-
             console.error(
                 '[NEWPROFILE BUTTON] Failed to send error:',
                 replyError
             );
-
         }
     }
 }
