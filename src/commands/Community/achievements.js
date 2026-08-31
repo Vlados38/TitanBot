@@ -1,6 +1,20 @@
+/**
+ * ============================================================
+ * TITANBOT — /achievements
+ * ============================================================
+ *
+ * Отдельная команда достижений.
+ *
+ * Без Canvas / PNG.
+ * Использует обычные Discord Embeds + Buttons.
+ */
+
 import {
     SlashCommandBuilder,
     EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
 } from 'discord.js';
 
 import {
@@ -9,330 +23,296 @@ import {
     getAchievementCategory,
 } from '../../services/achievements/achievementService.js';
 
-export default {
-    data: new SlashCommandBuilder()
-        .setName('achievements')
-        .setDescription('Посмотреть достижения пользователя')
-        .addUserOption((option) =>
-            option
-                .setName('user')
-                .setDescription('Пользователь')
-                .setRequired(false)
-        )
-        .setDMPermission(false),
+export const data = new SlashCommandBuilder()
+    .setName('achievements')
+    .setDescription('Просмотреть достижения пользователя')
+    .addUserOption(option =>
+        option
+            .setName('user')
+            .setDescription('Пользователь, достижения которого посмотреть')
+            .setRequired(false)
+    );
 
-    category: 'Community',
+export const category = 'Community';
 
-    async execute(
-        interaction,
-        config,
-        client
-    ) {
-        await interaction.deferReply();
+export async function execute(
+    interaction,
+    guildConfig,
+    client
+) {
+    const targetUser =
+        interaction.options.getUser('user') ||
+        interaction.user;
 
-        const targetUser =
-            interaction.options.getUser('user') ??
-            interaction.user;
+    if (!interaction.guild) {
+        return interaction.reply({
+            content:
+                '❌ Эта команда доступна только на сервере.',
+            ephemeral: true,
+        });
+    }
 
-        const guild =
-            interaction.guild;
+    await interaction.deferReply();
 
-        if (!guild) {
-            return interaction.editReply({
-                content:
-                    '❌ Эта команда доступна только на сервере.',
-            });
-        }
+    const profile =
+        await getUserAchievementProfile(
+            client,
+            interaction.guild.id,
+            targetUser.id
+        );
 
-        try {
-            const member =
-                await guild.members
-                    .fetch(targetUser.id)
-                    .catch(() => null);
+    const page = 0;
 
-            if (!member) {
-                return interaction.editReply({
-                    content:
-                        '❌ Пользователь не найден на этом сервере.',
-                });
-            }
+    const payload =
+        buildAchievementsPage({
+            profile,
+            targetUser,
+            page,
+        });
 
-            const profile =
-                await getUserAchievementProfile(
-                    client,
-                    guild.id,
-                    targetUser.id
-                );
+    await interaction.editReply(payload);
+}
 
-            const achievements =
-                Array.isArray(
-                    profile?.achievements
-                )
-                    ? profile.achievements
-                    : [];
+/**
+ * ============================================================
+ * PAGE BUILDER
+ * ============================================================
+ */
 
-            const progress =
-                profile?.progress ?? {
-                    total: achievements.length,
-                    unlocked: 0,
-                    remaining: achievements.length,
-                    percentage: 0,
-                };
+export function buildAchievementsPage({
+    profile,
+    targetUser,
+    page = 0,
+}) {
+    const achievements =
+        Array.isArray(profile?.achievements)
+            ? profile.achievements
+            : [];
 
-            const unlocked =
-                achievements.filter(
-                    achievement =>
-                        achievement.unlocked
-                );
+    const progress =
+        profile?.progress || {
+            total: achievements.length,
+            unlocked: 0,
+            remaining: achievements.length,
+            percentage: 0,
+        };
 
-            const locked =
-                achievements.filter(
-                    achievement =>
-                        !achievement.unlocked
-                );
+    const totalPages =
+        Math.max(
+            1,
+            Math.ceil(
+                achievements.length / ACHIEVEMENTS_PER_PAGE
+            )
+        );
 
-            const embed =
-                new EmbedBuilder()
-                    .setColor('#5865F2')
-                    .setAuthor({
-                        name:
-                            `🏆 Достижения — ${targetUser.username}`,
-                        iconURL:
-                            targetUser.displayAvatarURL({
-                                extension: 'png',
-                                size: 128,
-                            }),
-                    })
-                    .setThumbnail(
-                        targetUser.displayAvatarURL({
-                            extension: 'png',
-                            size: 256,
-                        })
-                    )
-                    .setDescription(
-                        [
-                            `**Прогресс:** ${progress.unlocked}/${progress.total} (${progress.percentage}%)`,
-                            `🔓 Получено: **${progress.unlocked}**`,
-                            `🔒 Осталось: **${progress.remaining}**`,
-                        ].join('\n')
-                    );
+    const safePage =
+        Math.min(
+            Math.max(Number(page) || 0, 0),
+            totalPages - 1
+        );
 
-            /*
-             * =====================================================
-             * ПОЛУЧЕННЫЕ ДОСТИЖЕНИЯ
-             * =====================================================
-             */
+    const start =
+        safePage * ACHIEVEMENTS_PER_PAGE;
 
-            if (unlocked.length > 0) {
-                const unlockedText =
-                    unlocked
-                        .map((achievement) => {
-                            const rarity =
-                                getAchievementRarity(
-                                    achievement.rarity
-                                );
+    const pageAchievements =
+        achievements.slice(
+            start,
+            start + ACHIEVEMENTS_PER_PAGE
+        );
 
-                            const category =
-                                getAchievementCategory(
-                                    achievement.category
-                                );
-
-                            return [
-                                `${achievement.emoji || '🏆'} **${achievement.name}**`,
-                                `> ${achievement.description || 'Достижение получено.'}`,
-                                `> ${rarity.emoji} ${rarity.name} • ${category?.emoji || '📁'} ${category?.name || achievement.category}`,
-                            ].join('\n');
-                        })
-                        .join('\n\n');
-
-                /*
-                 * Discord ограничивает значение field
-                 * 1024 символами, поэтому разбиваем
-                 * достижения на несколько полей.
-                 */
-
-                const chunks = [];
-                let currentChunk = '';
-
-                for (
-                    const achievementText
-                    of unlockedText.split('\n\n')
-                ) {
-                    if (
-                        currentChunk &&
-                        (
-                            currentChunk.length +
-                            achievementText.length +
-                            2
-                        ) > 1000
-                    ) {
-                        chunks.push(
-                            currentChunk
-                        );
-
-                        currentChunk =
-                            achievementText;
-                    } else {
-                        currentChunk =
-                            currentChunk
-                                ? `${currentChunk}\n\n${achievementText}`
-                                : achievementText;
-                    }
-                }
-
-                if (currentChunk) {
-                    chunks.push(
-                        currentChunk
-                    );
-                }
-
-                chunks
-                    .slice(0, 25)
-                    .forEach(
-                        (chunk, index) => {
-                            embed.addFields({
-                                name:
-                                    index === 0
-                                        ? '🔓 Полученные достижения'
-                                        : '🏆 Продолжение',
-                                value:
-                                    chunk,
-                                inline:
-                                    false,
-                            });
-                        }
-                    );
-            } else {
-                embed.addFields({
-                    name:
-                        '🔓 Полученные достижения',
-                    value:
-                        'Пока нет полученных достижений.',
-                    inline:
-                        false,
-                });
-            }
-
-            /*
-             * =====================================================
-             * СЕКРЕТНЫЕ / НЕПОЛУЧЕННЫЕ
-             * =====================================================
-             *
-             * Секретные достижения не раскрываем
-             * до получения.
-             */
-
-            if (locked.length > 0) {
-                const lockedText =
-                    locked
-                        .map((achievement) => {
-                            if (
-                                achievement.secret
-                            ) {
-                                return (
-                                    '❔ **Секретное достижение**\n' +
-                                    '> Требования скрыты.'
-                                );
-                            }
-
-                            const rarity =
-                                getAchievementRarity(
-                                    achievement.rarity
-                                );
-
-                            const category =
-                                getAchievementCategory(
-                                    achievement.category
-                                );
-
-                            return [
-                                `🔒 **${achievement.name}**`,
-                                `> ${achievement.description || 'Достижение ещё не получено.'}`,
-                                `> Требование: **${achievement.requirementText || 'Не указано'}**`,
-                                `> ${rarity.emoji} ${rarity.name} • ${category?.emoji || '📁'} ${category?.name || achievement.category}`,
-                            ].join('\n');
-                        })
-                        .join('\n\n');
-
-                const chunks = [];
-                let currentChunk = '';
-
-                for (
-                    const achievementText
-                    of lockedText.split('\n\n')
-                ) {
-                    if (
-                        currentChunk &&
-                        (
-                            currentChunk.length +
-                            achievementText.length +
-                            2
-                        ) > 1000
-                    ) {
-                        chunks.push(
-                            currentChunk
-                        );
-
-                        currentChunk =
-                            achievementText;
-                    } else {
-                        currentChunk =
-                            currentChunk
-                                ? `${currentChunk}\n\n${achievementText}`
-                                : achievementText;
-                    }
-                }
-
-                if (currentChunk) {
-                    chunks.push(
-                        currentChunk
-                    );
-                }
-
-                chunks
-                    .slice(0, 25)
-                    .forEach(
-                        (chunk, index) => {
-                            embed.addFields({
-                                name:
-                                    index === 0
-                                        ? '🔒 Неполученные достижения'
-                                        : '📋 Продолжение',
-                                value:
-                                    chunk,
-                                inline:
-                                    false,
-                            });
-                        }
-                    );
-            }
-
-            embed
-                .setFooter({
-                    text:
-                        `${guild.name} • TitanBot Achievements`,
-                    iconURL:
-                        guild.iconURL({
-                            extension: 'png',
-                            size: 64,
-                        }) || undefined,
-                })
-                .setTimestamp();
-
-            return interaction.editReply({
-                embeds: [embed],
-            });
-
-        } catch (error) {
-            console.error(
-                '[ACHIEVEMENTS COMMAND] Failed:',
-                error
+    const embed =
+        new EmbedBuilder()
+            .setColor('#5865F2')
+            .setAuthor({
+                name:
+                    `🏆 Достижения • ${targetUser.displayName}`,
+                iconURL:
+                    targetUser.displayAvatarURL({
+                        extension: 'png',
+                        size: 128,
+                    }),
+            })
+            .setDescription(
+                [
+                    `**Прогресс:** ${progress.unlocked}/${progress.total}`,
+                    `${createProgressBar(progress.percentage)} **${progress.percentage}%**`,
+                    '',
+                    'Здесь отображаются все доступные достижения пользователя.',
+                ].join('\n')
             );
 
-            return interaction.editReply({
-                content:
-                    '❌ Не удалось загрузить достижения пользователя.',
-            });
+    if (pageAchievements.length === 0) {
+        embed.addFields({
+            name: '📭 Пока пусто',
+            value:
+                'Достижения для отображения отсутствуют.',
+        });
+    } else {
+        for (const achievement of pageAchievements) {
+            embed.addFields(
+                createAchievementField(
+                    achievement
+                )
+            );
         }
-    },
-};
+    }
+
+    embed
+        .setFooter({
+            text:
+                `Страница ${safePage + 1}/${totalPages} • Всего достижений: ${progress.total}`,
+        })
+        .setTimestamp();
+
+    return {
+        embeds: [embed],
+        components:
+            buildAchievementsComponents({
+                page: safePage,
+                totalPages,
+            }),
+    };
+}
+
+/**
+ * ============================================================
+ * ACHIEVEMENT FIELD
+ * ============================================================
+ */
+
+function createAchievementField(
+    achievement
+) {
+    const rarity =
+        getAchievementRarity(
+            achievement.rarity
+        );
+
+    const category =
+        getAchievementCategory(
+            achievement.category
+        );
+
+    const unlocked =
+        Boolean(achievement.unlocked);
+
+    const icon =
+        unlocked
+            ? achievement.emoji || '🏆'
+            : '🔒';
+
+    const status =
+        unlocked
+            ? '✅ **Получено**'
+            : '🔒 **Не получено**';
+
+    const requirement =
+        achievement.requirementText
+            ? `Требование: **${achievement.requirementText}**`
+            : '';
+
+    const lines = [
+        achievement.description ||
+            'Описание отсутствует.',
+        '',
+        `${rarity.emoji} **${rarity.name}**`,
+        category
+            ? `${category.emoji} ${category.name}`
+            : null,
+        requirement || null,
+        '',
+        status,
+    ].filter(Boolean);
+
+    return {
+        name:
+            `${icon} ${achievement.name}`,
+        value:
+            lines.join('\n'),
+        inline: true,
+    };
+}
+
+/**
+ * ============================================================
+ * COMPONENTS
+ * ============================================================
+ */
+
+function buildAchievementsComponents({
+    page,
+    totalPages,
+}) {
+    const navigation =
+        new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(
+                    `achievements:page:${page - 1}`
+                )
+                .setLabel('Назад')
+                .setEmoji('⬅️')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(page <= 0),
+
+            new ButtonBuilder()
+                .setCustomId(
+                    'achievements:current'
+                )
+                .setLabel(
+                    `${page + 1} / ${totalPages}`
+                )
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(true),
+
+            new ButtonBuilder()
+                .setCustomId(
+                    `achievements:page:${page + 1}`
+                )
+                .setLabel('Далее')
+                .setEmoji('➡️')
+                .setStyle(ButtonStyle.Primary)
+                .setDisabled(
+                    page >= totalPages - 1
+                )
+        );
+
+    return [navigation];
+}
+
+/**
+ * ============================================================
+ * PROGRESS BAR
+ * ============================================================
+ */
+
+function createProgressBar(
+    percentage
+) {
+    const total = 10;
+
+    const filled =
+        Math.round(
+            (Math.max(
+                0,
+                Math.min(
+                    100,
+                    Number(percentage) || 0
+                )
+            ) /
+                100) *
+                total
+        );
+
+    return (
+        '▰'.repeat(filled) +
+        '▱'.repeat(total - filled)
+    );
+}
+
+/**
+ * ============================================================
+ * CONSTANTS
+ * ============================================================
+ */
+
+const ACHIEVEMENTS_PER_PAGE = 6;
