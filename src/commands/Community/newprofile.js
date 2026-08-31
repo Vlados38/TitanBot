@@ -46,11 +46,7 @@ export default {
 
     category: 'Community',
 
-    async execute(
-        interaction,
-        config,
-        client
-    ) {
+    async execute(interaction, config, client) {
         await interaction.deferReply();
 
         const targetUser =
@@ -88,14 +84,15 @@ export default {
                     user: targetUser,
                 });
 
-            const image =
-                await generateProfileCard(
-                    profileData
-                );
+            const result =
+                await renderNewProfilePage({
+                    page: 'profile',
+                    data: profileData,
+                });
 
             const attachment =
                 new AttachmentBuilder(
-                    image,
+                    result.buffer,
                     {
                         name:
                             `newprofile-${targetUser.id}.png`,
@@ -105,7 +102,9 @@ export default {
             const components =
                 buildNavigationButtons(
                     targetUser.id,
-                    'profile'
+                    result.currentPage,
+                    result.achievementPage,
+                    result.totalAchievementPages
                 );
 
             return interaction.editReply({
@@ -265,7 +264,7 @@ export async function loadProfileData({
 
 
 /* =========================================================
- * BUTTONS
+ * NAVIGATION BUTTONS
  * ======================================================= */
 
 export function buildNavigationButtons(
@@ -274,7 +273,9 @@ export function buildNavigationButtons(
     achievementPage = 0,
     totalAchievementPages = 1
 ) {
-    const profileButton =
+    const buttons = [];
+
+    buttons.push(
         new ButtonBuilder()
             .setCustomId(
                 `newprofile:profile:${targetUserId}`
@@ -285,9 +286,10 @@ export function buildNavigationButtons(
                 currentPage === 'profile'
                     ? ButtonStyle.Primary
                     : ButtonStyle.Secondary
-            );
+            )
+    );
 
-    const achievementButton =
+    buttons.push(
         new ButtonBuilder()
             .setCustomId(
                 `newprofile:achievements:${targetUserId}:0`
@@ -298,9 +300,10 @@ export function buildNavigationButtons(
                 currentPage === 'achievements'
                     ? ButtonStyle.Primary
                     : ButtonStyle.Secondary
-            );
+            )
+    );
 
-    const statisticsButton =
+    buttons.push(
         new ButtonBuilder()
             .setCustomId(
                 `newprofile:statistics:${targetUserId}`
@@ -311,13 +314,8 @@ export function buildNavigationButtons(
                 currentPage === 'statistics'
                     ? ButtonStyle.Primary
                     : ButtonStyle.Secondary
-            );
-
-    const buttons = [
-        profileButton,
-        achievementButton,
-        statisticsButton,
-    ];
+            )
+    );
 
     if (
         currentPage === 'achievements' &&
@@ -375,9 +373,11 @@ export async function renderNewProfilePage({
     data,
 }) {
     if (page === 'profile') {
+        const buffer =
+            await generateProfileCard(data);
+
         return {
-            buffer:
-                await generateProfileCard(data),
+            buffer,
 
             currentPage:
                 'profile',
@@ -390,12 +390,30 @@ export async function renderNewProfilePage({
         };
     }
 
+
     if (page === 'achievements') {
+        const achievementPage =
+            Math.max(
+                0,
+                Number(
+                    data.__achievementPage
+                ) || 0
+            );
+
         const result =
             await generateAchievementCard(
                 data,
-                data.__achievementPage ?? 0
+                achievementPage
             );
+
+        if (
+            !result ||
+            !result.buffer
+        ) {
+            throw new Error(
+                'generateAchievementCard() не вернул buffer'
+            );
+        }
 
         return {
             buffer:
@@ -405,19 +423,27 @@ export async function renderNewProfilePage({
                 'achievements',
 
             achievementPage:
-                result.page,
+                Number(result.page) || 0,
 
             totalAchievementPages:
-                result.totalPages,
+                Math.max(
+                    1,
+                    Number(
+                        result.totalPages
+                    ) || 1
+                ),
         };
     }
 
+
     if (page === 'statistics') {
+        const buffer =
+            await generateStatisticsCard(
+                data
+            );
+
         return {
-            buffer:
-                await generateStatisticsCard(
-                    data
-                ),
+            buffer,
 
             currentPage:
                 'statistics',
@@ -429,6 +455,7 @@ export async function renderNewProfilePage({
                 1,
         };
     }
+
 
     throw new Error(
         `Unknown newprofile page: ${page}`
