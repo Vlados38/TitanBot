@@ -24,10 +24,6 @@ import {
 } from '../../services/profile/profileCard.js';
 
 import {
-    generateAchievementCard,
-} from '../../services/profile/achievementCard.js';
-
-import {
     generateStatisticsCard,
 } from '../../services/profile/statisticsCard.js';
 
@@ -213,6 +209,15 @@ export async function loadProfileData({
     const totalBalance =
         wallet + bank;
 
+    /*
+     * Оставляем achievements в profileData,
+     * потому что другие части системы могут
+     * использовать эти данные.
+     *
+     * Но сама карточка newprofile их больше
+     * не отображает.
+     */
+
     const achievements =
         Array.isArray(
             achievementProfile?.achievements
@@ -270,24 +275,9 @@ export async function loadProfileData({
 
 export function buildNavigationButtons(
     targetUserId,
-    currentPage = 'profile',
-    achievementPage = 0,
-    totalAchievementPages = 1
+    currentPage = 'profile'
 ) {
     const buttons = [];
-
-    const safeAchievementPage =
-        Math.max(
-            0,
-            Number(achievementPage) || 0
-        );
-
-    const safeTotalAchievementPages =
-        Math.max(
-            1,
-            Number(totalAchievementPages) || 1
-        );
-
 
     /*
      * PROFILE
@@ -307,28 +297,6 @@ export function buildNavigationButtons(
             )
             .setDisabled(
                 currentPage === 'profile'
-            )
-    );
-
-
-    /*
-     * ACHIEVEMENTS
-     */
-
-    buttons.push(
-        new ButtonBuilder()
-            .setCustomId(
-                `newprofile:achievements:${targetUserId}:0`
-            )
-            .setLabel('Достижения')
-            .setEmoji('🏆')
-            .setStyle(
-                currentPage === 'achievements'
-                    ? ButtonStyle.Primary
-                    : ButtonStyle.Secondary
-            )
-            .setDisabled(
-                currentPage === 'achievements'
             )
     );
 
@@ -355,63 +323,6 @@ export function buildNavigationButtons(
     );
 
 
-    /*
-     * ACHIEVEMENT PAGINATION
-     *
-     * ВАЖНО:
-     *
-     * Здесь customId содержит ТОЛЬКО действие:
-     *
-     * newprofile:achievements:USER_ID:prev
-     * newprofile:achievements:USER_ID:next
-     *
-     * Номер страницы НЕ хранится в кнопке.
-     *
-     * Это позволяет обработчику всегда вычислять
-     * следующую/предыдущую страницу относительно
-     * фактически отображаемой страницы.
-     */
-
-    if (
-        currentPage === 'achievements' &&
-        safeTotalAchievementPages > 1
-    ) {
-        buttons.push(
-            new ButtonBuilder()
-                .setCustomId(
-                    `newprofile:achievements:${targetUserId}:prev`
-                )
-                .setLabel('Назад')
-                .setEmoji('⬅️')
-                .setStyle(
-                    ButtonStyle.Secondary
-                )
-                .setDisabled(
-                    safeAchievementPage <= 0
-                ),
-
-            new ButtonBuilder()
-                .setCustomId(
-                    `newprofile:achievements:${targetUserId}:next`
-                )
-                .setLabel('Далее')
-                .setEmoji('➡️')
-                .setStyle(
-                    ButtonStyle.Secondary
-                )
-                .setDisabled(
-                    safeAchievementPage >=
-                    safeTotalAchievementPages - 1
-                )
-        );
-    }
-
-
-    /*
-     * Discord позволяет максимум 5 кнопок
-     * в одном ActionRow.
-     */
-
     return [
         new ActionRowBuilder()
             .addComponents(buttons),
@@ -426,7 +337,6 @@ export function buildNavigationButtons(
 export async function renderNewProfilePage({
     page,
     data,
-    achievementPage = 0,
 }) {
     /*
      * PROFILE
@@ -441,39 +351,6 @@ export async function renderNewProfilePage({
 
             currentPage:
                 'profile',
-
-            achievementPage:
-                0,
-
-            totalAchievementPages:
-                1,
-        };
-    }
-
-
-    /*
-     * ACHIEVEMENTS
-     */
-
-    if (page === 'achievements') {
-        const result =
-            await generateAchievementCard(
-                data,
-                achievementPage
-            );
-
-        return {
-            buffer:
-                result.buffer,
-
-            currentPage:
-                'achievements',
-
-            achievementPage:
-                result.page,
-
-            totalAchievementPages:
-                result.totalPages,
         };
     }
 
@@ -491,12 +368,6 @@ export async function renderNewProfilePage({
 
             currentPage:
                 'statistics',
-
-            achievementPage:
-                0,
-
-            totalAchievementPages:
-                1,
         };
     }
 
