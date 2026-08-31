@@ -32,10 +32,6 @@ import {
 } from '../../services/profile/statisticsCard.js';
 
 
-/* =========================================================
- * COMMAND
- * ======================================================= */
-
 export default {
     data: new SlashCommandBuilder()
         .setName('newprofile')
@@ -92,42 +88,40 @@ export default {
                     user: targetUser,
                 });
 
-            const result =
-                await renderNewProfilePage({
-                    page: 'profile',
-                    data: profileData,
-                });
+            const image =
+                await generateProfileCard(
+                    profileData
+                );
 
             const attachment =
                 new AttachmentBuilder(
-                    result.buffer,
+                    image,
                     {
                         name:
                             `newprofile-${targetUser.id}.png`,
                     }
                 );
 
+            const components =
+                buildNavigationButtons(
+                    targetUser.id,
+                    'profile'
+                );
+
             return interaction.editReply({
-                content: '',
                 files: [attachment],
-                components:
-                    buildNavigationButtons(
-                        targetUser.id,
-                        'profile',
-                        0,
-                        1
-                    ),
+                components,
             });
 
         } catch (error) {
             console.error(
-                '[NEWPROFILE] Failed to open profile:',
+                '[NEWPROFILE] Failed:',
                 error
             );
 
             return interaction.editReply({
                 content:
-                    '❌ Не удалось открыть эту страницу профиля.',
+                    '❌ Не удалось создать карточку профиля.',
             });
         }
     },
@@ -228,7 +222,7 @@ export async function loadProfileData({
 
     const unlockedAchievements =
         achievements.filter(
-            (achievement) =>
+            achievement =>
                 achievement?.unlocked
         );
 
@@ -282,10 +276,9 @@ export function buildNavigationButtons(
 ) {
     const buttons = [];
 
-
-    /* -----------------------------------------------------
+    /*
      * PROFILE
-     * --------------------------------------------------- */
+     */
 
     buttons.push(
         new ButtonBuilder()
@@ -302,28 +295,48 @@ export function buildNavigationButtons(
     );
 
 
-    /* -----------------------------------------------------
+    /*
      * ACHIEVEMENTS
-     * --------------------------------------------------- */
+     *
+     * ВАЖНО:
+     * Если мы уже на странице достижений,
+     * НЕ создаём кнопку с page=0.
+     *
+     * Иначе она может совпасть с кнопкой
+     * "Назад".
+     */
 
-    buttons.push(
-        new ButtonBuilder()
-            .setCustomId(
-                `newprofile:achievements:${targetUserId}:0`
-            )
-            .setLabel('Достижения')
-            .setEmoji('🏆')
-            .setStyle(
-                currentPage === 'achievements'
-                    ? ButtonStyle.Primary
-                    : ButtonStyle.Secondary
-            )
-    );
+    if (currentPage === 'achievements') {
+        buttons.push(
+            new ButtonBuilder()
+                .setCustomId(
+                    `newprofile:achievements:${targetUserId}:${achievementPage}`
+                )
+                .setLabel('Достижения')
+                .setEmoji('🏆')
+                .setStyle(
+                    ButtonStyle.Primary
+                )
+                .setDisabled(true)
+        );
+    } else {
+        buttons.push(
+            new ButtonBuilder()
+                .setCustomId(
+                    `newprofile:achievements:${targetUserId}:0`
+                )
+                .setLabel('Достижения')
+                .setEmoji('🏆')
+                .setStyle(
+                    ButtonStyle.Secondary
+                )
+        );
+    }
 
 
-    /* -----------------------------------------------------
+    /*
      * STATISTICS
-     * --------------------------------------------------- */
+     */
 
     buttons.push(
         new ButtonBuilder()
@@ -337,20 +350,19 @@ export function buildNavigationButtons(
                     ? ButtonStyle.Primary
                     : ButtonStyle.Secondary
             )
+            .setDisabled(
+                currentPage === 'statistics'
+            )
     );
 
 
-    /* -----------------------------------------------------
-     * PAGINATION
+    /*
+     * ACHIEVEMENT PAGINATION
      *
-     * ВАЖНО:
-     * Не используем .setEmoji('‹') / .setEmoji('›').
-     *
-     * ‹ и › — Unicode-символы, но Discord ожидает
-     * настоящее emoji в .setEmoji().
-     * Поэтому стрелки находятся непосредственно
-     * в тексте кнопки.
-     * --------------------------------------------------- */
+     * Используем только стандартные emoji.
+     * Никаких ‹ › — Discord иногда считает их
+     * невалидными emoji.
+     */
 
     if (
         currentPage === 'achievements' &&
@@ -359,12 +371,13 @@ export function buildNavigationButtons(
         buttons.push(
             new ButtonBuilder()
                 .setCustomId(
-                    `newprofile:achievements:${targetUserId}:${Math.max(
+                    `newprofile:achievements:${targetUserId}:prev:${Math.max(
                         0,
                         achievementPage - 1
                     )}`
                 )
-                .setLabel('← Назад')
+                .setLabel('Назад')
+                .setEmoji('⬅️')
                 .setStyle(
                     ButtonStyle.Secondary
                 )
@@ -374,12 +387,13 @@ export function buildNavigationButtons(
 
             new ButtonBuilder()
                 .setCustomId(
-                    `newprofile:achievements:${targetUserId}:${Math.min(
+                    `newprofile:achievements:${targetUserId}:next:${Math.min(
                         totalAchievementPages - 1,
                         achievementPage + 1
                     )}`
                 )
-                .setLabel('Далее →')
+                .setLabel('Далее')
+                .setEmoji('➡️')
                 .setStyle(
                     ButtonStyle.Secondary
                 )
@@ -390,6 +404,11 @@ export function buildNavigationButtons(
         );
     }
 
+
+    /*
+     * Discord позволяет максимум 5 кнопок
+     * в одном ActionRow.
+     */
 
     return [
         new ActionRowBuilder()
@@ -407,9 +426,9 @@ export async function renderNewProfilePage({
     data,
     achievementPage = 0,
 }) {
-    /* -----------------------------------------------------
+    /*
      * PROFILE
-     * --------------------------------------------------- */
+     */
 
     if (page === 'profile') {
         return {
@@ -430,9 +449,9 @@ export async function renderNewProfilePage({
     }
 
 
-    /* -----------------------------------------------------
+    /*
      * ACHIEVEMENTS
-     * --------------------------------------------------- */
+     */
 
     if (page === 'achievements') {
         const result =
@@ -457,9 +476,9 @@ export async function renderNewProfilePage({
     }
 
 
-    /* -----------------------------------------------------
+    /*
      * STATISTICS
-     * --------------------------------------------------- */
+     */
 
     if (page === 'statistics') {
         return {
@@ -483,216 +502,4 @@ export async function renderNewProfilePage({
     throw new Error(
         `Unknown newprofile page: ${page}`
     );
-}
-
-
-/* =========================================================
- * HANDLE BUTTON
- * ======================================================= */
-
-export async function handleNewProfileButton(
-    interaction,
-    client
-) {
-    const customId =
-        interaction.customId;
-
-    if (
-        !customId ||
-        !customId.startsWith(
-            'newprofile:'
-        )
-    ) {
-        return false;
-    }
-
-
-    console.log(
-        `[NEWPROFILE BUTTON] ${customId}`
-    );
-
-
-    /* -----------------------------------------------------
-     * PARSE
-     * --------------------------------------------------- */
-
-    const parts =
-        customId.split(':');
-
-    const action =
-        parts[1];
-
-    const targetUserId =
-        parts[2];
-
-    const achievementPage =
-        parts[3]
-            ? Number(parts[3])
-            : 0;
-
-
-    if (
-        !action ||
-        !targetUserId
-    ) {
-        return false;
-    }
-
-
-    /* -----------------------------------------------------
-     * ACKNOWLEDGE BUTTON
-     * --------------------------------------------------- */
-
-    await interaction.deferUpdate();
-
-
-    try {
-        const guild =
-            interaction.guild;
-
-        if (!guild) {
-            return true;
-        }
-
-
-        /* -------------------------------------------------
-         * TARGET USER
-         * ----------------------------------------------- */
-
-        const targetUser =
-            await client.users.fetch(
-                targetUserId
-            );
-
-
-        /* -------------------------------------------------
-         * MEMBER
-         * ----------------------------------------------- */
-
-        const member =
-            await guild.members
-                .fetch(targetUserId)
-                .catch(() => null);
-
-        if (!member) {
-            await interaction.editReply({
-                content:
-                    '❌ Пользователь больше не находится на сервере.',
-                embeds: [],
-                files: [],
-                components: [],
-            });
-
-            return true;
-        }
-
-
-        /* -------------------------------------------------
-         * LOAD DATA
-         * ----------------------------------------------- */
-
-        const profileData =
-            await loadProfileData({
-                client,
-                guild,
-                member,
-                user: targetUser,
-            });
-
-
-        /* -------------------------------------------------
-         * DETERMINE PAGE
-         * ----------------------------------------------- */
-
-        let page;
-
-        if (action === 'profile') {
-            page = 'profile';
-        } else if (action === 'achievements') {
-            page = 'achievements';
-        } else if (action === 'statistics') {
-            page = 'statistics';
-        } else {
-            throw new Error(
-                `Unknown newprofile action: ${action}`
-            );
-        }
-
-
-        /* -------------------------------------------------
-         * RENDER
-         * ----------------------------------------------- */
-
-        const result =
-            await renderNewProfilePage({
-                page,
-                data: profileData,
-                achievementPage,
-            });
-
-
-        /* -------------------------------------------------
-         * ATTACHMENT
-         * ----------------------------------------------- */
-
-        const attachment =
-            new AttachmentBuilder(
-                result.buffer,
-                {
-                    name:
-                        `newprofile-${targetUserId}.png`,
-                }
-            );
-
-
-        /* -------------------------------------------------
-         * BUTTONS
-         * ----------------------------------------------- */
-
-        const components =
-            buildNavigationButtons(
-                targetUserId,
-                result.currentPage,
-                result.achievementPage,
-                result.totalAchievementPages
-            );
-
-
-        /* -------------------------------------------------
-         * UPDATE ORIGINAL MESSAGE
-         * ----------------------------------------------- */
-
-        await interaction.editReply({
-            content: '',
-            embeds: [],
-            files: [attachment],
-            components,
-        });
-
-
-        return true;
-
-    } catch (error) {
-        console.error(
-            '[NEWPROFILE BUTTON] Failed:',
-            error
-        );
-
-        try {
-            await interaction.editReply({
-                content:
-                    '❌ Не удалось открыть эту страницу профиля.',
-                embeds: [],
-                files: [],
-                components: [],
-            });
-        } catch (editError) {
-            console.error(
-                '[NEWPROFILE BUTTON] Failed to send error:',
-                editError
-            );
-        }
-
-        return true;
-    }
 }
