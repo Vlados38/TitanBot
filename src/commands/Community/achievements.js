@@ -11,7 +11,9 @@ import {
     getUserAchievementProfile,
 } from '../../services/achievements/achievementService.js';
 
+
 const PAGE_SIZE = 6;
+
 
 const CATEGORY_ORDER = [
     'progression',
@@ -21,38 +23,57 @@ const CATEGORY_ORDER = [
     'special',
 ];
 
+
+/* =========================================================
+ * HELPERS
+ * ======================================================= */
+
 function chunk(array, size) {
     const result = [];
 
     for (let i = 0; i < array.length; i += size) {
-        result.push(array.slice(i, i + size));
+        result.push(
+            array.slice(i, i + size)
+        );
     }
 
     return result;
 }
 
-function createProgressBar(value, total, size = 14) {
+
+function createProgressBar(
+    value,
+    total,
+    size = 20
+) {
     if (!total) {
         return '░'.repeat(size);
     }
 
-    const percentage = Math.max(
-        0,
-        Math.min(
-            100,
-            (value / total) * 100
-        )
-    );
+    const percentage =
+        Math.max(
+            0,
+            Math.min(
+                100,
+                (value / total) * 100
+            )
+        );
 
-    const filled = Math.round(
-        (percentage / 100) * size
-    );
+    const filled =
+        Math.round(
+            (percentage / 100) * size
+        );
 
     return (
         '█'.repeat(filled) +
         '░'.repeat(size - filled)
     );
 }
+
+
+/* =========================================================
+ * RARITY
+ * ======================================================= */
 
 function getRarityInfo(achievement) {
     const rarities = {
@@ -87,6 +108,11 @@ function getRarityInfo(achievement) {
         rarities.common
     );
 }
+
+
+/* =========================================================
+ * CATEGORY
+ * ======================================================= */
 
 function getCategoryInfo(achievement) {
     const categories = {
@@ -124,49 +150,60 @@ function getCategoryInfo(achievement) {
     );
 }
 
-function formatAchievement(achievement) {
-    const rarity =
-        getRarityInfo(achievement);
 
-    const category =
-        getCategoryInfo(achievement);
+/* =========================================================
+ * ACHIEVEMENT DISPLAY
+ * ======================================================= */
+
+function formatAchievement(
+    achievement
+) {
+    const rarity =
+        getRarityInfo(
+            achievement
+        );
+
+    /*
+     * UNLOCKED
+     */
 
     if (achievement.unlocked) {
         return [
             `${achievement.emoji || '🏆'} **${achievement.name}**`,
-            `${rarity.emoji} ${rarity.name} • ${category.emoji} ${category.name}`,
-            achievement.description ||
-                'Достижение разблокировано.',
-            achievement.unlockedAt
-                ? `> Получено <t:${Math.floor(
-                      achievement.unlockedAt / 1000
-                  )}:R>`
-                : null,
-        ]
-            .filter(Boolean)
-            .join('\n');
+            `${rarity.emoji} ${rarity.name}`,
+            '✅ Получено',
+        ].join('\n');
     }
+
+
+    /*
+     * SECRET
+     */
 
     if (achievement.secret) {
         return [
             '❔ **Секретное достижение**',
-            `${rarity.emoji} ${rarity.name} • ${category.emoji} ${category.name}`,
-            'Условия этого достижения скрыты.',
+            `${rarity.emoji} ${rarity.name}`,
+            '🔒 Условия скрыты',
         ].join('\n');
     }
 
+
+    /*
+     * LOCKED
+     */
+
     return [
         `🔒 **${achievement.name}**`,
-        `${rarity.emoji} ${rarity.name} • ${category.emoji} ${category.name}`,
-        achievement.description ||
-            'Достижение ещё не получено.',
-        achievement.requirementText
-            ? `> Требование: ${achievement.requirementText}`
-            : null,
-    ]
-        .filter(Boolean)
-        .join('\n');
+        `${rarity.emoji} ${rarity.name}`,
+        'Не получено',
+    ].join('\n');
 }
+
+
+/* =========================================================
+ * BUILD PAGES
+ * ======================================================= */
 
 function buildPages(profile) {
     const grouped =
@@ -179,11 +216,16 @@ function buildPages(profile) {
             )
         );
 
+
     for (
         const achievement of
             profile.achievements
     ) {
-        if (!grouped.has(achievement.category)) {
+        if (
+            !grouped.has(
+                achievement.category
+            )
+        ) {
             grouped.set(
                 achievement.category,
                 []
@@ -195,7 +237,9 @@ function buildPages(profile) {
             .push(achievement);
     }
 
+
     const ordered = [];
+
 
     for (
         const achievements of
@@ -206,11 +250,17 @@ function buildPages(profile) {
         );
     }
 
+
     return chunk(
         ordered,
         PAGE_SIZE
     );
 }
+
+
+/* =========================================================
+ * BUILD EMBED
+ * ======================================================= */
 
 function buildEmbed({
     targetUser,
@@ -221,6 +271,7 @@ function buildEmbed({
     const achievements =
         pages[page] || [];
 
+
     const {
         total,
         unlocked,
@@ -228,57 +279,141 @@ function buildEmbed({
         percentage,
     } = profile.progress;
 
+
+    /*
+     * Split achievements into
+     * two columns.
+     */
+
+    const left = [];
+    const right = [];
+
+
+    achievements.forEach(
+        (achievement, index) => {
+            const formatted =
+                formatAchievement(
+                    achievement
+                );
+
+            if (index % 2 === 0) {
+                left.push(
+                    formatted
+                );
+            } else {
+                right.push(
+                    formatted
+                );
+            }
+        }
+    );
+
+
     const embed =
         new EmbedBuilder()
             .setColor('#5865F2')
+
+
+            /*
+             * Header
+             */
+
             .setAuthor({
                 name:
-                    `Достижения • ${targetUser.username}`,
+                    targetUser.username,
                 iconURL:
                     targetUser.displayAvatarURL({
                         extension: 'png',
                         size: 128,
                     }),
             })
+
+
+            /*
+             * Title
+             */
+
             .setTitle(
-                '🏆 Коллекция достижений'
+                '🏆 Достижения'
             )
+
+
+            /*
+             * Progress
+             */
+
             .setDescription(
                 [
-                    `**Прогресс:** ${unlocked}/${total} • **${percentage}%**`,
+                    'Коллекция наград',
+                    '',
+                    `**${unlocked} / ${total}** достижений получено`,
                     `\`${createProgressBar(
                         unlocked,
                         total
-                    )}\``,
-                    '',
-                    `🏆 Получено: **${unlocked}**`,
-                    `🔒 Осталось: **${remaining}**`,
+                    )}\` **${percentage}%**`,
                 ].join('\n')
             );
 
-    for (
-        const achievement of
-            achievements
-    ) {
-        embed.addFields({
-            name: '\u200B',
+
+    /*
+     * Achievements
+     */
+
+    embed.addFields(
+        {
+            name:
+                '✨ Достижения',
             value:
-                formatAchievement(
-                    achievement
-                ),
-            inline: false,
-        });
-    }
+                left.length
+                    ? left.join('\n\n')
+                    : 'Нет достижений',
+            inline: true,
+        },
+
+        {
+            name:
+                '\u200B',
+            value:
+                right.length
+                    ? right.join('\n\n')
+                    : '\u200B',
+            inline: true,
+        }
+    );
+
+
+    /*
+     * Summary
+     */
+
+    embed.addFields({
+        name:
+            '\u200B',
+        value: [
+            `🏆 Получено: **${unlocked}**`,
+            `🔒 Осталось: **${remaining}**`,
+        ].join('  •  '),
+        inline: false,
+    });
+
+
+    /*
+     * Footer
+     */
 
     embed.setFooter({
         text:
             `Страница ${page + 1}/${pages.length} • TitanBot`,
     });
 
-    embed.setTimestamp();
 
     return embed;
 }
+
+
+/* =========================================================
+ * BUTTONS
+ * ======================================================= */
 
 function buildButtons(
     userId,
@@ -287,6 +422,11 @@ function buildButtons(
 ) {
     return new ActionRowBuilder()
         .addComponents(
+
+            /*
+             * PREVIOUS
+             */
+
             new ButtonBuilder()
                 .setCustomId(
                     `achievements:prev:${userId}:${page}`
@@ -299,6 +439,11 @@ function buildButtons(
                     page <= 0
                 ),
 
+
+            /*
+             * PAGE
+             */
+
             new ButtonBuilder()
                 .setCustomId(
                     `achievements:page:${userId}:${page}`
@@ -310,6 +455,11 @@ function buildButtons(
                     ButtonStyle.Primary
                 )
                 .setDisabled(true),
+
+
+            /*
+             * NEXT
+             */
 
             new ButtonBuilder()
                 .setCustomId(
@@ -325,84 +475,165 @@ function buildButtons(
         );
 }
 
+
+/* =========================================================
+ * COMMAND
+ * ======================================================= */
+
 export default {
-    data: new SlashCommandBuilder()
-        .setName('achievements')
-        .setDescription(
-            'Посмотреть достижения'
-        )
-        .addUserOption(option =>
-            option
-                .setName('user')
-                .setDescription(
-                    'Пользователь'
-                )
-                .setRequired(false)
-        ),
+    data:
+        new SlashCommandBuilder()
+            .setName(
+                'achievements'
+            )
+            .setDescription(
+                'Посмотреть достижения'
+            )
+            .addUserOption(
+                option =>
+                    option
+                        .setName(
+                            'user'
+                        )
+                        .setDescription(
+                            'Пользователь'
+                        )
+                        .setRequired(
+                            false
+                        )
+            )
+            .setDMPermission(
+                false
+            ),
+
+
+    category:
+        'Community',
+
 
     async execute(
         interaction,
         guildConfig,
         client
     ) {
+        /*
+         * SERVER CHECK
+         */
+
         if (!interaction.guildId) {
             return interaction.reply({
                 content:
                     '❌ Команда доступна только на сервере.',
+
                 flags:
                     MessageFlags.Ephemeral,
             });
         }
 
+
+        /*
+         * TARGET USER
+         */
+
         const targetUser =
             interaction.options.getUser(
                 'user'
-            ) || interaction.user;
+            ) ||
+            interaction.user;
+
 
         await interaction.deferReply();
 
-        const profile =
-            await getUserAchievementProfile(
-                client,
-                interaction.guildId,
-                targetUser.id
-            );
 
-        const pages =
-            buildPages(profile);
+        try {
+            /*
+             * LOAD ACHIEVEMENTS
+             */
 
-        if (!pages.length) {
+            const profile =
+                await getUserAchievementProfile(
+                    client,
+                    interaction.guildId,
+                    targetUser.id
+                );
+
+
+            /*
+             * BUILD PAGES
+             */
+
+            const pages =
+                buildPages(
+                    profile
+                );
+
+
+            /*
+             * EMPTY
+             */
+
+            if (!pages.length) {
+                return interaction.editReply({
+                    embeds: [
+                        new EmbedBuilder()
+                            .setColor(
+                                '#5865F2'
+                            )
+                            .setAuthor({
+                                name:
+                                    targetUser.username,
+                                iconURL:
+                                    targetUser.displayAvatarURL({
+                                        extension:
+                                            'png',
+                                        size:
+                                            128,
+                                    }),
+                            })
+                            .setTitle(
+                                '🏆 Достижения'
+                            )
+                            .setDescription(
+                                'На сервере пока нет доступных достижений.'
+                            ),
+                    ],
+                });
+            }
+
+
+            /*
+             * FIRST PAGE
+             */
+
             return interaction.editReply({
                 embeds: [
-                    new EmbedBuilder()
-                        .setColor('#5865F2')
-                        .setTitle(
-                            '🏆 Достижения'
-                        )
-                        .setDescription(
-                            'На сервере пока нет доступных достижений.'
-                        ),
+                    buildEmbed({
+                        targetUser,
+                        profile,
+                        pages,
+                        page: 0,
+                    }),
+                ],
+
+                components: [
+                    buildButtons(
+                        targetUser.id,
+                        0,
+                        pages.length
+                    ),
                 ],
             });
+
+        } catch (error) {
+            console.error(
+                '[ACHIEVEMENTS] Failed:',
+                error
+            );
+
+            return interaction.editReply({
+                content:
+                    '❌ Не удалось загрузить достижения.',
+            });
         }
-
-        await interaction.editReply({
-            embeds: [
-                buildEmbed({
-                    targetUser,
-                    profile,
-                    pages,
-                    page: 0,
-                }),
-            ],
-
-            components: [
-                buildButtons(
-                    targetUser.id,
-                    0,
-                    pages.length
-                ),
-            ],
-        });
     },
 };
