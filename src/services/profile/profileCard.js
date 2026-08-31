@@ -501,7 +501,7 @@ export async function generateProfileCard(data) {
     font-size="11"
     letter-spacing="2"
 >
-    ПРОФИЛЬ
+    ДИСБОРД
 </text>
 
 
