@@ -4,12 +4,11 @@ import {
     ButtonStyle,
     EmbedBuilder,
     MessageFlags,
+    SlashCommandBuilder,
 } from 'discord.js';
 
 import {
     getUserAchievementProfile,
-    getAchievementRarity,
-    getAchievementCategory,
 } from '../../services/achievements/achievementService.js';
 
 const PAGE_SIZE = 6;
@@ -32,18 +31,18 @@ function chunk(array, size) {
     return result;
 }
 
-function createProgressBar(value, total, size = 12) {
+function createProgressBar(value, total, size = 14) {
     if (!total) {
         return '░'.repeat(size);
     }
 
     const percentage = Math.max(
         0,
-        Math.min(100, (value / total) * 100)
+        Math.min(100, value / total * 100)
     );
 
     const filled = Math.round(
-        (percentage / 100) * size
+        percentage / 100 * size
     );
 
     return (
@@ -52,26 +51,87 @@ function createProgressBar(value, total, size = 12) {
     );
 }
 
-function formatAchievement(achievement) {
-    const rarity = getAchievementRarity(
-        achievement.rarity
-    );
+function getRarityInfo(achievement) {
+    const rarities = {
+        common: {
+            name: 'Обычное',
+            emoji: '⚪',
+        },
+        uncommon: {
+            name: 'Необычное',
+            emoji: '🟢',
+        },
+        rare: {
+            name: 'Редкое',
+            emoji: '🔵',
+        },
+        epic: {
+            name: 'Эпическое',
+            emoji: '🟣',
+        },
+        legendary: {
+            name: 'Легендарное',
+            emoji: '🟡',
+        },
+    };
 
-    const category = getAchievementCategory(
-        achievement.category
+    return (
+        rarities[achievement.rarity] ||
+        rarities.common
     );
+}
+
+function getCategoryInfo(achievement) {
+    const categories = {
+        progression: {
+            name: 'Прогресс',
+            emoji: '📈',
+        },
+        activity: {
+            name: 'Активность',
+            emoji: '⚡',
+        },
+        economy: {
+            name: 'Экономика',
+            emoji: '💰',
+        },
+        social: {
+            name: 'Общение',
+            emoji: '💬',
+        },
+        special: {
+            name: 'Особые',
+            emoji: '✨',
+        },
+    };
+
+    return (
+        categories[achievement.category] ||
+        {
+            name: 'Другое',
+            emoji: '📁',
+        }
+    );
+}
+
+function formatAchievement(achievement) {
+    const rarity =
+        getRarityInfo(achievement);
+
+    const category =
+        getCategoryInfo(achievement);
 
     if (achievement.unlocked) {
         return [
             `${achievement.emoji || '🏆'} **${achievement.name}**`,
-            `${rarity.emoji} ${rarity.name} • ${category?.emoji || '📁'} ${category?.name || 'Другое'}`,
+            `${rarity.emoji} ${rarity.name} • ${category.emoji} ${category.name}`,
             achievement.description ||
                 'Достижение разблокировано.',
             achievement.unlockedAt
-                ? `> Получено: <t:${Math.floor(
+                ? `> Получено <t:${Math.floor(
                       achievement.unlockedAt / 1000
-                  )}:d>`
-                : '',
+                  )}:R>`
+                : null,
         ]
             .filter(Boolean)
             .join('\n');
@@ -80,34 +140,44 @@ function formatAchievement(achievement) {
     if (achievement.secret) {
         return [
             '❔ **Секретное достижение**',
-            `${rarity.emoji} ${rarity.name}`,
+            `${rarity.emoji} ${rarity.name} • ${category.emoji} ${category.name}`,
             'Условия этого достижения скрыты.',
         ].join('\n');
     }
 
     return [
-        '🔒 **' + achievement.name + '**',
-        `${rarity.emoji} ${rarity.name} • ${category?.emoji || '📁'} ${category?.name || 'Другое'}`,
+        `🔒 **${achievement.name}**`,
+        `${rarity.emoji} ${rarity.name} • ${category.emoji} ${category.name}`,
         achievement.description ||
             'Достижение ещё не получено.',
         achievement.requirementText
             ? `> Требование: ${achievement.requirementText}`
-            : '',
+            : null,
     ]
         .filter(Boolean)
         .join('\n');
 }
 
 function buildPages(profile) {
-    const grouped = new Map();
+    const grouped =
+        new Map(
+            CATEGORY_ORDER.map(
+                category => [
+                    category,
+                    [],
+                ]
+            )
+        );
 
-    for (const category of CATEGORY_ORDER) {
-        grouped.set(category, []);
-    }
-
-    for (const achievement of profile.achievements) {
+    for (
+        const achievement of
+            profile.achievements
+    ) {
         if (!grouped.has(achievement.category)) {
-            grouped.set(achievement.category, []);
+            grouped.set(
+                achievement.category,
+                []
+            );
         }
 
         grouped
@@ -117,20 +187,27 @@ function buildPages(profile) {
 
     const ordered = [];
 
-    for (const [, achievements] of grouped) {
+    for (
+        const achievements of
+            grouped.values()
+    ) {
         ordered.push(...achievements);
     }
 
-    return chunk(ordered, PAGE_SIZE);
+    return chunk(
+        ordered,
+        PAGE_SIZE
+    );
 }
 
 function buildEmbed({
-    interaction,
+    targetUser,
     profile,
     pages,
     page,
 }) {
-    const currentPage = pages[page] || [];
+    const achievements =
+        pages[page] || [];
 
     const {
         total,
@@ -139,38 +216,49 @@ function buildEmbed({
         percentage,
     } = profile.progress;
 
-    const embed = new EmbedBuilder()
-        .setColor('#5865F2')
-        .setAuthor({
-            name: 'Система достижений',
-            iconURL: interaction.user.displayAvatarURL({
-                extension: 'png',
-                size: 128,
-            }),
-        })
-        .setTitle('🏆 Достижения')
-        .setDescription(
-            [
-                `### ${interaction.user}`,
-                '',
-                `**Прогресс:** ${unlocked}/${total} • **${percentage}%**`,
-                `\`${createProgressBar(unlocked, total)}\``,
-                '',
-                `🏆 Получено: **${unlocked}**`,
-                `🔒 Осталось: **${remaining}**`,
-            ].join('\n')
-        );
+    const embed =
+        new EmbedBuilder()
+            .setColor('#5865F2')
+            .setAuthor({
+                name:
+                    `Достижения • ${targetUser.username}`,
+                iconURL:
+                    targetUser.displayAvatarURL({
+                        extension: 'png',
+                        size: 128,
+                    }),
+            })
+            .setTitle('🏆 Коллекция достижений')
+            .setDescription(
+                [
+                    `**Прогресс:** ${unlocked}/${total} • **${percentage}%**`,
+                    `\`${createProgressBar(
+                        unlocked,
+                        total
+                    )}\``,
+                    '',
+                    `🏆 Получено: **${unlocked}**`,
+                    `🔒 Осталось: **${remaining}**`,
+                ].join('\n')
+            );
 
-    for (const achievement of currentPage) {
+    for (
+        const achievement of
+            achievements
+    ) {
         embed.addFields({
             name: '\u200B',
-            value: formatAchievement(achievement),
+            value:
+                formatAchievement(
+                    achievement
+                ),
             inline: false,
         });
     }
 
     embed.setFooter({
-        text: `Страница ${page + 1}/${pages.length} • TitanBot`,
+        text:
+            `Страница ${page + 1}/${pages.length} • TitanBot`,
     });
 
     embed.setTimestamp();
@@ -178,68 +266,83 @@ function buildEmbed({
     return embed;
 }
 
-function buildButtons(page, totalPages) {
-    return new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId(`achievements:prev:${page}`)
-            .setEmoji('◀️')
-            .setStyle(ButtonStyle.Secondary)
-            .setDisabled(page <= 0),
-
-        new ButtonBuilder()
-            .setCustomId(`achievements:page:${page}`)
-            .setLabel(`${page + 1} / ${totalPages}`)
-            .setStyle(ButtonStyle.Primary)
-            .setDisabled(true),
-
-        new ButtonBuilder()
-            .setCustomId(`achievements:next:${page}`)
-            .setEmoji('▶️')
-            .setStyle(ButtonStyle.Secondary)
-            .setDisabled(page >= totalPages - 1)
-    );
-}
-
-async function renderAchievements(
-    interaction,
-    profile,
-    pages,
-    page
+function buildButtons(
+    page,
+    totalPages
 ) {
-    return {
-        embeds: [
-            buildEmbed({
-                interaction,
-                profile,
-                pages,
-                page,
-            }),
-        ],
-        components: [
-            buildButtons(
-                page,
-                pages.length
-            ),
-        ],
-    };
+    return new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId(
+                    `achievements:prev:${page}`
+                )
+                .setEmoji('◀️')
+                .setStyle(
+                    ButtonStyle.Secondary
+                )
+                .setDisabled(
+                    page <= 0
+                ),
+
+            new ButtonBuilder()
+                .setCustomId(
+                    `achievements:page:${page}`
+                )
+                .setLabel(
+                    `${page + 1} / ${totalPages}`
+                )
+                .setStyle(
+                    ButtonStyle.Primary
+                )
+                .setDisabled(true),
+
+            new ButtonBuilder()
+                .setCustomId(
+                    `achievements:next:${page}`
+                )
+                .setEmoji('▶️')
+                .setStyle(
+                    ButtonStyle.Secondary
+                )
+                .setDisabled(
+                    page >= totalPages - 1
+                )
+        );
 }
 
 export default {
-    name: 'achievements',
-    category: 'Community',
+    data: new SlashCommandBuilder()
+        .setName('achievements')
+        .setDescription(
+            'Посмотреть достижения'
+        )
+        .addUserOption(option =>
+            option
+                .setName('user')
+                .setDescription(
+                    'Пользователь'
+                )
+                .setRequired(false)
+        ),
 
-    async execute(interaction, guildConfig, client) {
-        const targetUser =
-            interaction.options?.getUser?.('user') ||
-            interaction.user;
-
+    async execute(
+        interaction,
+        guildConfig,
+        client
+    ) {
         if (!interaction.guildId) {
             return interaction.reply({
                 content:
                     '❌ Команда доступна только на сервере.',
-                flags: MessageFlags.Ephemeral,
+                flags:
+                    MessageFlags.Ephemeral,
             });
         }
+
+        const targetUser =
+            interaction.options.getUser(
+                'user'
+            ) || interaction.user;
 
         await interaction.deferReply();
 
@@ -250,99 +353,45 @@ export default {
                 targetUser.id
             );
 
-        const pages = buildPages(profile);
+        const pages =
+            buildPages(profile);
 
         if (!pages.length) {
             return interaction.editReply({
                 embeds: [
                     new EmbedBuilder()
                         .setColor('#5865F2')
-                        .setTitle('🏆 Достижения')
+                        .setTitle(
+                            '🏆 Достижения'
+                        )
                         .setDescription(
                             'На сервере пока нет доступных достижений.'
                         ),
                 ],
-                components: [],
             });
         }
 
         let currentPage = 0;
 
-        const message =
-            await interaction.editReply(
-                await renderAchievements(
-                    {
-                        ...interaction,
-                        user: targetUser,
-                    },
+        const render = () => ({
+            embeds: [
+                buildEmbed({
+                    targetUser,
                     profile,
                     pages,
-                    currentPage
-                )
-            );
-
-        const collector =
-            message.createMessageComponentCollector({
-                time: 10 * 60 * 1000,
-            });
-
-        collector.on('collect', async buttonInteraction => {
-            if (
-                buttonInteraction.user.id !==
-                interaction.user.id
-            ) {
-                await buttonInteraction.reply({
-                    content:
-                        '❌ Эта панель принадлежит другому пользователю.',
-                    flags: MessageFlags.Ephemeral,
-                });
-
-                return;
-            }
-
-            const [, action, pageValue] =
-                buttonInteraction.customId.split(':');
-
-            if (action === 'prev') {
-                currentPage = Math.max(
-                    0,
-                    currentPage - 1
-                );
-            }
-
-            if (action === 'next') {
-                currentPage = Math.min(
-                    pages.length - 1,
-                    currentPage + 1
-                );
-            }
-
-            await buttonInteraction.update(
-                await renderAchievements(
-                    {
-                        ...interaction,
-                        user: targetUser,
-                    },
-                    profile,
-                    pages,
-                    currentPage
-                )
-            );
+                    page: currentPage,
+                }),
+            ],
+            components: [
+                buildButtons(
+                    currentPage,
+                    pages.length
+                ),
+            ],
         });
 
-        collector.on('end', async () => {
-            try {
-                await interaction.editReply({
-                    components: [
-                        buildButtons(
-                            currentPage,
-                            pages.length
-                        ),
-                    ],
-                });
-            } catch {
-                // Сообщение могло быть удалено.
-            }
-        });
+        await interaction.editReply(
+            render()
+        );
     },
 };
