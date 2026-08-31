@@ -2,8 +2,8 @@ import sharp from 'sharp';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const WIDTH = 1100;
-const HEIGHT = 620;
+const WIDTH = 1200;
+const HEIGHT = 630;
 
 const FONT_PATH = path.resolve(
     process.cwd(),
@@ -35,51 +35,52 @@ function formatNumber(value) {
     return number.toLocaleString('ru-RU');
 }
 
-function truncate(value, maxLength = 22) {
-    const string = String(value ?? '');
+function truncate(value, length) {
+    const text = String(value ?? '');
 
-    if (string.length <= maxLength) {
-        return string;
+    if (text.length <= length) {
+        return text;
     }
 
-    return `${string.slice(0, maxLength - 1)}…`;
+    return `${text.slice(0, length - 1)}…`;
 }
 
 function getLevelColor(level) {
     level = Number(level) || 0;
 
     if (level >= 100) return '#FFD166';
-    if (level >= 75) return '#C084FC';
-    if (level >= 50) return '#A855F7';
-    if (level >= 25) return '#38BDF8';
-    if (level >= 10) return '#34D399';
+    if (level >= 50) return '#B56CFF';
+    if (level >= 25) return '#43C6FF';
+    if (level >= 10) return '#35E0A1';
 
     return '#7289DA';
 }
 
-function createProgressBar(current, total, width) {
+function progress(current, total, width) {
     current = Number(current) || 0;
     total = Number(total) || 0;
 
     if (total <= 0) {
         return {
-            percentage: 100,
-            filled: width,
+            percent: 100,
+            width,
         };
     }
 
-    const percentage = Math.min(
+    const percent = Math.min(
         100,
         Math.max(
             0,
-            Math.round((current / total) * 100)
+            Math.round(
+                current / total * 100
+            )
         )
     );
 
     return {
-        percentage,
-        filled: Math.round(
-            width * percentage / 100
+        percent,
+        width: Math.round(
+            width * percent / 100
         ),
     };
 }
@@ -95,7 +96,7 @@ async function verifyFont() {
         await fs.access(FONT_PATH);
     } catch {
         throw new Error(
-            `[PROFILE CARD] Russo One не найден:\n${FONT_PATH}`
+            `[PROFILE CARD] Font не найден:\n${FONT_PATH}`
         );
     }
 }
@@ -106,12 +107,12 @@ async function verifyFont() {
  * =========================================================
  */
 
-async function avatarToDataUri(avatarUrl) {
-    const response = await fetch(avatarUrl);
+async function loadAvatar(url) {
+    const response = await fetch(url);
 
     if (!response.ok) {
         throw new Error(
-            `Не удалось загрузить аватар: HTTP ${response.status}`
+            `Avatar HTTP ${response.status}`
         );
     }
 
@@ -119,15 +120,15 @@ async function avatarToDataUri(avatarUrl) {
         await response.arrayBuffer()
     );
 
-    const png = await sharp(buffer)
-        .resize(260, 260, {
+    const image = await sharp(buffer)
+        .resize(430, 430, {
             fit: 'cover',
             position: 'centre',
         })
         .png()
         .toBuffer();
 
-    return `data:image/png;base64,${png.toString('base64')}`;
+    return `data:image/png;base64,${image.toString('base64')}`;
 }
 
 /**
@@ -155,12 +156,13 @@ export async function generateProfileCard(data) {
         unlockedAchievements = [],
         achievements = [],
 
-        // Необязательное поле.
-        // Если передашь rank — он появится на карточке.
         rank = null,
     } = data;
 
     const safeLevel = Number(level) || 0;
+
+    const color =
+        getLevelColor(safeLevel);
 
     /**
      * =====================================================
@@ -173,13 +175,13 @@ export async function generateProfileCard(data) {
         user?.displayName ||
         user?.username ||
         'Unknown',
-        20
+        18
     );
 
     const username = truncate(
         user?.username ||
         'unknown',
-        25
+        24
     );
 
     const serverName = truncate(
@@ -190,23 +192,14 @@ export async function generateProfileCard(data) {
 
     /**
      * =====================================================
-     * COLORS
-     * =====================================================
-     */
-
-    const levelColor =
-        getLevelColor(safeLevel);
-
-    /**
-     * =====================================================
      * XP
      * =====================================================
      */
 
-    const xpBar = createProgressBar(
+    const xpProgress = progress(
         xp,
         nextLevelXp,
-        700
+        650
     );
 
     /**
@@ -225,22 +218,14 @@ export async function generateProfileCard(data) {
             ? unlockedAchievements.length
             : 0;
 
-    const achievementPercentage =
+    const achievementPercent =
         achievementTotal > 0
             ? Math.round(
-                (
-                    achievementUnlocked /
-                    achievementTotal
-                ) * 100
+                achievementUnlocked /
+                achievementTotal *
+                100
             )
             : 0;
-
-    const achievementBar =
-        Math.round(
-            260 *
-            achievementPercentage /
-            100
-        );
 
     /**
      * =====================================================
@@ -248,9 +233,8 @@ export async function generateProfileCard(data) {
      * =====================================================
      */
 
-    const rankText =
+    const rankValue =
         rank !== null &&
-        rank !== undefined &&
         Number.isFinite(Number(rank))
             ? `#${formatNumber(rank)}`
             : '—';
@@ -261,21 +245,17 @@ export async function generateProfileCard(data) {
      * =====================================================
      */
 
-    let avatarData = null;
+    let avatar = null;
 
     try {
-        const avatarUrl =
+        avatar = await loadAvatar(
             user.displayAvatarURL({
                 extension: 'png',
-                size: 256,
-            });
-
-        avatarData =
-            await avatarToDataUri(
-                avatarUrl
-            );
+                size: 512,
+            })
+        );
     } catch {
-        avatarData = null;
+        avatar = null;
     }
 
     /**
@@ -299,7 +279,7 @@ export async function generateProfileCard(data) {
     ================================================== -->
 
     <linearGradient
-        id="background"
+        id="bg"
         x1="0"
         y1="0"
         x2="1"
@@ -307,18 +287,51 @@ export async function generateProfileCard(data) {
     >
         <stop
             offset="0%"
-            stop-color="#05060D"
+            stop-color="#05060A"
         />
 
         <stop
-            offset="45%"
-            stop-color="#0B1020"
+            offset="55%"
+            stop-color="#0A0D16"
         />
 
         <stop
             offset="100%"
-            stop-color="#171B32"
+            stop-color="#111729"
         />
+    </linearGradient>
+
+
+    <!-- =================================================
+         AVATAR OVERLAY
+    ================================================== -->
+
+    <linearGradient
+        id="avatarShade"
+        x1="0"
+        y1="0"
+        x2="1"
+        y2="0"
+    >
+
+        <stop
+            offset="0%"
+            stop-color="#05060A"
+            stop-opacity="0"
+        />
+
+        <stop
+            offset="65%"
+            stop-color="#05060A"
+            stop-opacity="0.15"
+        />
+
+        <stop
+            offset="100%"
+            stop-color="#05060A"
+            stop-opacity="0.95"
+        />
+
     </linearGradient>
 
 
@@ -333,27 +346,23 @@ export async function generateProfileCard(data) {
         x2="1"
         y2="0"
     >
+
         <stop
             offset="0%"
-            stop-color="${levelColor}"
+            stop-color="${color}"
             stop-opacity="0"
         />
 
         <stop
-            offset="30%"
-            stop-color="${levelColor}"
-        />
-
-        <stop
-            offset="70%"
-            stop-color="${levelColor}"
+            offset="45%"
+            stop-color="${color}"
         />
 
         <stop
             offset="100%"
-            stop-color="${levelColor}"
-            stop-opacity="0"
+            stop-color="#FFFFFF"
         />
+
     </linearGradient>
 
 
@@ -362,40 +371,61 @@ export async function generateProfileCard(data) {
     ================================================== -->
 
     <linearGradient
-        id="xpGradient"
+        id="xp"
         x1="0"
         y1="0"
         x2="1"
         y2="0"
     >
-        <stop
-            offset="0%"
-            stop-color="${levelColor}"
-        />
 
         <stop
-            offset="75%"
-            stop-color="${levelColor}"
+            offset="0%"
+            stop-color="${color}"
         />
 
         <stop
             offset="100%"
             stop-color="#FFFFFF"
         />
+
     </linearGradient>
 
 
     <!-- =================================================
-         AVATAR
+         AVATAR CLIP
     ================================================== -->
 
     <clipPath id="avatarClip">
+
         <circle
-            cx="158"
-            cy="258"
-            r="105"
+            cx="235"
+            cy="315"
+            r="190"
         />
+
     </clipPath>
+
+
+    <!-- =================================================
+         GLOWS
+    ================================================== -->
+
+    <filter id="glow">
+
+        <feGaussianBlur
+            stdDeviation="32"
+        />
+
+    </filter>
+
+
+    <filter id="smallGlow">
+
+        <feGaussianBlur
+            stdDeviation="10"
+        />
+
+    </filter>
 
 
     <!-- =================================================
@@ -404,45 +434,19 @@ export async function generateProfileCard(data) {
 
     <pattern
         id="grid"
-        width="45"
-        height="45"
+        width="60"
+        height="60"
         patternUnits="userSpaceOnUse"
     >
+
         <path
-            d="M 45 0 L 0 0 0 45"
+            d="M60 0H0V60"
             fill="none"
             stroke="#FFFFFF"
-            stroke-opacity="0.028"
-            stroke-width="1"
+            stroke-opacity="0.025"
         />
+
     </pattern>
-
-
-    <!-- =================================================
-         GLOW
-    ================================================== -->
-
-    <filter id="bigGlow">
-        <feGaussianBlur
-            stdDeviation="35"
-        />
-    </filter>
-
-    <filter id="avatarGlow">
-        <feGaussianBlur
-            stdDeviation="14"
-        />
-    </filter>
-
-    <filter id="shadow">
-        <feDropShadow
-            dx="0"
-            dy="10"
-            stdDeviation="18"
-            flood-color="#000000"
-            flood-opacity="0.6"
-        />
-    </filter>
 
 </defs>
 
@@ -454,301 +458,192 @@ export async function generateProfileCard(data) {
 <rect
     width="${WIDTH}"
     height="${HEIGHT}"
-    rx="34"
-    fill="url(#background)"
+    fill="url(#bg)"
 />
 
 <rect
     width="${WIDTH}"
     height="${HEIGHT}"
-    rx="34"
     fill="url(#grid)"
 />
 
 
 <!-- =====================================================
-     AMBIENT GLOW
+     AMBIENT LIGHT
 ====================================================== -->
 
 <circle
-    cx="950"
-    cy="80"
-    r="230"
-    fill="${levelColor}"
-    opacity="0.10"
-    filter="url(#bigGlow)"
+    cx="270"
+    cy="300"
+    r="260"
+    fill="${color}"
+    opacity="0.12"
+    filter="url(#glow)"
 />
 
+
 <circle
-    cx="80"
-    cy="580"
-    r="220"
-    fill="${levelColor}"
+    cx="1100"
+    cy="50"
+    r="180"
+    fill="${color}"
     opacity="0.07"
-    filter="url(#bigGlow)"
+    filter="url(#glow)"
 />
 
 
 <!-- =====================================================
-     HUGE LEVEL NUMBER
+     HUGE LEVEL
 ====================================================== -->
 
 <text
-    x="1045"
-    y="430"
+    x="1130"
+    y="490"
     text-anchor="end"
-    fill="${levelColor}"
+    fill="${color}"
     fill-opacity="0.045"
     font-family="Russo One"
-    font-size="340"
+    font-size="420"
 >
     ${safeLevel}
 </text>
 
 
 <!-- =====================================================
-     BORDER
+     AVATAR
 ====================================================== -->
-
-<rect
-    x="2"
-    y="2"
-    width="${WIDTH - 4}"
-    height="${HEIGHT - 4}"
-    rx="32"
-    fill="none"
-    stroke="${levelColor}"
-    stroke-width="2"
-    stroke-opacity="0.65"
-/>
-
-<rect
-    x="15"
-    y="15"
-    width="${WIDTH - 30}"
-    height="${HEIGHT - 30}"
-    rx="25"
-    fill="none"
-    stroke="#FFFFFF"
-    stroke-width="1"
-    stroke-opacity="0.035"
-/>
-
-
-<!-- =====================================================
-     LEFT ACCENT LINE
-====================================================== -->
-
-<rect
-    x="0"
-    y="90"
-    width="5"
-    height="440"
-    rx="2.5"
-    fill="${levelColor}"
-    opacity="0.85"
-/>
-
-<rect
-    x="5"
-    y="90"
-    width="90"
-    height="1"
-    fill="url(#accent)"
-    opacity="0.5"
-/>
-
-
-<!-- =====================================================
-     HEADER
-====================================================== -->
-
-<text
-    x="48"
-    y="56"
-    fill="#FFFFFF"
-    font-family="Russo One"
-    font-size="21"
-    letter-spacing="4"
->
-    TITANBOT
-</text>
-
-<text
-    x="1050"
-    y="56"
-    text-anchor="end"
-    fill="#59647D"
-    font-family="Russo One"
-    font-size="12"
-    letter-spacing="3"
->
-    PLAYER CARD
-</text>
-
-<rect
-    x="48"
-    y="72"
-    width="1000"
-    height="1"
-    fill="url(#accent)"
-    opacity="0.4"
-/>
-
-
-<!-- =====================================================
-     AVATAR AREA
-====================================================== -->
-
-<!-- glow -->
-
-<circle
-    cx="158"
-    cy="258"
-    r="130"
-    fill="${levelColor}"
-    opacity="0.10"
-    filter="url(#avatarGlow)"
-/>
-
-<!-- outer ring -->
-
-<circle
-    cx="158"
-    cy="258"
-    r="123"
-    fill="#070A13"
-    stroke="${levelColor}"
-    stroke-width="2"
-    opacity="0.95"
-/>
-
-<!-- avatar background -->
-
-<circle
-    cx="158"
-    cy="258"
-    r="112"
-    fill="#0D1222"
-/>
 
 ${
-    avatarData
+    avatar
         ? `
 <image
-    href="${avatarData}"
-    x="53"
-    y="153"
-    width="210"
-    height="210"
+    href="${avatar}"
+    x="45"
+    y="125"
+    width="380"
+    height="380"
     preserveAspectRatio="xMidYMid slice"
+    clip-path="url(#avatarClip)"
+/>
+
+<rect
+    x="45"
+    y="125"
+    width="380"
+    height="380"
+    fill="url(#avatarShade)"
     clip-path="url(#avatarClip)"
 />
 `
         : `
 <circle
-    cx="158"
-    cy="258"
-    r="105"
-    fill="#141B30"
+    cx="235"
+    cy="315"
+    r="190"
+    fill="#111727"
 />
 
 <text
-    x="158"
-    y="273"
+    x="235"
+    y="345"
     text-anchor="middle"
-    fill="${levelColor}"
+    fill="${color}"
     font-family="Russo One"
-    font-size="46"
+    font-size="100"
 >
     ?
 </text>
 `
 }
 
-<!-- avatar frame -->
+
+<!-- avatar edge -->
 
 <circle
-    cx="158"
-    cy="258"
-    r="113"
+    cx="235"
+    cy="315"
+    r="191"
     fill="none"
-    stroke="${levelColor}"
-    stroke-width="5"
+    stroke="${color}"
+    stroke-width="2"
+    opacity="0.7"
 />
 
-<circle
-    cx="158"
-    cy="258"
-    r="123"
-    fill="none"
-    stroke="${levelColor}"
-    stroke-width="1"
+
+<!-- =====================================================
+     DIAGONAL SEPARATOR
+====================================================== -->
+
+<path
+    d="
+        M 430 0
+        L 335 630
+    "
+    stroke="${color}"
+    stroke-width="2"
     opacity="0.25"
 />
 
 
-<!-- =====================================================
-     LEVEL BADGE
-====================================================== -->
-
-<rect
-    x="91"
-    y="359"
-    width="134"
-    height="38"
-    rx="19"
-    fill="${levelColor}"
-    filter="url(#shadow)"
+<path
+    d="
+        M 450 0
+        L 355 630
+    "
+    stroke="#FFFFFF"
+    stroke-width="1"
+    opacity="0.05"
 />
 
+
+<!-- =====================================================
+     TOP LABEL
+====================================================== -->
+
 <text
-    x="158"
-    y="384"
-    text-anchor="middle"
-    fill="#05060B"
+    x="510"
+    y="76"
+    fill="${color}"
     font-family="Russo One"
-    font-size="16"
+    font-size="12"
+    letter-spacing="5"
 >
-    LEVEL ${safeLevel}
+    TITANBOT // PLAYER
+</text>
+
+
+<text
+    x="1140"
+    y="76"
+    text-anchor="end"
+    fill="#4D566A"
+    font-family="Russo One"
+    font-size="11"
+    letter-spacing="3"
+>
+    PROFILE CARD
 </text>
 
 
 <!-- =====================================================
-     USER INFORMATION
+     NAME
 ====================================================== -->
 
 <text
-    x="320"
-    y="120"
-    fill="${levelColor}"
-    font-family="Russo One"
-    font-size="13"
-    letter-spacing="4"
->
-    PROFILE
-</text>
-
-
-<!-- NAME -->
-
-<text
-    x="320"
-    y="174"
+    x="510"
+    y="160"
     fill="#FFFFFF"
     font-family="Russo One"
-    font-size="43"
+    font-size="52"
 >
     ${escapeXml(displayName)}
 </text>
 
 
-<!-- USERNAME -->
-
 <text
-    x="320"
-    y="205"
-    fill="#626E88"
+    x="512"
+    y="191"
+    fill="#667187"
     font-family="Russo One"
     font-size="16"
 >
@@ -756,111 +651,95 @@ ${
 </text>
 
 
-<!-- SERVER -->
-
-<rect
-    x="320"
-    y="229"
-    width="370"
-    height="39"
-    rx="19.5"
-    fill="${levelColor}"
-    fill-opacity="0.08"
-    stroke="${levelColor}"
-    stroke-opacity="0.20"
-/>
-
-<circle
-    cx="342"
-    cy="248"
-    r="5"
-    fill="${levelColor}"
-/>
+<!-- =====================================================
+     SERVER
+====================================================== -->
 
 <text
-    x="358"
-    y="254"
-    fill="#A3AEC3"
+    x="510"
+    y="245"
+    fill="#485267"
     font-family="Russo One"
-    font-size="14"
+    font-size="10"
+    letter-spacing="3"
+>
+    SERVER
+</text>
+
+
+<text
+    x="510"
+    y="272"
+    fill="#B3BDCE"
+    font-family="Russo One"
+    font-size="17"
 >
     ${escapeXml(serverName)}
 </text>
 
 
 <!-- =====================================================
-     LEVEL + RANK
+     LEVEL
 ====================================================== -->
 
-<!-- level panel -->
-
-<rect
-    x="320"
-    y="295"
-    width="335"
-    height="82"
-    rx="20"
-    fill="#080C18"
-    fill-opacity="0.85"
-    stroke="#FFFFFF"
-    stroke-opacity="0.05"
-/>
-
 <text
-    x="345"
-    y="325"
-    fill="#68738B"
+    x="510"
+    y="350"
+    fill="#5D687D"
     font-family="Russo One"
     font-size="11"
-    letter-spacing="2"
+    letter-spacing="3"
 >
-    CURRENT LEVEL
+    EXPERIENCE LEVEL
 </text>
 
+
 <text
-    x="345"
-    y="360"
-    fill="#FFFFFF"
+    x="505"
+    y="423"
+    fill="${color}"
     font-family="Russo One"
-    font-size="27"
+    font-size="76"
 >
     ${safeLevel}
 </text>
 
 
-<!-- rank panel -->
+<text
+    x="620"
+    y="423"
+    fill="#FFFFFF"
+    font-family="Russo One"
+    font-size="24"
+>
+    LVL
+</text>
 
-<rect
-    x="670"
-    y="295"
-    width="375"
-    height="82"
-    rx="20"
-    fill="#080C18"
-    fill-opacity="0.85"
-    stroke="#FFFFFF"
-    stroke-opacity="0.05"
-/>
+
+<!-- =====================================================
+     RANK
+====================================================== -->
 
 <text
-    x="695"
-    y="325"
-    fill="#68738B"
+    x="785"
+    y="350"
+    fill="#5D687D"
     font-family="Russo One"
     font-size="11"
-    letter-spacing="2"
+    letter-spacing="3"
 >
     SERVER RANK
 </text>
 
+
 <text
-    x="695"
-    y="360"
-    fill="${levelColor}"
+    x="785"
+    y="423"
+    fill="#FFFFFF"
     font-family="Russo One"
-    font-size="27"
+    font-size="55"
 >
-    ${rankText}
+    ${rankValue}
 </text>
 
 
@@ -869,328 +748,224 @@ ${
 ====================================================== -->
 
 <text
-    x="320"
-    y="414"
-    fill="#FFFFFF"
+    x="510"
+    y="466"
+    fill="#606B80"
     font-family="Russo One"
-    font-size="21"
+    font-size="11"
+    letter-spacing="2"
 >
-    EXPERIENCE
+    XP
 </text>
 
+
 <text
-    x="1045"
-    y="414"
+    x="1140"
+    y="466"
     text-anchor="end"
-    fill="${levelColor}"
+    fill="#69758A"
     font-family="Russo One"
-    font-size="16"
+    font-size="11"
 >
-    ${xpBar.percentage}%
+    ${formatNumber(xp)} / ${formatNumber(nextLevelXp)}
 </text>
 
 
-<!-- XP background -->
-
 <rect
-    x="320"
-    y="430"
-    width="725"
-    height="16"
-    rx="8"
-    fill="#252C40"
+    x="510"
+    y="480"
+    width="630"
+    height="9"
+    rx="4.5"
+    fill="#252B39"
 />
 
 
-<!-- XP fill -->
-
 <rect
-    x="320"
-    y="430"
-    width="${xpBar.filled}"
-    height="16"
-    rx="8"
-    fill="url(#xpGradient)"
+    x="510"
+    y="480"
+    width="${xpProgress.width}"
+    height="9"
+    rx="4.5"
+    fill="url(#xp)"
 />
 
 
-<!-- XP shine -->
-
-${
-    xpBar.filled > 12
-        ? `
 <rect
-    x="320"
-    y="430"
-    width="${Math.min(xpBar.filled, 90)}"
-    height="16"
-    rx="8"
+    x="510"
+    y="480"
+    width="${Math.min(
+        xpProgress.width,
+        90
+    )}"
+    height="9"
+    rx="4.5"
     fill="#FFFFFF"
-    opacity="0.14"
+    opacity="0.16"
 />
-`
-        : ''
-}
 
 
 <text
-    x="320"
-    y="471"
-    fill="#68738B"
+    x="1140"
+    y="515"
+    text-anchor="end"
+    fill="${color}"
     font-family="Russo One"
     font-size="13"
 >
-    ${formatNumber(xp)} / ${formatNumber(nextLevelXp)} XP
-</text>
-
-<text
-    x="1045"
-    y="471"
-    text-anchor="end"
-    fill="#4E5970"
-    font-family="Russo One"
-    font-size="12"
->
-    TOTAL ${formatNumber(totalXp)}
+    ${xpProgress.percent}%
 </text>
 
 
 <!-- =====================================================
-     ECONOMY
+     BOTTOM INFORMATION
 ====================================================== -->
 
-<text
-    x="48"
-    y="438"
-    fill="#59647C"
-    font-family="Russo One"
-    font-size="10"
-    letter-spacing="2"
->
-    ECONOMY
-</text>
-
-
-<!-- total -->
-
-<rect
-    x="48"
-    y="452"
-    width="290"
-    height="65"
-    rx="17"
-    fill="#080C18"
+<line
+    x1="510"
+    y1="548"
+    x2="1140"
+    y2="548"
     stroke="#FFFFFF"
-    stroke-opacity="0.05"
+    stroke-opacity="0.07"
 />
 
-<rect
-    x="48"
-    y="452"
-    width="3"
-    height="65"
-    rx="1.5"
-    fill="${levelColor}"
-/>
+
+<!-- TOTAL XP -->
 
 <text
-    x="68"
-    y="477"
-    fill="#626D84"
+    x="510"
+    y="580"
+    fill="#465066"
     font-family="Russo One"
     font-size="9"
-    letter-spacing="1"
+    letter-spacing="2"
 >
-    TOTAL BALANCE
+    TOTAL XP
 </text>
 
+
 <text
-    x="68"
-    y="501"
-    fill="#FFFFFF"
+    x="510"
+    y="603"
+    fill="#C2CAD8"
     font-family="Russo One"
-    font-size="18"
+    font-size="15"
+>
+    ${formatNumber(totalXp)}
+</text>
+
+
+<!-- BALANCE -->
+
+<text
+    x="685"
+    y="580"
+    fill="#465066"
+    font-family="Russo One"
+    font-size="9"
+    letter-spacing="2"
+>
+    BALANCE
+</text>
+
+
+<text
+    x="685"
+    y="603"
+    fill="#C2CAD8"
+    font-family="Russo One"
+    font-size="15"
 >
     ${formatNumber(totalBalance)}
 </text>
 
 
-<!-- wallet -->
-
-<rect
-    x="355"
-    y="452"
-    width="290"
-    height="65"
-    rx="17"
-    fill="#080C18"
-    stroke="#FFFFFF"
-    stroke-opacity="0.05"
-/>
-
-<rect
-    x="355"
-    y="452"
-    width="3"
-    height="65"
-    rx="1.5"
-    fill="#34D399"
-/>
+<!-- ACHIEVEMENTS -->
 
 <text
-    x="375"
-    y="477"
-    fill="#626D84"
+    x="850"
+    y="580"
+    fill="#465066"
     font-family="Russo One"
     font-size="9"
-    letter-spacing="1"
->
-    WALLET
-</text>
-
-<text
-    x="375"
-    y="501"
-    fill="#FFFFFF"
-    font-family="Russo One"
-    font-size="18"
->
-    ${formatNumber(wallet)}
-</text>
-
-
-<!-- bank -->
-
-<rect
-    x="662"
-    y="452"
-    width="383"
-    height="65"
-    rx="17"
-    fill="#080C18"
-    stroke="#FFFFFF"
-    stroke-opacity="0.05"
-/>
-
-<rect
-    x="662"
-    y="452"
-    width="3"
-    height="65"
-    rx="1.5"
-    fill="#38BDF8"
-/>
-
-<text
-    x="682"
-    y="477"
-    fill="#626D84"
-    font-family="Russo One"
-    font-size="9"
-    letter-spacing="1"
->
-    BANK
-</text>
-
-<text
-    x="682"
-    y="501"
-    fill="#FFFFFF"
-    font-family="Russo One"
-    font-size="18"
->
-    ${formatNumber(bank)}
-</text>
-
-
-<!-- =====================================================
-     ACHIEVEMENTS
-====================================================== -->
-
-<rect
-    x="48"
-    y="535"
-    width="997"
-    height="45"
-    rx="15"
-    fill="#080C18"
-    fill-opacity="0.95"
-    stroke="#FFFFFF"
-    stroke-opacity="0.05"
-/>
-
-<text
-    x="70"
-    y="563"
-    fill="#626D84"
-    font-family="Russo One"
-    font-size="10"
     letter-spacing="2"
 >
     ACHIEVEMENTS
 </text>
 
+
 <text
-    x="210"
-    y="563"
-    fill="#FFFFFF"
+    x="850"
+    y="603"
+    fill="#C2CAD8"
     font-family="Russo One"
-    font-size="14"
+    font-size="15"
 >
     ${achievementUnlocked} / ${achievementTotal}
+    ·
+    ${achievementPercent}%
 </text>
 
 
-<!-- achievement bar -->
+<!-- =====================================================
+     LEVEL CORNER
+====================================================== -->
 
-<rect
-    x="310"
-    y="554"
-    width="260"
-    height="7"
-    rx="3.5"
-    fill="#252C40"
+<path
+    d="
+        M 1080 0
+        L 1200 0
+        L 1200 120
+    "
+    fill="${color}"
+    opacity="0.035"
 />
 
-<rect
-    x="310"
-    y="554"
-    width="${achievementBar}"
-    height="7"
-    rx="3.5"
-    fill="${levelColor}"
+
+<path
+    d="
+        M 1130 0
+        L 1200 0
+        L 1200 70
+    "
+    fill="${color}"
+    opacity="0.08"
 />
 
-<text
-    x="595"
-    y="563"
-    fill="${levelColor}"
-    font-family="Russo One"
-    font-size="13"
->
-    ${achievementPercentage}%
-</text>
+
+<!-- =====================================================
+     BORDER
+====================================================== -->
+
+<rect
+    x="1"
+    y="1"
+    width="${WIDTH - 2}"
+    height="${HEIGHT - 2}"
+    fill="none"
+    stroke="#FFFFFF"
+    stroke-opacity="0.08"
+/>
 
 
-<text
-    x="1020"
-    y="563"
-    text-anchor="end"
-    fill="#3F4960"
-    font-family="Russo One"
-    font-size="10"
-    letter-spacing="2"
->
-    TITANBOT
-</text>
+<rect
+    x="3"
+    y="3"
+    width="${WIDTH - 6}"
+    height="${HEIGHT - 6}"
+    fill="none"
+    stroke="${color}"
+    stroke-opacity="0.30"
+/>
 
 </svg>
 `;
 
     /**
-     * =======================================================
+     * =====================================================
      * RENDER
-     * =======================================================
+     * =====================================================
      */
 
     return sharp(
