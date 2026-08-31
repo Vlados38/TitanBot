@@ -433,12 +433,10 @@ export default {
                   }
                 );
 
-
                 await interaction
                   .respond([])
                   .catch(() => {});
               }
-
 
               return;
             }
@@ -522,7 +520,6 @@ export default {
                   }
                 );
 
-
                 await interaction
                   .respond([])
                   .catch(() => {});
@@ -598,7 +595,6 @@ export default {
                       interaction.commandName,
                   }
                 );
-
 
                 await interaction
                   .respond([])
@@ -823,14 +819,11 @@ export default {
           ) {
 
             /*
-             * =================================================
              * NEWPROFILE
              *
-             * ВАЖНО:
-             * Обрабатываем ДО общей системы client.buttons.
-             * Поэтому /help и все остальные кнопки
-             * продолжают работать как раньше.
-             * =================================================
+             * Отдельно обрабатываем только newprofile.
+             * Все остальные кнопки идут в старую систему
+             * client.buttons без изменений.
              */
 
             if (
@@ -921,11 +914,7 @@ export default {
 
             /*
              * =================================================
-             * ОБЫЧНЫЕ КНОПКИ БОТА
-             *
-             * ЭТОТ КОД НЕ ИЗМЕНЁН.
-             * Именно через него работают /help
-             * и остальные существующие кнопки.
+             * ОБЫЧНЫЕ КНОПКИ
              * =================================================
              */
 
@@ -1390,15 +1379,6 @@ async function handleNewProfileButton(
     /*
      * ---------------------------------------------------------
      * ACHIEVEMENT PAGE
-     *
-     * Поддерживаем оба формата:
-     *
-     * newprofile:achievements:USER_ID:0
-     *
-     * newprofile:achievements:USER_ID:next:1
-     *
-     * newprofile:achievements:USER_ID:prev:0
-     *
      * ---------------------------------------------------------
      */
 
@@ -1419,7 +1399,7 @@ async function handleNewProfileButton(
       /*
        * Старый формат:
        *
-       * ...:achievements:USER_ID:2
+       * newprofile:achievements:USER_ID:0
        */
 
       if (
@@ -1445,8 +1425,9 @@ async function handleNewProfileButton(
       /*
        * Новый формат:
        *
-       * ...:next:2
-       * ...:prev:0
+       * newprofile:achievements:USER_ID:next:1
+       *
+       * newprofile:achievements:USER_ID:prev:0
        */
 
       else {
@@ -1464,23 +1445,18 @@ async function handleNewProfileButton(
             );
         }
       }
-
-
-      /*
-       * Передаём номер страницы
-       * непосредственно в renderNewProfilePage
-       * через data, потому что текущий
-       * newprofile.js использует __achievementPage.
-       */
-
-      data.__achievementPage =
-        achievementPage;
     }
 
 
     /*
      * ---------------------------------------------------------
      * RENDER
+     *
+     * ВАЖНО:
+     * achievementPage передаётся непосредственно
+     * в renderNewProfilePage.
+     *
+     * Именно этого не хватало в предыдущей версии.
      * ---------------------------------------------------------
      */
 
@@ -1488,6 +1464,7 @@ async function handleNewProfileButton(
       await renderNewProfilePage({
         page,
         data,
+        achievementPage,
       });
 
 
