@@ -5,36 +5,33 @@ export function setupFonts() {
     const root = process.cwd();
 
     const fontsDir = path.join(root, 'assets', 'fonts');
-    const fontConfigDir = path.join(root, 'fontconfig');
-    const fontConfigFile = path.join(fontConfigDir, 'fonts.conf');
+    const configDir = path.join(root, 'fontconfig');
+    const configFile = path.join(configDir, 'fonts.conf');
 
     if (!fs.existsSync(fontsDir)) {
-        throw new Error(`[FONTS] Fonts directory not found: ${fontsDir}`);
+        throw new Error(
+            `[FONTS] Fonts directory not found: ${fontsDir}`
+        );
     }
 
-    if (!fs.existsSync(fontConfigFile)) {
-        throw new Error(`[FONTS] Fontconfig file not found: ${fontConfigFile}`);
+    if (!fs.existsSync(configFile)) {
+        throw new Error(
+            `[FONTS] Fontconfig config not found: ${configFile}`
+        );
     }
 
-    // ВАЖНО: задаём абсолютный путь к конфигурации.
-    process.env.FONTCONFIG_PATH = fontConfigDir;
-    process.env.FONTCONFIG_FILE = fontConfigFile;
+    process.env.FONTCONFIG_PATH = configDir;
+    process.env.FONTCONFIG_FILE = configFile;
 
-    // Создаём cache directory, если её нет.
-    const cacheDir = path.join(root, '.fontconfig');
-
-    if (!fs.existsSync(cacheDir)) {
-        fs.mkdirSync(cacheDir, { recursive: true });
-    }
-
-    process.env.XDG_CACHE_HOME = root;
+    console.log('[FONTS] Fontconfig initialized');
+    console.log(`[FONTS] Path: ${configDir}`);
+    console.log(`[FONTS] Config: ${configFile}`);
 
     const fonts = fs
         .readdirSync(fontsDir)
         .filter(file => /\.(ttf|otf)$/i.test(file));
 
-    console.log('[FONTS] Configuration loaded');
-    console.log(`[FONTS] Config: ${fontConfigFile}`);
-    console.log(`[FONTS] Directory: ${fontsDir}`);
-    console.log(`[FONTS] Fonts found: ${fonts.join(', ') || 'NONE'}`);
+    console.log(
+        `[FONTS] Found: ${fonts.join(', ') || 'NONE'}`
+    );
 }
