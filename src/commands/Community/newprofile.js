@@ -11,7 +11,9 @@ import {
     getXpForLevel,
 } from '../../services/leveling/leveling.js';
 
-import { getEconomyData } from '../../utils/economy.js';
+import {
+    getEconomyData,
+} from '../../utils/economy.js';
 
 import {
     getUserAchievementProfile,
@@ -19,21 +21,21 @@ import {
 
 import {
     generateProfileCard,
-    generateAchievementsCard,
-    generateStatisticsCard,
 } from '../../services/profile/profileCard.js';
 
+import {
+    generateAchievementCard,
+} from '../../services/profile/achievementCard.js';
 
-/**
- * =========================================================
- * COMMAND
- * =========================================================
- */
+import {
+    generateStatisticsCard,
+} from '../../services/profile/statisticsCard.js';
+
 
 export default {
     data: new SlashCommandBuilder()
         .setName('newprofile')
-        .setDescription('Открыть RPG-профиль пользователя')
+        .setDescription('Открыть карточку авантюриста')
         .addUserOption((option) =>
             option
                 .setName('user')
@@ -44,7 +46,11 @@ export default {
 
     category: 'Community',
 
-    async execute(interaction, config, client) {
+    async execute(
+        interaction,
+        config,
+        client
+    ) {
         await interaction.deferReply();
 
         const targetUser =
@@ -74,7 +80,7 @@ export default {
         }
 
         try {
-            const cardData =
+            const profileData =
                 await loadProfileData({
                     client,
                     guild,
@@ -84,7 +90,7 @@ export default {
 
             const image =
                 await generateProfileCard(
-                    cardData
+                    profileData
                 );
 
             const attachment =
@@ -92,13 +98,14 @@ export default {
                     image,
                     {
                         name:
-                            `titan-profile-${targetUser.id}.png`,
+                            `newprofile-${targetUser.id}.png`,
                     }
                 );
 
             const components =
-                buildNewProfileButtons(
-                    targetUser.id
+                buildNavigationButtons(
+                    targetUser.id,
+                    'profile'
                 );
 
             return interaction.editReply({
@@ -108,26 +115,22 @@ export default {
 
         } catch (error) {
             console.error(
-                `[NEWPROFILE] Failed to generate profile ` +
-                `for ${targetUser.id}:`,
+                '[NEWPROFILE] Failed:',
                 error
             );
 
             return interaction.editReply({
                 content:
-                    '❌ Не удалось создать RPG-профиль. ' +
-                    'Попробуйте ещё раз позже.',
+                    '❌ Не удалось создать карточку профиля.',
             });
         }
     },
 };
 
 
-/**
- * =========================================================
+/* =========================================================
  * LOAD PROFILE DATA
- * =========================================================
- */
+ * ======================================================= */
 
 export async function loadProfileData({
     client,
@@ -223,6 +226,20 @@ export async function loadProfileData({
                 achievement?.unlocked
         );
 
+    const joinedAt =
+        member.joinedTimestamp
+            ? new Date(
+                member.joinedTimestamp
+            )
+            : null;
+
+    const createdAt =
+        user.createdAt
+            ? new Date(
+                user.createdAt
+            )
+            : null;
+
     return {
         user,
         member,
@@ -241,59 +258,179 @@ export async function loadProfileData({
         achievements,
         unlockedAchievements,
 
-        joinedAt:
-            member.joinedTimestamp
-                ? new Date(
-                    member.joinedTimestamp
-                )
-                : null,
-
-        createdAt:
-            user.createdAt
-                ? new Date(
-                    user.createdAt
-                )
-                : null,
+        joinedAt,
+        createdAt,
     };
 }
 
 
-/**
- * =========================================================
+/* =========================================================
  * BUTTONS
- * =========================================================
- */
+ * ======================================================= */
 
-export function buildNewProfileButtons(
-    targetUserId
+export function buildNavigationButtons(
+    targetUserId,
+    currentPage = 'profile',
+    achievementPage = 0,
+    totalAchievementPages = 1
 ) {
+    const profileButton =
+        new ButtonBuilder()
+            .setCustomId(
+                `newprofile:profile:${targetUserId}`
+            )
+            .setLabel('Профиль')
+            .setEmoji('👤')
+            .setStyle(
+                currentPage === 'profile'
+                    ? ButtonStyle.Primary
+                    : ButtonStyle.Secondary
+            );
+
+    const achievementButton =
+        new ButtonBuilder()
+            .setCustomId(
+                `newprofile:achievements:${targetUserId}:0`
+            )
+            .setLabel('Достижения')
+            .setEmoji('🏆')
+            .setStyle(
+                currentPage === 'achievements'
+                    ? ButtonStyle.Primary
+                    : ButtonStyle.Secondary
+            );
+
+    const statisticsButton =
+        new ButtonBuilder()
+            .setCustomId(
+                `newprofile:statistics:${targetUserId}`
+            )
+            .setLabel('Статистика')
+            .setEmoji('📊')
+            .setStyle(
+                currentPage === 'statistics'
+                    ? ButtonStyle.Primary
+                    : ButtonStyle.Secondary
+            );
+
+    const buttons = [
+        profileButton,
+        achievementButton,
+        statisticsButton,
+    ];
+
+    if (
+        currentPage === 'achievements' &&
+        totalAchievementPages > 1
+    ) {
+        buttons.push(
+            new ButtonBuilder()
+                .setCustomId(
+                    `newprofile:achievements:${targetUserId}:${Math.max(
+                        0,
+                        achievementPage - 1
+                    )}`
+                )
+                .setLabel('Назад')
+                .setEmoji('‹')
+                .setStyle(
+                    ButtonStyle.Secondary
+                )
+                .setDisabled(
+                    achievementPage <= 0
+                ),
+
+            new ButtonBuilder()
+                .setCustomId(
+                    `newprofile:achievements:${targetUserId}:${Math.min(
+                        totalAchievementPages - 1,
+                        achievementPage + 1
+                    )}`
+                )
+                .setLabel('Далее')
+                .setEmoji('›')
+                .setStyle(
+                    ButtonStyle.Secondary
+                )
+                .setDisabled(
+                    achievementPage >=
+                    totalAchievementPages - 1
+                )
+        );
+    }
+
     return [
         new ActionRowBuilder()
-            .addComponents(
-
-                new ButtonBuilder()
-                    .setCustomId(
-                        `newprofile:achievements:${targetUserId}`
-                    )
-                    .setLabel(
-                        'Достижения'
-                    )
-                    .setEmoji('🏅')
-                    .setStyle(
-                        ButtonStyle.Secondary
-                    ),
-
-                new ButtonBuilder()
-                    .setCustomId(
-                        `newprofile:statistics:${targetUserId}`
-                    )
-                    .setLabel(
-                        'Статистика'
-                    )
-                    .setEmoji('📊')
-                    .setStyle(
-                        ButtonStyle.Secondary
-                    ),
-            ),
+            .addComponents(buttons),
     ];
+}
+
+
+/* =========================================================
+ * RENDER PAGE
+ * ======================================================= */
+
+export async function renderNewProfilePage({
+    page,
+    data,
+}) {
+    if (page === 'profile') {
+        return {
+            buffer:
+                await generateProfileCard(data),
+
+            currentPage:
+                'profile',
+
+            achievementPage:
+                0,
+
+            totalAchievementPages:
+                1,
+        };
+    }
+
+    if (page === 'achievements') {
+        const result =
+            await generateAchievementCard(
+                data,
+                data.__achievementPage ?? 0
+            );
+
+        return {
+            buffer:
+                result.buffer,
+
+            currentPage:
+                'achievements',
+
+            achievementPage:
+                result.page,
+
+            totalAchievementPages:
+                result.totalPages,
+        };
+    }
+
+    if (page === 'statistics') {
+        return {
+            buffer:
+                await generateStatisticsCard(
+                    data
+                ),
+
+            currentPage:
+                'statistics',
+
+            achievementPage:
+                0,
+
+            totalAchievementPages:
+                1,
+        };
+    }
+
+    throw new Error(
+        `Unknown newprofile page: ${page}`
+    );
 }
