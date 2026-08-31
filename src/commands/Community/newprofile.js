@@ -19,6 +19,8 @@ import {
 
 import {
     generateProfileCard,
+    generateAchievementsCard,
+    generateStatisticsCard,
 } from '../../services/profile/profileCard.js';
 
 
@@ -59,12 +61,6 @@ export default {
             });
         }
 
-        /**
-         * -----------------------------------------------------
-         * MEMBER
-         * -----------------------------------------------------
-         */
-
         const member =
             await guild.members
                 .fetch(targetUser.id)
@@ -78,185 +74,18 @@ export default {
         }
 
         try {
-            /**
-             * =================================================
-             * LOAD DATA
-             * =================================================
-             */
-
-            const [
-                levelData,
-                economyData,
-                achievementProfile,
-            ] = await Promise.all([
-                getUserLevelData(
+            const cardData =
+                await loadProfileData({
                     client,
-                    guild.id,
-                    targetUser.id
-                ),
-
-                getEconomyData(
-                    client,
-                    guild.id,
-                    targetUser.id
-                ),
-
-                getUserAchievementProfile(
-                    client,
-                    guild.id,
-                    targetUser.id
-                ),
-            ]);
-
-
-            /**
-             * =================================================
-             * LEVEL
-             * =================================================
-             */
-
-            const level =
-                Math.max(
-                    0,
-                    Number(levelData?.level) || 0
-                );
-
-            const xp =
-                Math.max(
-                    0,
-                    Number(levelData?.xp) || 0
-                );
-
-            const totalXp =
-                Math.max(
-                    0,
-                    Number(levelData?.totalXp) || 0
-                );
-
-            const nextLevel =
-                level + 1;
-
-            let nextLevelXp = 0;
-
-            try {
-                nextLevelXp =
-                    Number(
-                        getXpForLevel(nextLevel)
-                    ) || 0;
-            } catch {
-                nextLevelXp = 0;
-            }
-
-
-            /**
-             * =================================================
-             * ECONOMY
-             * =================================================
-             */
-
-            const wallet =
-                Math.max(
-                    0,
-                    Number(
-                        economyData?.wallet
-                    ) || 0
-                );
-
-            const bank =
-                Math.max(
-                    0,
-                    Number(
-                        economyData?.bank
-                    ) || 0
-                );
-
-            const totalBalance =
-                wallet + bank;
-
-
-            /**
-             * =================================================
-             * ACHIEVEMENTS
-             * =================================================
-             */
-
-            const achievements =
-                Array.isArray(
-                    achievementProfile?.achievements
-                )
-                    ? achievementProfile.achievements
-                    : [];
-
-            const unlockedAchievements =
-                achievements.filter(
-                    (achievement) =>
-                        achievement?.unlocked
-                );
-
-
-            /**
-             * =================================================
-             * CARD DATA
-             * =================================================
-             */
-
-            const cardData = {
-                user: targetUser,
-                member,
-
-                level,
-                xp,
-                totalXp,
-
-                nextLevel,
-                nextLevelXp,
-
-                wallet,
-                bank,
-                totalBalance,
-
-                achievements,
-                unlockedAchievements,
-
-                /**
-                 * Пока rank не передаём.
-                 *
-                 * Когда подключим реальный рейтинг,
-                 * сюда можно будет добавить:
-                 *
-                 * rank,
-                 */
-            };
-
-
-            console.log(
-                `[NEWPROFILE] Generating card for ${targetUser.tag} (${targetUser.id})`
-            );
-
-
-            /**
-             * =================================================
-             * GENERATE CARD
-             * =================================================
-             */
+                    guild,
+                    member,
+                    user: targetUser,
+                });
 
             const image =
                 await generateProfileCard(
                     cardData
                 );
-
-
-            console.log(
-                `[NEWPROFILE] Card generated successfully. ` +
-                `Size: ${image.length} bytes`
-            );
-
-
-            /**
-             * =================================================
-             * ATTACHMENT
-             * =================================================
-             */
 
             const attachment =
                 new AttachmentBuilder(
@@ -267,68 +96,17 @@ export default {
                     }
                 );
 
-
-            /**
-             * =================================================
-             * BUTTONS
-             * =================================================
-             *
-             * Используем те же customId,
-             * которые уже использует старый profile.
-             *
-             * Поэтому существующий обработчик кнопок
-             * сможет работать и с /newprofile.
-             */
-
-            const buttons =
-                new ActionRowBuilder()
-                    .addComponents(
-
-                        new ButtonBuilder()
-                            .setCustomId(
-                                `profile:badges:${targetUser.id}:0`
-                            )
-                            .setLabel(
-                                'Достижения'
-                            )
-                            .setEmoji('🏅')
-                            .setStyle(
-                                ButtonStyle.Secondary
-                            ),
-
-                        new ButtonBuilder()
-                            .setCustomId(
-                                `profile:stats:${targetUser.id}`
-                            )
-                            .setLabel(
-                                'Статистика'
-                            )
-                            .setEmoji('📊')
-                            .setStyle(
-                                ButtonStyle.Secondary
-                            ),
-                    );
-
-
-            /**
-             * =================================================
-             * SEND TO SERVER
-             * =================================================
-             */
-
-            console.log(
-                `[NEWPROFILE] Sending profile card to ` +
-                `#${interaction.channel?.name ?? 'unknown'}`
-            );
-
+            const components =
+                buildNewProfileButtons(
+                    targetUser.id
+                );
 
             return interaction.editReply({
                 files: [attachment],
-                components: [buttons],
+                components,
             });
 
         } catch (error) {
-
             console.error(
                 `[NEWPROFILE] Failed to generate profile ` +
                 `for ${targetUser.id}:`,
@@ -343,3 +121,179 @@ export default {
         }
     },
 };
+
+
+/**
+ * =========================================================
+ * LOAD PROFILE DATA
+ * =========================================================
+ */
+
+export async function loadProfileData({
+    client,
+    guild,
+    member,
+    user,
+}) {
+    const [
+        levelData,
+        economyData,
+        achievementProfile,
+    ] = await Promise.all([
+        getUserLevelData(
+            client,
+            guild.id,
+            user.id
+        ),
+
+        getEconomyData(
+            client,
+            guild.id,
+            user.id
+        ),
+
+        getUserAchievementProfile(
+            client,
+            guild.id,
+            user.id
+        ),
+    ]);
+
+    const level =
+        Math.max(
+            0,
+            Number(levelData?.level) || 0
+        );
+
+    const xp =
+        Math.max(
+            0,
+            Number(levelData?.xp) || 0
+        );
+
+    const totalXp =
+        Math.max(
+            0,
+            Number(levelData?.totalXp) || 0
+        );
+
+    const nextLevel =
+        level + 1;
+
+    let nextLevelXp = 0;
+
+    try {
+        nextLevelXp =
+            Number(
+                getXpForLevel(nextLevel)
+            ) || 0;
+    } catch {
+        nextLevelXp = 0;
+    }
+
+    const wallet =
+        Math.max(
+            0,
+            Number(
+                economyData?.wallet
+            ) || 0
+        );
+
+    const bank =
+        Math.max(
+            0,
+            Number(
+                economyData?.bank
+            ) || 0
+        );
+
+    const totalBalance =
+        wallet + bank;
+
+    const achievements =
+        Array.isArray(
+            achievementProfile?.achievements
+        )
+            ? achievementProfile.achievements
+            : [];
+
+    const unlockedAchievements =
+        achievements.filter(
+            achievement =>
+                achievement?.unlocked
+        );
+
+    return {
+        user,
+        member,
+
+        level,
+        xp,
+        totalXp,
+
+        nextLevel,
+        nextLevelXp,
+
+        wallet,
+        bank,
+        totalBalance,
+
+        achievements,
+        unlockedAchievements,
+
+        joinedAt:
+            member.joinedTimestamp
+                ? new Date(
+                    member.joinedTimestamp
+                )
+                : null,
+
+        createdAt:
+            user.createdAt
+                ? new Date(
+                    user.createdAt
+                )
+                : null,
+    };
+}
+
+
+/**
+ * =========================================================
+ * BUTTONS
+ * =========================================================
+ */
+
+export function buildNewProfileButtons(
+    targetUserId
+) {
+    return [
+        new ActionRowBuilder()
+            .addComponents(
+
+                new ButtonBuilder()
+                    .setCustomId(
+                        `newprofile:achievements:${targetUserId}`
+                    )
+                    .setLabel(
+                        'Достижения'
+                    )
+                    .setEmoji('🏅')
+                    .setStyle(
+                        ButtonStyle.Secondary
+                    ),
+
+                new ButtonBuilder()
+                    .setCustomId(
+                        `newprofile:statistics:${targetUserId}`
+                    )
+                    .setLabel(
+                        'Статистика'
+                    )
+                    .setEmoji('📊')
+                    .setStyle(
+                        ButtonStyle.Secondary
+                    ),
+            ),
+    ];
+}
