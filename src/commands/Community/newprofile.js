@@ -32,6 +32,17 @@ import {
 } from '../../services/profile/statisticsCard.js';
 
 
+/* =========================================================
+ * CONSTANTS
+ * ======================================================= */
+
+const ACHIEVEMENTS_PER_PAGE = 5;
+
+
+/* =========================================================
+ * COMMAND
+ * ======================================================= */
+
 export default {
     data: new SlashCommandBuilder()
         .setName('newprofile')
@@ -53,8 +64,7 @@ export default {
             interaction.options.getUser('user') ??
             interaction.user;
 
-        const guild =
-            interaction.guild;
+        const guild = interaction.guild;
 
         if (!guild) {
             return interaction.editReply({
@@ -99,28 +109,26 @@ export default {
                     }
                 );
 
-            const components =
-                buildNavigationButtons(
-                    targetUser.id,
-                    result.currentPage,
-                    result.achievementPage,
-                    result.totalAchievementPages
-                );
-
             return interaction.editReply({
                 files: [attachment],
-                components,
+                components:
+                    buildNavigationButtons(
+                        targetUser.id,
+                        'profile',
+                        0,
+                        1
+                    ),
             });
 
         } catch (error) {
             console.error(
-                '[NEWPROFILE] Failed:',
+                '[NEWPROFILE] Failed to open profile:',
                 error
             );
 
             return interaction.editReply({
                 content:
-                    '❌ Не удалось создать карточку профиля.',
+                    '❌ Не удалось открыть эту страницу профиля.',
             });
         }
     },
@@ -221,7 +229,7 @@ export async function loadProfileData({
 
     const unlockedAchievements =
         achievements.filter(
-            achievement =>
+            (achievement) =>
                 achievement?.unlocked
         );
 
@@ -234,9 +242,7 @@ export async function loadProfileData({
 
     const createdAt =
         user.createdAt
-            ? new Date(
-                user.createdAt
-            )
+            ? new Date(user.createdAt)
             : null;
 
     return {
@@ -275,6 +281,10 @@ export function buildNavigationButtons(
 ) {
     const buttons = [];
 
+    /* -----------------------------------------------------
+     * PROFILE
+     * --------------------------------------------------- */
+
     buttons.push(
         new ButtonBuilder()
             .setCustomId(
@@ -288,6 +298,11 @@ export function buildNavigationButtons(
                     : ButtonStyle.Secondary
             )
     );
+
+
+    /* -----------------------------------------------------
+     * ACHIEVEMENTS
+     * --------------------------------------------------- */
 
     buttons.push(
         new ButtonBuilder()
@@ -303,6 +318,11 @@ export function buildNavigationButtons(
             )
     );
 
+
+    /* -----------------------------------------------------
+     * STATISTICS
+     * --------------------------------------------------- */
+
     buttons.push(
         new ButtonBuilder()
             .setCustomId(
@@ -316,6 +336,11 @@ export function buildNavigationButtons(
                     : ButtonStyle.Secondary
             )
     );
+
+
+    /* -----------------------------------------------------
+     * ACHIEVEMENT PAGINATION
+     * --------------------------------------------------- */
 
     if (
         currentPage === 'achievements' &&
@@ -357,6 +382,12 @@ export function buildNavigationButtons(
         );
     }
 
+
+    /*
+     * Discord позволяет максимум 5 кнопок
+     * в одном ActionRow.
+     */
+
     return [
         new ActionRowBuilder()
             .addComponents(buttons),
@@ -371,13 +402,18 @@ export function buildNavigationButtons(
 export async function renderNewProfilePage({
     page,
     data,
+    achievementPage = 0,
 }) {
-    if (page === 'profile') {
-        const buffer =
-            await generateProfileCard(data);
+    /* -----------------------------------------------------
+     * PROFILE
+     * --------------------------------------------------- */
 
+    if (page === 'profile') {
         return {
-            buffer,
+            buffer:
+                await generateProfileCard(
+                    data
+                ),
 
             currentPage:
                 'profile',
@@ -391,29 +427,16 @@ export async function renderNewProfilePage({
     }
 
 
-    if (page === 'achievements') {
-        const achievementPage =
-            Math.max(
-                0,
-                Number(
-                    data.__achievementPage
-                ) || 0
-            );
+    /* -----------------------------------------------------
+     * ACHIEVEMENTS
+     * --------------------------------------------------- */
 
+    if (page === 'achievements') {
         const result =
             await generateAchievementCard(
                 data,
                 achievementPage
             );
-
-        if (
-            !result ||
-            !result.buffer
-        ) {
-            throw new Error(
-                'generateAchievementCard() не вернул buffer'
-            );
-        }
 
         return {
             buffer:
@@ -423,27 +446,24 @@ export async function renderNewProfilePage({
                 'achievements',
 
             achievementPage:
-                Number(result.page) || 0,
+                result.page,
 
             totalAchievementPages:
-                Math.max(
-                    1,
-                    Number(
-                        result.totalPages
-                    ) || 1
-                ),
+                result.totalPages,
         };
     }
 
 
-    if (page === 'statistics') {
-        const buffer =
-            await generateStatisticsCard(
-                data
-            );
+    /* -----------------------------------------------------
+     * STATISTICS
+     * --------------------------------------------------- */
 
+    if (page === 'statistics') {
         return {
-            buffer,
+            buffer:
+                await generateStatisticsCard(
+                    data
+                ),
 
             currentPage:
                 'statistics',
@@ -460,4 +480,200 @@ export async function renderNewProfilePage({
     throw new Error(
         `Unknown newprofile page: ${page}`
     );
+}
+
+
+/* =========================================================
+ * HANDLE BUTTON
+ *
+ * Эту функцию вызывает interactionCreate.js
+ * ======================================================= */
+
+export async function handleNewProfileButton(
+    interaction,
+    client
+) {
+    const customId =
+        interaction.customId;
+
+    if (
+        !customId ||
+        !customId.startsWith(
+            'newprofile:'
+        )
+    ) {
+        return false;
+    }
+
+
+    /* -----------------------------------------------------
+     * PARSE ID
+     * --------------------------------------------------- */
+
+    const parts =
+        customId.split(':');
+
+    const action =
+        parts[1];
+
+    const targetUserId =
+        parts[2];
+
+    const page =
+        parts[3]
+            ? Number(parts[3])
+            : 0;
+
+
+    if (!action || !targetUserId) {
+        return false;
+    }
+
+
+    /* -----------------------------------------------------
+     * ACKNOWLEDGE INTERACTION
+     * --------------------------------------------------- */
+
+    await interaction.deferUpdate();
+
+
+    try {
+        const guild =
+            interaction.guild;
+
+        if (!guild) {
+            return true;
+        }
+
+
+        /* -------------------------------------------------
+         * GET TARGET USER
+         * ----------------------------------------------- */
+
+        const targetUser =
+            await client.users
+                .fetch(targetUserId);
+
+
+        /* -------------------------------------------------
+         * GET MEMBER
+         * ----------------------------------------------- */
+
+        const member =
+            await guild.members
+                .fetch(targetUserId)
+                .catch(() => null);
+
+        if (!member) {
+            await interaction.editReply({
+                content:
+                    '❌ Пользователь больше не находится на сервере.',
+                embeds: [],
+                files: [],
+                components: [],
+            });
+
+            return true;
+        }
+
+
+        /* -------------------------------------------------
+         * LOAD FRESH DATA
+         * ----------------------------------------------- */
+
+        const profileData =
+            await loadProfileData({
+                client,
+                guild,
+                member,
+                user: targetUser,
+            });
+
+
+        /* -------------------------------------------------
+         * RENDER
+         * ----------------------------------------------- */
+
+        const result =
+            await renderNewProfilePage({
+                page:
+                    action === 'profile'
+                        ? 'profile'
+                        : action === 'achievements'
+                            ? 'achievements'
+                            : action === 'statistics'
+                                ? 'statistics'
+                                : null,
+
+                data:
+                    profileData,
+
+                achievementPage:
+                    page,
+            });
+
+
+        /* -------------------------------------------------
+         * ATTACHMENT
+         * ----------------------------------------------- */
+
+        const attachment =
+            new AttachmentBuilder(
+                result.buffer,
+                {
+                    name:
+                        `newprofile-${targetUserId}.png`,
+                }
+            );
+
+
+        /* -------------------------------------------------
+         * BUTTONS
+         * ----------------------------------------------- */
+
+        const components =
+            buildNavigationButtons(
+                targetUserId,
+                result.currentPage,
+                result.achievementPage,
+                result.totalAchievementPages
+            );
+
+
+        /* -------------------------------------------------
+         * REPLACE IMAGE
+         * ----------------------------------------------- */
+
+        await interaction.editReply({
+            content: '',
+            embeds: [],
+            files: [attachment],
+            components,
+        });
+
+        return true;
+
+    } catch (error) {
+        console.error(
+            '[NEWPROFILE] Button error:',
+            error
+        );
+
+        try {
+            await interaction.editReply({
+                content:
+                    '❌ Не удалось открыть эту страницу профиля.',
+                embeds: [],
+                files: [],
+                components: [],
+            });
+        } catch (editError) {
+            console.error(
+                '[NEWPROFILE] Failed to show button error:',
+                editError
+            );
+        }
+
+        return true;
+    }
 }
