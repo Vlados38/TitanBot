@@ -1,20 +1,319 @@
-/**
- * ============================================================
- * TITANBOT — ACHIEVEMENTS BUTTON
- * ============================================================
- */
-
 import {
-    MessageFlags,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    EmbedBuilder,
 } from 'discord.js';
 
 import {
     getUserAchievementProfile,
-} from '../services/achievements/achievementService.js';
+} from '../../services/achievements/achievementService.js';
 
-import {
-    buildAchievementsMessage,
-} from '../commands/Community/achievements.js';
+const PAGE_SIZE = 6;
+
+const CATEGORY_ORDER = [
+    'progression',
+    'activity',
+    'economy',
+    'social',
+    'special',
+];
+
+function chunk(array, size) {
+    const result = [];
+
+    for (let i = 0; i < array.length; i += size) {
+        result.push(array.slice(i, i + size));
+    }
+
+    return result;
+}
+
+function progressBar(
+    value,
+    total,
+    size = 14
+) {
+    if (!total) {
+        return '░'.repeat(size);
+    }
+
+    const percentage =
+        Math.max(
+            0,
+            Math.min(
+                100,
+                value / total * 100
+            )
+        );
+
+    const filled =
+        Math.round(
+            percentage / 100 * size
+        );
+
+    return (
+        '█'.repeat(filled) +
+        '░'.repeat(size - filled)
+    );
+}
+
+function rarityInfo(rarity) {
+    return {
+        common: {
+            name: 'Обычное',
+            emoji: '⚪',
+        },
+        uncommon: {
+            name: 'Необычное',
+            emoji: '🟢',
+        },
+        rare: {
+            name: 'Редкое',
+            emoji: '🔵',
+        },
+        epic: {
+            name: 'Эпическое',
+            emoji: '🟣',
+        },
+        legendary: {
+            name: 'Легендарное',
+            emoji: '🟡',
+        },
+    }[rarity] || {
+        name: 'Обычное',
+        emoji: '⚪',
+    };
+}
+
+function categoryInfo(category) {
+    return {
+        progression: {
+            name: 'Прогресс',
+            emoji: '📈',
+        },
+        activity: {
+            name: 'Активность',
+            emoji: '⚡',
+        },
+        economy: {
+            name: 'Экономика',
+            emoji: '💰',
+        },
+        social: {
+            name: 'Общение',
+            emoji: '💬',
+        },
+        special: {
+            name: 'Особые',
+            emoji: '✨',
+        },
+    }[category] || {
+        name: 'Другое',
+        emoji: '📁',
+    };
+}
+
+function formatAchievement(
+    achievement
+) {
+    const rarity =
+        rarityInfo(
+            achievement.rarity
+        );
+
+    const category =
+        categoryInfo(
+            achievement.category
+        );
+
+    if (achievement.unlocked) {
+        return [
+            `${achievement.emoji || '🏆'} **${achievement.name}**`,
+            `${rarity.emoji} ${rarity.name} • ${category.emoji} ${category.name}`,
+            achievement.description ||
+                'Достижение разблокировано.',
+            achievement.unlockedAt
+                ? `> Получено <t:${Math.floor(
+                      achievement.unlockedAt / 1000
+                  )}:R>`
+                : null,
+        ]
+            .filter(Boolean)
+            .join('\n');
+    }
+
+    if (achievement.secret) {
+        return [
+            '❔ **Секретное достижение**',
+            `${rarity.emoji} ${rarity.name} • ${category.emoji} ${category.name}`,
+            'Условия этого достижения скрыты.',
+        ].join('\n');
+    }
+
+    return [
+        `🔒 **${achievement.name}**`,
+        `${rarity.emoji} ${rarity.name} • ${category.emoji} ${category.name}`,
+        achievement.description ||
+            'Достижение ещё не получено.',
+        achievement.requirementText
+            ? `> Требование: ${achievement.requirementText}`
+            : null,
+    ]
+        .filter(Boolean)
+        .join('\n');
+}
+
+function buildPages(profile) {
+    const grouped =
+        new Map(
+            CATEGORY_ORDER.map(
+                category => [
+                    category,
+                    [],
+                ]
+            )
+        );
+
+    for (
+        const achievement of
+            profile.achievements
+    ) {
+        if (!grouped.has(achievement.category)) {
+            grouped.set(
+                achievement.category,
+                []
+            );
+        }
+
+        grouped
+            .get(achievement.category)
+            .push(achievement);
+    }
+
+    const ordered = [];
+
+    for (
+        const achievements of
+            grouped.values()
+    ) {
+        ordered.push(...achievements);
+    }
+
+    return chunk(
+        ordered,
+        PAGE_SIZE
+    );
+}
+
+function buildEmbed({
+    targetUser,
+    profile,
+    pages,
+    page,
+}) {
+    const current =
+        pages[page] || [];
+
+    const {
+        total,
+        unlocked,
+        remaining,
+        percentage,
+    } = profile.progress;
+
+    const embed =
+        new EmbedBuilder()
+            .setColor('#5865F2')
+            .setAuthor({
+                name:
+                    `Достижения • ${targetUser.username}`,
+                iconURL:
+                    targetUser.displayAvatarURL({
+                        extension: 'png',
+                        size: 128,
+                    }),
+            })
+            .setTitle('🏆 Коллекция достижений')
+            .setDescription(
+                [
+                    `**Прогресс:** ${unlocked}/${total} • **${percentage}%**`,
+                    `\`${progressBar(
+                        unlocked,
+                        total
+                    )}\``,
+                    '',
+                    `🏆 Получено: **${unlocked}**`,
+                    `🔒 Осталось: **${remaining}**`,
+                ].join('\n')
+            );
+
+    for (
+        const achievement of current
+    ) {
+        embed.addFields({
+            name: '\u200B',
+            value:
+                formatAchievement(
+                    achievement
+                ),
+            inline: false,
+        });
+    }
+
+    embed.setFooter({
+        text:
+            `Страница ${page + 1}/${pages.length} • TitanBot`,
+    });
+
+    embed.setTimestamp();
+
+    return embed;
+}
+
+function buildButtons(
+    page,
+    totalPages
+) {
+    return new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId(
+                    `achievements:prev:${page}`
+                )
+                .setEmoji('◀️')
+                .setStyle(
+                    ButtonStyle.Secondary
+                )
+                .setDisabled(
+                    page <= 0
+                ),
+
+            new ButtonBuilder()
+                .setCustomId(
+                    `achievements:page:${page}`
+                )
+                .setLabel(
+                    `${page + 1} / ${totalPages}`
+                )
+                .setStyle(
+                    ButtonStyle.Primary
+                )
+                .setDisabled(true),
+
+            new ButtonBuilder()
+                .setCustomId(
+                    `achievements:next:${page}`
+                )
+                .setEmoji('▶️')
+                .setStyle(
+                    ButtonStyle.Secondary
+                )
+                .setDisabled(
+                    page >= totalPages - 1
+                )
+        );
+}
 
 export default {
     customId: 'achievements',
@@ -24,155 +323,97 @@ export default {
         client,
         args
     ) {
-        try {
-            if (!interaction.guild) {
-                return interaction.reply({
-                    content:
-                        '❌ Эта панель доступна только на сервере.',
-                    flags:
-                        MessageFlags.Ephemeral,
-                });
-            }
+        const action =
+            args?.[0];
 
-            const action =
-                args?.[0];
+        const oldPage =
+            Number(args?.[1]);
 
-            /*
-             * =================================================
-             * NOOP
-             * =================================================
-             */
+        const page =
+            Number.isFinite(oldPage)
+                ? oldPage
+                : 0;
 
-            if (
-                action === 'noop'
-            ) {
-                return;
-            }
+        const userId =
+            interaction.message?.embeds?.[0]
+                ?.footer?.text
+                ?.match(/user:(\d+)/)?.[1];
 
-            /*
-             * =================================================
-             * FORMAT
-             *
-             * achievements:page:USER_ID:CATEGORY:PAGE
-             *
-             * achievements:category:USER_ID:CATEGORY:PAGE
-             * =================================================
-             */
+        /*
+         * Если ID пользователя не был сохранён
+         * в footer, используем автора сообщения.
+         */
+        const targetUserId =
+            userId ||
+            interaction.user.id;
 
-            let targetUserId;
-            let category;
-            let page;
-
-            if (
-                action === 'page'
-            ) {
-                targetUserId =
-                    args?.[1];
-
-                category =
-                    args?.[2] || 'all';
-
-                page =
-                    Number(args?.[3]) || 0;
-            } else if (
-                action === 'category'
-            ) {
-                targetUserId =
-                    args?.[1];
-
-                category =
-                    args?.[2] || 'all';
-
-                page =
-                    Number(args?.[3]) || 0;
-            } else {
-                return;
-            }
-
-            if (
-                !targetUserId
-            ) {
-                return interaction.reply({
-                    content:
-                        '❌ Не удалось определить пользователя.',
-                    flags:
-                        MessageFlags.Ephemeral,
-                });
-            }
-
-            /*
-             * =================================================
-             * LOAD PROFILE
-             * =================================================
-             */
-
-            const targetUser =
-                await client.users
-                    .fetch(
-                        targetUserId
-                    )
-                    .catch(
-                        () => null
-                    );
-
-            if (!targetUser) {
-                return interaction.reply({
-                    content:
-                        '❌ Пользователь не найден.',
-                    flags:
-                        MessageFlags.Ephemeral,
-                });
-            }
-
-            await interaction.deferUpdate();
-
-            const profile =
-                await getUserAchievementProfile(
-                    client,
-                    interaction.guild.id,
-                    targetUserId
+        const targetUser =
+            await client.users
+                .fetch(targetUserId)
+                .catch(() =>
+                    interaction.user
                 );
 
-            const payload =
-                buildAchievementsMessage({
-                    profile,
-                    targetUser,
-                    targetUserId,
-                    category,
-                    page,
-                });
-
-            await interaction.editReply(
-                payload
-            );
-        } catch (error) {
-            console.error(
-                '[ACHIEVEMENTS BUTTON] Failed:',
-                error
+        const profile =
+            await getUserAchievementProfile(
+                client,
+                interaction.guildId,
+                targetUser.id
             );
 
-            try {
-                if (
-                    interaction.deferred ||
-                    interaction.replied
-                ) {
-                    await interaction.editReply({
-                        content:
-                            '❌ Не удалось открыть достижения.',
-                        embeds: [],
-                        components: [],
-                    });
-                } else {
-                    await interaction.reply({
-                        content:
-                            '❌ Не удалось открыть достижения.',
-                        flags:
-                            MessageFlags.Ephemeral,
-                    });
-                }
-            } catch {
-                // Interaction уже недоступна.
-            }
+        const pages =
+            buildPages(profile);
+
+        if (!pages.length) {
+            return interaction.update({
+                embeds: [
+                    new EmbedBuilder()
+                        .setColor('#5865F2')
+                        .setTitle(
+                            '🏆 Достижения'
+                        )
+                        .setDescription(
+                            'На сервере пока нет доступных достижений.'
+                        ),
+                ],
+                components: [],
+            });
         }
+
+        let currentPage = page;
+
+        if (action === 'prev') {
+            currentPage--;
+        }
+
+        if (action === 'next') {
+            currentPage++;
+        }
+
+        currentPage =
+            Math.max(
+                0,
+                Math.min(
+                    pages.length - 1,
+                    currentPage
+                )
+            );
+
+        await interaction.update({
+            embeds: [
+                buildEmbed({
+                    targetUser,
+                    profile,
+                    pages,
+                    page: currentPage,
+                }),
+            ],
+            components: [
+                buildButtons(
+                    currentPage,
+                    pages.length
+                ),
+            ],
+        });
     },
 };
