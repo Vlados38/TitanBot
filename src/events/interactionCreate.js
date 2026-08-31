@@ -8,7 +8,7 @@ import {
     getProfileData,
     buildBadgesPage,
     buildStatisticsPage,
-} from '../commands/community/newprofile.js';
+} from '../commands/Community/newprofile.js';
 
 
 /*
