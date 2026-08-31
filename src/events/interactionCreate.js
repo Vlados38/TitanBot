@@ -1,473 +1,542 @@
-import { Events, MessageFlags } from 'discord.js';
-import { logger } from '../utils/logger.js';
-import { getGuildConfig } from '../services/config/guildConfig.js';
 import {
-  getBotMessage,
-  isBotOwner,
-  isCommandCategoryEnabled,
-  isMaintenanceMode,
-} from '../config/bot.js';
-import botConfig from '../config/bot.js';
-import { handleApplicationModal } from '../commands/Community/apply.js';
-import { handleInteractionError, createError, ErrorTypes, ErrorCodes } from '../utils/errorHandler.js';
-import { InteractionHelper } from '../utils/interactionHelper.js';
-import { createInteractionTraceContext, runWithTraceContext } from '../utils/logger.js';
-import { validateChatInputPayloadOrThrow } from '../utils/commandInputValidation.js';
-import { enforceAbuseProtection, formatCooldownDuration } from '../utils/abuseProtection.js';
-import { isCommandEnabled } from '../services/commandAccessService.js';
-import { resolveSlashAccessKey } from '../utils/messageAdapter.js';
-import { isCollectorManagedComponent } from '../utils/collectorComponents.js';
-import { ResponseCoordinator } from '../utils/responseCoordinator.js';
-import { enforceDefaultCommandPermissions } from '../utils/permissionGuard.js';
-import handleNewProfileButton
-    from './interactionCreate/newprofileButtons.js';
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+} from 'discord.js';
 
-const COMMAND_ERROR_SUBTYPES = {
-  warn: 'warn_failed',
-  kick: 'kick_failed',
-  ban: 'ban_failed',
-  unban: 'unban_failed',
-  timeout: 'timeout_failed',
-  untimeout: 'untimeout_failed',
-  warnings: 'warnings_view_failed',
-  ticket: 'ticket_failed',
-  serverstats: 'serverstats_failed',
-  gcreate: 'giveaway_failed',
-  gend: 'giveaway_failed',
-  gdelete: 'giveaway_failed',
-  greroll: 'giveaway_failed',
-};
+import {
+    getProfileData,
+    buildBadgesPage,
+    buildStatisticsPage,
+} from '../commands/community/newprofile.js';
 
-function withTraceContext(context = {}, traceContext = {}) {
-  return {
-    traceId: traceContext.traceId,
-    guildId: context.guildId || traceContext.guildId,
-    userId: context.userId || traceContext.userId,
-    command: context.commandName || traceContext.command,
-    ...context
-  };
-}
+
+/*
+ * =========================================================
+ * INTERACTION CREATE
+ * =========================================================
+ *
+ * Здесь обрабатываются кнопки НОВОГО профиля.
+ *
+ * Старый /profile НЕ ИЗМЕНЯЕМ.
+ *
+ * Поддерживаем:
+ *
+ * profile:badges:USER_ID:PAGE
+ * profile:stats:USER_ID
+ *
+ * =========================================================
+ */
 
 export default {
-  name: Events.InteractionCreate,
-  async execute(interaction, client) {
-    const interactionTraceContext = createInteractionTraceContext(interaction);
-    interaction.traceContext = interactionTraceContext;
-    interaction.traceId = interactionTraceContext.traceId;
+    name: 'interactionCreate',
 
-    return runWithTraceContext(interactionTraceContext, async () => {
-      try {
-        InteractionHelper.patchInteractionResponses(interaction);
-        ResponseCoordinator.attach(interaction);
+    async execute(interaction, client, config) {
 
-        if (interaction.isChatInputCommand()) {
-          try {
-            logger.info(`Command executed: /${interaction.commandName} by ${interaction.user.tag}`, {
-              event: 'interaction.command.received',
-              traceId: interactionTraceContext.traceId,
-              guildId: interaction.guildId,
-              userId: interaction.user?.id,
-              command: interaction.commandName
-            });
+        /*
+         * =====================================================
+         * BUTTONS ONLY
+         * =====================================================
+         */
 
-            validateChatInputPayloadOrThrow(interaction, withTraceContext({
-              type: 'command_input_validation',
-              commandName: interaction.commandName
-            }, interactionTraceContext));
-
-            const command = client.commands.get(interaction.commandName);
-
-            if (!command) {
-              throw createError(
-                `No command matching ${interaction.commandName} was found.`,
-                ErrorTypes.CONFIGURATION,
-                'Sorry, that command does not exist.',
-                withTraceContext({ commandName: interaction.commandName }, interactionTraceContext)
-              );
-            }
-
-            if (isMaintenanceMode() && !isBotOwner(interaction.user.id)) {
-              throw createError(
-                'Bot is in maintenance mode',
-                ErrorTypes.CONFIGURATION,
-                getBotMessage('maintenanceMode'),
-                withTraceContext({ commandName: interaction.commandName }, interactionTraceContext)
-              );
-            }
-
-            if (!isCommandCategoryEnabled(command.category)) {
-              throw createError(
-                `Feature disabled for category ${command.category}`,
-                ErrorTypes.CONFIGURATION,
-                getBotMessage('commandDisabled'),
-                withTraceContext({ commandName: interaction.commandName, category: command.category }, interactionTraceContext)
-              );
-            }
-
-            const defaultCooldownSec = Number(botConfig.commands?.defaultCooldown) || 0;
-            if (defaultCooldownSec > 0 && !isBotOwner(interaction.user.id)) {
-              const cooldownKey = `${interaction.user.id}:${interaction.commandName}`;
-              const expiresAt = client.cooldowns.get(cooldownKey);
-
-              if (expiresAt && Date.now() < expiresAt) {
-                const remainingSec = Math.ceil((expiresAt - Date.now()) / 1000);
-                throw createError(
-                  `Default command cooldown active for ${interaction.commandName}`,
-                  ErrorTypes.RATE_LIMIT,
-                  getBotMessage('cooldownActive', { time: `${remainingSec}s` }),
-                  withTraceContext({ commandName: interaction.commandName, remainingSec }, interactionTraceContext)
-                );
-              }
-
-              client.cooldowns.set(cooldownKey, Date.now() + defaultCooldownSec * 1000);
-            }
-
-            const abuseProtection = await enforceAbuseProtection(interaction, command, interaction.commandName);
-            if (!abuseProtection.allowed) {
-              const formattedCooldown = formatCooldownDuration(abuseProtection.remainingMs);
-              throw createError(
-                `Risky command cooldown active for ${interaction.commandName}`,
-                ErrorTypes.RATE_LIMIT,
-                `This command is on cooldown. Please wait ${formattedCooldown} before trying again.`,
-                withTraceContext({
-                  commandName: interaction.commandName,
-                  subtype: 'command_cooldown',
-                  expected: true,
-                  cooldownMs: abuseProtection.remainingMs,
-                  cooldownWindowMs: abuseProtection.policy?.windowMs,
-                  cooldownMaxAttempts: abuseProtection.policy?.maxAttempts
-                }, interactionTraceContext)
-              );
-            }
-
-            let guildConfig = null;
-            if (interaction.guild) {
-              guildConfig = await getGuildConfig(client, interaction.guild.id, interactionTraceContext);
-              const accessKey = resolveSlashAccessKey(interaction);
-              if (!(await isCommandEnabled(client, interaction.guild.id, accessKey, command.category))) {
-                throw createError(
-                  `Command ${accessKey} is disabled in this guild`,
-                  ErrorTypes.CONFIGURATION,
-                  'This command has been disabled for this server.',
-                  withTraceContext({ commandName: accessKey, guildId: interaction.guild.id }, interactionTraceContext)
-                );
-              }
-            }
-
-            const permissionAllowed = await enforceDefaultCommandPermissions(interaction, command, {
-              source: 'interactionCreate',
-              guildConfig,
-            });
-            if (!permissionAllowed) {
-              return;
-            }
-
-            await command.execute(interaction, guildConfig, client);
-          } catch (error) {
-            await handleInteractionError(interaction, error, withTraceContext({
-              type: 'command',
-              commandName: interaction.commandName,
-              subtype: COMMAND_ERROR_SUBTYPES[interaction.commandName] || error?.context?.subtype,
-            }, interactionTraceContext));
-          }
-        } else if (interaction.isAutocomplete()) {
-          const autocompleteCommand = client.commands.get(interaction.commandName);
-          if (autocompleteCommand?.autocomplete) {
-            try {
-              await autocompleteCommand.autocomplete(interaction, client);
-            } catch (error) {
-              logger.error('Error handling command autocomplete:', {
-                error: error.message,
-                guildId: interaction.guildId,
-                commandName: interaction.commandName,
-              });
-              await interaction.respond([]).catch(() => {});
-            }
+        if (!interaction.isButton()) {
             return;
-          }
-
-          const focusedOption = interaction.options.getFocused(true);
-          
-          if (interaction.commandName === 'apply' && focusedOption.name === 'application') {
-            try {
-              const { getApplicationRoles } = await import('../utils/database.js');
-              const roles = await getApplicationRoles(client, interaction.guildId);
-              const roleName = interaction.options.getString('application', false);
-
-              const filtered = roles.filter(role =>
-                role.enabled !== false && 
-                role.name.toLowerCase().startsWith(roleName?.toLowerCase() || '')
-              );
-              
-              await interaction.respond(
-                filtered.slice(0, 25).map(role => ({
-                  name: `${role.name}${role.enabled === false ? ' (disabled)' : ''}`,
-                  value: role.name
-                }))
-              );
-            } catch (error) {
-              logger.error('Error handling autocomplete:', {
-                error: error.message,
-                guildId: interaction.guildId,
-                commandName: interaction.commandName
-              });
-              await interaction.respond([]);
-            }
-          } else if (interaction.commandName === 'app-admin' && focusedOption.name === 'application') {
-            try {
-              const { getApplicationRoles } = await import('../utils/database.js');
-              const roles = await getApplicationRoles(client, interaction.guildId);
-              const appName = interaction.options.getString('application', false);
-
-              const filtered = roles.filter(role =>
-                role.name.toLowerCase().startsWith(appName?.toLowerCase() || '')
-              );
-              
-              await interaction.respond(
-                filtered.slice(0, 25).map(role => ({
-                  name: `${role.name}${role.enabled === false ? ' (disabled)' : ''}`,
-                  value: role.name
-                }))
-              );
-            } catch (error) {
-              logger.error('Error handling app-admin autocomplete:', {
-                error: error.message,
-                guildId: interaction.guildId,
-                commandName: interaction.commandName
-              });
-              await interaction.respond([]);
-            }
-          } else if (interaction.commandName === 'reactroles' && focusedOption.name === 'panel') {
-            try {
-              const { getAllReactionRoleMessages, deleteReactionRoleMessage } = await import('../services/reactionRoleService.js');
-              const guildId = interaction.guildId;
-              const guild = interaction.guild;
-              
-              let panels = await getAllReactionRoleMessages(client, guildId);
-              
-              if (!panels || panels.length === 0) {
-                await interaction.respond([]);
-                return;
-              }
-
-              const validPanels = [];
-              for (const panel of panels) {
-                if (!panel.messageId || !panel.channelId) {
-                  continue;
-                }
-                
-                const channel = guild.channels.cache.get(panel.channelId);
-                if (!channel) {
-                  await deleteReactionRoleMessage(client, guildId, panel.messageId).catch(() => {});
-                  continue;
-                }
-                
-                const msg = await channel.messages.fetch(panel.messageId).catch(() => null);
-                if (!msg) {
-                  await deleteReactionRoleMessage(client, guildId, panel.messageId).catch(() => {});
-                  continue;
-                }
-                validPanels.push(panel);
-              }
-              
-              if (validPanels.length === 0) {
-                await interaction.respond([]);
-                return;
-              }
-              
-              const choices = await Promise.all(
-                validPanels.slice(0, 25).map(async panel => {
-                  try {
-                    const channel = guild.channels.cache.get(panel.channelId);
-                    if (!channel) return null;
-                    
-                    const msg = await channel.messages.fetch(panel.messageId).catch(() => null);
-                    if (!msg) return null;
-                    
-                    const title = msg?.embeds?.[0]?.title ?? 'Untitled Panel';
-                    const channelName = channel?.name ?? 'unknown';
-                    
-                    return {
-                      name: `${title} (${channelName})`.substring(0, 100),
-                      value: panel.messageId
-                    };
-                  } catch (e) {
-                    return null;
-                  }
-                })
-              );
-              
-              const validChoices = choices.filter(c => c !== null);
-              await interaction.respond(validChoices);
-            } catch (error) {
-              logger.error('Error handling reactroles autocomplete:', {
-                error: error.message,
-                guildId: interaction.guildId,
-                commandName: interaction.commandName
-              });
-              await interaction.respond([]);
-            }
-          }
-        } else if (interaction.isButton()) {
-          if (interaction.customId.startsWith('shared_todo_')) {
-            const parts = interaction.customId.split('_');
-            const buttonType = parts.slice(0, 3).join('_');
-            const listId = parts[3];
-            const button = client.buttons.get(buttonType);
-
-            if (button) {
-              try {
-                await button.execute(interaction, client, [listId]);
-              } catch (error) {
-                await handleInteractionError(interaction, error, withTraceContext({
-                  type: 'button',
-                  customId: interaction.customId,
-                  handler: 'todo'
-                }, interactionTraceContext));
-              }
-            } else {
-              throw createError(
-                `No button handler found for ${buttonType}`,
-                ErrorTypes.CONFIGURATION,
-                'This button is not available.',
-                withTraceContext({ buttonType }, interactionTraceContext)
-              );
-            }
-            return;
-          }
-
-          const [customId, ...args] = interaction.customId.split(':');
-          const button = client.buttons.get(customId);
-
-          if (!button) {
-            if (!interaction.customId.includes(':') || isCollectorManagedComponent(customId)) {
-              return;
-            }
-
-            throw createError(
-              `No button handler found for ${customId}`,
-              ErrorTypes.CONFIGURATION,
-              'This button is not available.',
-              withTraceContext({ customId }, interactionTraceContext)
-            );
-          }
-
-          try {
-            await button.execute(interaction, client, args);
-          } catch (error) {
-            await handleInteractionError(interaction, error, withTraceContext({
-              type: 'button',
-              customId: interaction.customId,
-              handler: 'general'
-            }, interactionTraceContext));
-          }
-        } else if (interaction.isStringSelectMenu()) {
-          const [customId, ...args] = interaction.customId.split(':');
-          const selectMenu = client.selectMenus.get(customId);
-
-          if (!selectMenu) {
-            if (!interaction.customId.includes(':') || isCollectorManagedComponent(customId)) {
-              return;
-            }
-
-            throw createError(
-              `No select menu handler found for ${customId}`,
-              ErrorTypes.CONFIGURATION,
-              'This select menu is not available.',
-              withTraceContext({ customId }, interactionTraceContext)
-            );
-          }
-
-          try {
-            await selectMenu.execute(interaction, client, args);
-          } catch (error) {
-            await handleInteractionError(interaction, error, withTraceContext({
-              type: 'select_menu',
-              customId: interaction.customId
-            }, interactionTraceContext));
-          }
-        } else if (interaction.isModalSubmit()) {
-          if (interaction.customId.startsWith('app_modal_')) {
-            try {
-              await handleApplicationModal(interaction);
-            } catch (error) {
-              await handleInteractionError(interaction, error, withTraceContext({
-                type: 'modal',
-                customId: interaction.customId,
-                handler: 'application'
-              }, interactionTraceContext));
-            }
-            return;
-          }
-
-          if (
-            interaction.customId.startsWith('app_review_')
-            || interaction.customId.startsWith('jtc_')
-            || interaction.customId.startsWith('config_wizard_modal:')
-            || interaction.customId.startsWith('log_dash_channel_modal:')
-            || interaction.customId.startsWith('log_dash_filter_modal:')
-          ) {
-            logger.debug(`Skipping modal handler lookup for inline-awaited modal: ${interaction.customId}`, {
-              event: 'interaction.modal.inline_skipped',
-              traceId: interactionTraceContext.traceId
-            });
-            return;
-          }
-
-          const [customId, ...args] = interaction.customId.split(':');
-          const modal = client.modals.get(customId);
-
-          if (!modal) {
-            if (!interaction.customId.includes(':')) {
-
-              return;
-            }
-
-            throw createError(
-              `No modal handler found for ${customId}`,
-              ErrorTypes.CONFIGURATION,
-              'This form is not available.',
-              withTraceContext({ customId }, interactionTraceContext)
-            );
-          }
-
-          try {
-            await modal.execute(interaction, client, args);
-          } catch (error) {
-            await handleInteractionError(interaction, error, withTraceContext({
-              type: 'modal',
-              customId: interaction.customId,
-              handler: 'general'
-            }, interactionTraceContext));
-          }
         }
-      } catch (error) {
-        logger.error('Unhandled error in interactionCreate:', {
-          event: 'interaction.unhandled_error',
-          errorCode: ErrorCodes.INTERACTION_UNHANDLED,
-          error,
-          traceId: interactionTraceContext.traceId,
-          interactionId: interaction.id,
-          guildId: interaction.guildId,
-          userId: interaction.user?.id
-        });
+
+        const customId =
+            interaction.customId;
+
+        /*
+         * =====================================================
+         * NEW PROFILE BUTTONS
+         * =====================================================
+         *
+         * Обрабатываем только наши кнопки.
+         *
+         * Никакие другие кнопки бота
+         * здесь не перехватываем.
+         */
+
+        if (
+            !customId.startsWith(
+                'profile:'
+            )
+        ) {
+            return;
+        }
+
+
+        /*
+         * =====================================================
+         * PARSE CUSTOM ID
+         * =====================================================
+         */
+
+        const parts =
+            customId.split(':');
+
+        const action =
+            parts[1];
+
+        const targetUserId =
+            parts[2];
+
+        const page =
+            Number(parts[3] ?? 0);
+
+
+        /*
+         * =====================================================
+         * VALIDATION
+         * =====================================================
+         */
+
+        if (
+            !action ||
+            !targetUserId
+        ) {
+            return interaction.reply({
+                content:
+                    '❌ Некорректная кнопка профиля.',
+                ephemeral: true,
+            });
+        }
+
+
+        /*
+         * =====================================================
+         * GUILD
+         * =====================================================
+         */
+
+        const guild =
+            interaction.guild;
+
+        if (!guild) {
+            return interaction.reply({
+                content:
+                    '❌ Эта кнопка доступна только на сервере.',
+                ephemeral: true,
+            });
+        }
+
+
+        /*
+         * =====================================================
+         * TARGET MEMBER
+         * =====================================================
+         */
+
+        const member =
+            await guild.members
+                .fetch(targetUserId)
+                .catch(() => null);
+
+        if (!member) {
+            return interaction.reply({
+                content:
+                    '❌ Пользователь больше не найден на сервере.',
+                ephemeral: true,
+            });
+        }
+
+
+        /*
+         * =====================================================
+         * TARGET USER
+         * =====================================================
+         */
+
+        const targetUser =
+            await client.users
+                .fetch(targetUserId)
+                .catch(() => null);
+
+        if (!targetUser) {
+            return interaction.reply({
+                content:
+                    '❌ Не удалось найти пользователя.',
+                ephemeral: true,
+            });
+        }
+
+
+        /*
+         * =====================================================
+         * LOAD PROFILE DATA
+         * =====================================================
+         *
+         * Используем ту же функцию,
+         * которую использует /newprofile.
+         *
+         * /profile здесь вообще не вызывается.
+         */
 
         try {
-          await handleInteractionError(interaction, error, withTraceContext({
-            type: 'interaction',
-            commandName: interaction.commandName,
-            customId: interaction.customId,
-            source: 'interactionCreate.unhandled'
-          }, interactionTraceContext));
-        } catch (replyError) {
-          logger.error('Failed to send fallback error response:', {
-            event: 'interaction.error_response_failed',
-            errorCode: ErrorCodes.INTERACTION_RESPONSE_FAILED,
-            error: replyError,
-            traceId: interactionTraceContext.traceId
-          });
+
+            await interaction.deferUpdate();
+
+
+            const profileData =
+                await getProfileData({
+                    client,
+                    guild,
+                    member,
+                    user: targetUser,
+                });
+
+
+            /*
+             * =================================================
+             * ACHIEVEMENTS
+             * =================================================
+             */
+
+            if (
+                action === 'badges'
+            ) {
+
+                const {
+                    embed,
+                    page: safePage,
+                    totalPages,
+                } =
+                    buildBadgesPage(
+                        profileData,
+                        page
+                    );
+
+
+                /*
+                 * -------------------------------------------------
+                 * BUTTONS
+                 * -------------------------------------------------
+                 */
+
+                const buttons =
+                    new ActionRowBuilder();
+
+
+                /*
+                 * PREVIOUS
+                 */
+
+                buttons.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(
+                            `profile:badges:${targetUserId}:${Math.max(
+                                0,
+                                safePage - 1
+                            )}`
+                        )
+                        .setLabel('Назад')
+                        .setEmoji('◀️')
+                        .setStyle(
+                            ButtonStyle.Secondary
+                        )
+                        .setDisabled(
+                            safePage <= 0
+                        )
+                );
+
+
+                /*
+                 * BACK TO PROFILE
+                 */
+
+                buttons.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(
+                            `profile:main:${targetUserId}`
+                        )
+                        .setLabel(
+                            'Профиль'
+                        )
+                        .setEmoji('👤')
+                        .setStyle(
+                            ButtonStyle.Secondary
+                        )
+                );
+
+
+                /*
+                 * STATISTICS
+                 */
+
+                buttons.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(
+                            `profile:stats:${targetUserId}`
+                        )
+                        .setLabel(
+                            'Статистика'
+                        )
+                        .setEmoji('📊')
+                        .setStyle(
+                            ButtonStyle.Secondary
+                        )
+                );
+
+
+                /*
+                 * NEXT
+                 */
+
+                buttons.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(
+                            `profile:badges:${targetUserId}:${Math.min(
+                                totalPages - 1,
+                                safePage + 1
+                            )}`
+                        )
+                        .setLabel('Вперёд')
+                        .setEmoji('▶️')
+                        .setStyle(
+                            ButtonStyle.Secondary
+                        )
+                        .setDisabled(
+                            safePage >=
+                            totalPages - 1
+                        )
+                );
+
+
+                /*
+                 * -------------------------------------------------
+                 * UPDATE MESSAGE
+                 * -------------------------------------------------
+                 */
+
+                return interaction.editReply({
+                    embeds: [embed],
+                    components: [
+                        buttons,
+                    ],
+                });
+            }
+
+
+            /*
+             * =================================================
+             * STATISTICS
+             * =================================================
+             */
+
+            if (
+                action === 'stats'
+            ) {
+
+                const embed =
+                    buildStatisticsPage(
+                        profileData
+                    );
+
+
+                /*
+                 * -------------------------------------------------
+                 * BUTTONS
+                 * -------------------------------------------------
+                 */
+
+                const buttons =
+                    new ActionRowBuilder();
+
+
+                /*
+                 * BACK TO PROFILE
+                 */
+
+                buttons.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(
+                            `profile:main:${targetUserId}`
+                        )
+                        .setLabel(
+                            'Профиль'
+                        )
+                        .setEmoji('👤')
+                        .setStyle(
+                            ButtonStyle.Secondary
+                        )
+                );
+
+
+                /*
+                 * ACHIEVEMENTS
+                 */
+
+                buttons.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(
+                            `profile:badges:${targetUserId}:0`
+                        )
+                        .setLabel(
+                            'Достижения'
+                        )
+                        .setEmoji('🏅')
+                        .setStyle(
+                            ButtonStyle.Secondary
+                        )
+                );
+
+
+                /*
+                 * -------------------------------------------------
+                 * UPDATE MESSAGE
+                 * -------------------------------------------------
+                 */
+
+                return interaction.editReply({
+                    embeds: [embed],
+                    components: [
+                        buttons,
+                    ],
+                });
+            }
+
+
+            /*
+             * =================================================
+             * MAIN PROFILE
+             * =================================================
+             *
+             * Возвращаем картинку newprofile.
+             *
+             * ВАЖНО:
+             * здесь нужен generateProfileCard.
+             */
+
+            if (
+                action === 'main'
+            ) {
+
+                /*
+                 * Импортируем генератор динамически,
+                 * чтобы interactionCreate не создавал
+                 * циклическую зависимость при загрузке.
+                 */
+
+                const {
+                    generateProfileCard,
+                } =
+                    await import(
+                        '../services/profile/profileCard.js'
+                    );
+
+
+                const image =
+                    await generateProfileCard(
+                        profileData
+                    );
+
+
+                /*
+                 * AttachmentBuilder
+                 */
+
+                const {
+                    AttachmentBuilder,
+                } =
+                    await import(
+                        'discord.js'
+                    );
+
+
+                const attachment =
+                    new AttachmentBuilder(
+                        image,
+                        {
+                            name:
+                                `titan-profile-${targetUserId}.png`,
+                        }
+                    );
+
+
+                /*
+                 * BUTTONS
+                 */
+
+                const buttons =
+                    new ActionRowBuilder();
+
+
+                buttons.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(
+                            `profile:badges:${targetUserId}:0`
+                        )
+                        .setLabel(
+                            'Достижения'
+                        )
+                        .setEmoji('🏅')
+                        .setStyle(
+                            ButtonStyle.Secondary
+                        ),
+
+                    new ButtonBuilder()
+                        .setCustomId(
+                            `profile:stats:${targetUserId}`
+                        )
+                        .setLabel(
+                            'Статистика'
+                        )
+                        .setEmoji('📊')
+                        .setStyle(
+                            ButtonStyle.Secondary
+                        )
+                );
+
+
+                /*
+                 * -------------------------------------------------
+                 * RETURN TO IMAGE
+                 * -------------------------------------------------
+                 */
+
+                return interaction.editReply({
+                    content: '',
+                    embeds: [],
+                    files: [attachment],
+                    components: [
+                        buttons,
+                    ],
+                });
+            }
+
+
+            /*
+             * =================================================
+             * UNKNOWN ACTION
+             * =================================================
+             */
+
+            return interaction.editReply({
+                content:
+                    '❌ Неизвестное действие профиля.',
+                embeds: [],
+                components: [],
+            });
+
+        } catch (error) {
+
+            console.error(
+                '[NEWPROFILE BUTTON] Failed:',
+                error
+            );
+
+
+            /*
+             * Если deferUpdate уже был вызван,
+             * используем editReply.
+             */
+
+            return interaction.editReply({
+                content:
+                    '❌ Не удалось открыть этот раздел профиля.',
+                embeds: [],
+                components: [],
+            }).catch(() => {});
         }
-      }
-    });
-  }
+    },
 };
