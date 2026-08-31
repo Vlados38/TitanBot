@@ -38,11 +38,14 @@ function createProgressBar(value, total, size = 14) {
 
     const percentage = Math.max(
         0,
-        Math.min(100, value / total * 100)
+        Math.min(
+            100,
+            (value / total) * 100
+        )
     );
 
     const filled = Math.round(
-        percentage / 100 * size
+        (percentage / 100) * size
     );
 
     return (
@@ -57,18 +60,22 @@ function getRarityInfo(achievement) {
             name: 'Обычное',
             emoji: '⚪',
         },
+
         uncommon: {
             name: 'Необычное',
             emoji: '🟢',
         },
+
         rare: {
             name: 'Редкое',
             emoji: '🔵',
         },
+
         epic: {
             name: 'Эпическое',
             emoji: '🟣',
         },
+
         legendary: {
             name: 'Легендарное',
             emoji: '🟡',
@@ -87,18 +94,22 @@ function getCategoryInfo(achievement) {
             name: 'Прогресс',
             emoji: '📈',
         },
+
         activity: {
             name: 'Активность',
             emoji: '⚡',
         },
+
         economy: {
             name: 'Экономика',
             emoji: '💰',
         },
+
         social: {
             name: 'Общение',
             emoji: '💬',
         },
+
         special: {
             name: 'Особые',
             emoji: '✨',
@@ -106,8 +117,7 @@ function getCategoryInfo(achievement) {
     };
 
     return (
-        categories[achievement.category] ||
-        {
+        categories[achievement.category] || {
             name: 'Другое',
             emoji: '📁',
         }
@@ -191,7 +201,9 @@ function buildPages(profile) {
         const achievements of
             grouped.values()
     ) {
-        ordered.push(...achievements);
+        ordered.push(
+            ...achievements
+        );
     }
 
     return chunk(
@@ -228,7 +240,9 @@ function buildEmbed({
                         size: 128,
                     }),
             })
-            .setTitle('🏆 Коллекция достижений')
+            .setTitle(
+                '🏆 Коллекция достижений'
+            )
             .setDescription(
                 [
                     `**Прогресс:** ${unlocked}/${total} • **${percentage}%**`,
@@ -267,6 +281,7 @@ function buildEmbed({
 }
 
 function buildButtons(
+    userId,
     page,
     totalPages
 ) {
@@ -274,7 +289,7 @@ function buildButtons(
         .addComponents(
             new ButtonBuilder()
                 .setCustomId(
-                    `achievements:prev:${page}`
+                    `achievements:prev:${userId}:${page}`
                 )
                 .setEmoji('◀️')
                 .setStyle(
@@ -286,7 +301,7 @@ function buildButtons(
 
             new ButtonBuilder()
                 .setCustomId(
-                    `achievements:page:${page}`
+                    `achievements:page:${userId}:${page}`
                 )
                 .setLabel(
                     `${page + 1} / ${totalPages}`
@@ -298,7 +313,7 @@ function buildButtons(
 
             new ButtonBuilder()
                 .setCustomId(
-                    `achievements:next:${page}`
+                    `achievements:next:${userId}:${page}`
                 )
                 .setEmoji('▶️')
                 .setStyle(
@@ -371,27 +386,23 @@ export default {
             });
         }
 
-        let currentPage = 0;
-
-        const render = () => ({
+        await interaction.editReply({
             embeds: [
                 buildEmbed({
                     targetUser,
                     profile,
                     pages,
-                    page: currentPage,
+                    page: 0,
                 }),
             ],
+
             components: [
                 buildButtons(
-                    currentPage,
+                    targetUser.id,
+                    0,
                     pages.length
                 ),
             ],
         });
-
-        await interaction.editReply(
-            render()
-        );
     },
 };
