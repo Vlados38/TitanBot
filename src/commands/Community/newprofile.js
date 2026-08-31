@@ -19,16 +19,6 @@ import {
 } from '../../services/profile/profileCard.js';
 
 
-/*
- * =========================================================
- * TEST RECIPIENT
- * =========================================================
- *
- * Сюда будет отправляться готовая PNG-карточка.
- */
-const TEST_USER_ID = '718716021497790504';
-
-
 export default {
     data: new SlashCommandBuilder()
         .setName('newprofile')
@@ -44,9 +34,7 @@ export default {
     category: 'Community',
 
     async execute(interaction, config, client) {
-        await interaction.deferReply({
-            ephemeral: true,
-        });
+        await interaction.deferReply();
 
         const targetUser =
             interaction.options.getUser('user') ??
@@ -237,50 +225,23 @@ export default {
 
             /*
              * =====================================================
-             * SEND TO TEST DISCORD USER
+             * SEND TO SERVER
              * =====================================================
              */
 
             console.log(
-                `[NEWPROFILE] Fetching test recipient ${TEST_USER_ID}...`
-            );
-
-            const testUser =
-                await client.users.fetch(
-                    TEST_USER_ID
-                );
-
-
-            console.log(
-                `[NEWPROFILE] Sending profile card to ${testUser.tag} (${TEST_USER_ID})...`
+                `[NEWPROFILE] Sending profile card to #${interaction.channel?.name ?? 'unknown'}...`
             );
 
 
-            await testUser.send({
-                content:
-                    `🎨 **TitanBot RPG Profile**\n` +
-                    `Профиль пользователя: **${targetUser.username}**`,
+            await interaction.editReply({
                 files: [attachment],
             });
 
 
             console.log(
-                `[NEWPROFILE] Profile card successfully sent to ${TEST_USER_ID}`
+                `[NEWPROFILE] Profile card successfully sent to server.`
             );
-
-
-            /*
-             * =====================================================
-             * CONFIRM IN COMMAND
-             * =====================================================
-             */
-
-            return interaction.editReply({
-                content:
-                    `✅ Карточка **${targetUser.username}** ` +
-                    `успешно отправлена в личные сообщения ` +
-                    `пользователю <@${TEST_USER_ID}>.`,
-            });
 
         } catch (error) {
 
@@ -292,8 +253,8 @@ export default {
 
             return interaction.editReply({
                 content:
-                    '❌ Не удалось создать или отправить RPG-профиль. ' +
-                    'Проверьте логи Railway.',
+                    '❌ Не удалось создать RPG-профиль. ' +
+                    'Проверь логи Railway.',
             });
         }
     },
