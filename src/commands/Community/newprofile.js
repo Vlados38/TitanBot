@@ -33,13 +33,6 @@ import {
 
 
 /* =========================================================
- * CONSTANTS
- * ======================================================= */
-
-const ACHIEVEMENTS_PER_PAGE = 5;
-
-
-/* =========================================================
  * COMMAND
  * ======================================================= */
 
@@ -57,14 +50,19 @@ export default {
 
     category: 'Community',
 
-    async execute(interaction, config, client) {
+    async execute(
+        interaction,
+        config,
+        client
+    ) {
         await interaction.deferReply();
 
         const targetUser =
             interaction.options.getUser('user') ??
             interaction.user;
 
-        const guild = interaction.guild;
+        const guild =
+            interaction.guild;
 
         if (!guild) {
             return interaction.editReply({
@@ -110,6 +108,7 @@ export default {
                 );
 
             return interaction.editReply({
+                content: '',
                 files: [attachment],
                 components:
                     buildNavigationButtons(
@@ -242,7 +241,9 @@ export async function loadProfileData({
 
     const createdAt =
         user.createdAt
-            ? new Date(user.createdAt)
+            ? new Date(
+                user.createdAt
+            )
             : null;
 
     return {
@@ -280,6 +281,7 @@ export function buildNavigationButtons(
     totalAchievementPages = 1
 ) {
     const buttons = [];
+
 
     /* -----------------------------------------------------
      * PROFILE
@@ -339,7 +341,15 @@ export function buildNavigationButtons(
 
 
     /* -----------------------------------------------------
-     * ACHIEVEMENT PAGINATION
+     * PAGINATION
+     *
+     * ВАЖНО:
+     * Не используем .setEmoji('‹') / .setEmoji('›').
+     *
+     * ‹ и › — Unicode-символы, но Discord ожидает
+     * настоящее emoji в .setEmoji().
+     * Поэтому стрелки находятся непосредственно
+     * в тексте кнопки.
      * --------------------------------------------------- */
 
     if (
@@ -354,8 +364,7 @@ export function buildNavigationButtons(
                         achievementPage - 1
                     )}`
                 )
-                .setLabel('Назад')
-                .setEmoji('‹')
+                .setLabel('← Назад')
                 .setStyle(
                     ButtonStyle.Secondary
                 )
@@ -370,8 +379,7 @@ export function buildNavigationButtons(
                         achievementPage + 1
                     )}`
                 )
-                .setLabel('Далее')
-                .setEmoji('›')
+                .setLabel('Далее →')
                 .setStyle(
                     ButtonStyle.Secondary
                 )
@@ -382,11 +390,6 @@ export function buildNavigationButtons(
         );
     }
 
-
-    /*
-     * Discord позволяет максимум 5 кнопок
-     * в одном ActionRow.
-     */
 
     return [
         new ActionRowBuilder()
@@ -485,8 +488,6 @@ export async function renderNewProfilePage({
 
 /* =========================================================
  * HANDLE BUTTON
- *
- * Эту функцию вызывает interactionCreate.js
  * ======================================================= */
 
 export async function handleNewProfileButton(
@@ -506,8 +507,13 @@ export async function handleNewProfileButton(
     }
 
 
+    console.log(
+        `[NEWPROFILE BUTTON] ${customId}`
+    );
+
+
     /* -----------------------------------------------------
-     * PARSE ID
+     * PARSE
      * --------------------------------------------------- */
 
     const parts =
@@ -519,19 +525,22 @@ export async function handleNewProfileButton(
     const targetUserId =
         parts[2];
 
-    const page =
+    const achievementPage =
         parts[3]
             ? Number(parts[3])
             : 0;
 
 
-    if (!action || !targetUserId) {
+    if (
+        !action ||
+        !targetUserId
+    ) {
         return false;
     }
 
 
     /* -----------------------------------------------------
-     * ACKNOWLEDGE INTERACTION
+     * ACKNOWLEDGE BUTTON
      * --------------------------------------------------- */
 
     await interaction.deferUpdate();
@@ -547,16 +556,17 @@ export async function handleNewProfileButton(
 
 
         /* -------------------------------------------------
-         * GET TARGET USER
+         * TARGET USER
          * ----------------------------------------------- */
 
         const targetUser =
-            await client.users
-                .fetch(targetUserId);
+            await client.users.fetch(
+                targetUserId
+            );
 
 
         /* -------------------------------------------------
-         * GET MEMBER
+         * MEMBER
          * ----------------------------------------------- */
 
         const member =
@@ -578,7 +588,7 @@ export async function handleNewProfileButton(
 
 
         /* -------------------------------------------------
-         * LOAD FRESH DATA
+         * LOAD DATA
          * ----------------------------------------------- */
 
         const profileData =
@@ -591,25 +601,33 @@ export async function handleNewProfileButton(
 
 
         /* -------------------------------------------------
+         * DETERMINE PAGE
+         * ----------------------------------------------- */
+
+        let page;
+
+        if (action === 'profile') {
+            page = 'profile';
+        } else if (action === 'achievements') {
+            page = 'achievements';
+        } else if (action === 'statistics') {
+            page = 'statistics';
+        } else {
+            throw new Error(
+                `Unknown newprofile action: ${action}`
+            );
+        }
+
+
+        /* -------------------------------------------------
          * RENDER
          * ----------------------------------------------- */
 
         const result =
             await renderNewProfilePage({
-                page:
-                    action === 'profile'
-                        ? 'profile'
-                        : action === 'achievements'
-                            ? 'achievements'
-                            : action === 'statistics'
-                                ? 'statistics'
-                                : null,
-
-                data:
-                    profileData,
-
-                achievementPage:
-                    page,
+                page,
+                data: profileData,
+                achievementPage,
             });
 
 
@@ -641,7 +659,7 @@ export async function handleNewProfileButton(
 
 
         /* -------------------------------------------------
-         * REPLACE IMAGE
+         * UPDATE ORIGINAL MESSAGE
          * ----------------------------------------------- */
 
         await interaction.editReply({
@@ -651,11 +669,12 @@ export async function handleNewProfileButton(
             components,
         });
 
+
         return true;
 
     } catch (error) {
         console.error(
-            '[NEWPROFILE] Button error:',
+            '[NEWPROFILE BUTTON] Failed:',
             error
         );
 
@@ -669,7 +688,7 @@ export async function handleNewProfileButton(
             });
         } catch (editError) {
             console.error(
-                '[NEWPROFILE] Failed to show button error:',
+                '[NEWPROFILE BUTTON] Failed to send error:',
                 editError
             );
         }
