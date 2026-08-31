@@ -29,28 +29,22 @@ function chunk(array, size) {
     return result;
 }
 
-function progressBar(
-    value,
-    total,
-    size = 14
-) {
+function progressBar(value, total, size = 14) {
     if (!total) {
         return '░'.repeat(size);
     }
 
-    const percentage =
-        Math.max(
-            0,
-            Math.min(
-                100,
-                value / total * 100
-            )
-        );
+    const percentage = Math.max(
+        0,
+        Math.min(
+            100,
+            (value / total) * 100
+        )
+    );
 
-    const filled =
-        Math.round(
-            percentage / 100 * size
-        );
+    const filled = Math.round(
+        (percentage / 100) * size
+    );
 
     return (
         '█'.repeat(filled) +
@@ -64,18 +58,22 @@ function rarityInfo(rarity) {
             name: 'Обычное',
             emoji: '⚪',
         },
+
         uncommon: {
             name: 'Необычное',
             emoji: '🟢',
         },
+
         rare: {
             name: 'Редкое',
             emoji: '🔵',
         },
+
         epic: {
             name: 'Эпическое',
             emoji: '🟣',
         },
+
         legendary: {
             name: 'Легендарное',
             emoji: '🟡',
@@ -92,18 +90,22 @@ function categoryInfo(category) {
             name: 'Прогресс',
             emoji: '📈',
         },
+
         activity: {
             name: 'Активность',
             emoji: '⚡',
         },
+
         economy: {
             name: 'Экономика',
             emoji: '💰',
         },
+
         social: {
             name: 'Общение',
             emoji: '💬',
         },
+
         special: {
             name: 'Особые',
             emoji: '✨',
@@ -114,18 +116,12 @@ function categoryInfo(category) {
     };
 }
 
-function formatAchievement(
-    achievement
-) {
+function formatAchievement(achievement) {
     const rarity =
-        rarityInfo(
-            achievement.rarity
-        );
+        rarityInfo(achievement.rarity);
 
     const category =
-        categoryInfo(
-            achievement.category
-        );
+        categoryInfo(achievement.category);
 
     if (achievement.unlocked) {
         return [
@@ -165,19 +161,15 @@ function formatAchievement(
 }
 
 function buildPages(profile) {
-    const grouped =
-        new Map(
-            CATEGORY_ORDER.map(
-                category => [
-                    category,
-                    [],
-                ]
-            )
-        );
+    const grouped = new Map(
+        CATEGORY_ORDER.map(category => [
+            category,
+            [],
+        ])
+    );
 
     for (
-        const achievement of
-            profile.achievements
+        const achievement of profile.achievements
     ) {
         if (!grouped.has(achievement.category)) {
             grouped.set(
@@ -194,8 +186,7 @@ function buildPages(profile) {
     const ordered = [];
 
     for (
-        const achievements of
-            grouped.values()
+        const achievements of grouped.values()
     ) {
         ordered.push(...achievements);
     }
@@ -234,7 +225,9 @@ function buildEmbed({
                         size: 128,
                     }),
             })
-            .setTitle('🏆 Коллекция достижений')
+            .setTitle(
+                '🏆 Коллекция достижений'
+            )
             .setDescription(
                 [
                     `**Прогресс:** ${unlocked}/${total} • **${percentage}%**`,
@@ -248,9 +241,7 @@ function buildEmbed({
                 ].join('\n')
             );
 
-    for (
-        const achievement of current
-    ) {
+    for (const achievement of current) {
         embed.addFields({
             name: '\u200B',
             value:
@@ -272,6 +263,7 @@ function buildEmbed({
 }
 
 function buildButtons(
+    targetUserId,
     page,
     totalPages
 ) {
@@ -279,7 +271,7 @@ function buildButtons(
         .addComponents(
             new ButtonBuilder()
                 .setCustomId(
-                    `achievements:prev:${page}`
+                    `achievements:prev:${targetUserId}:${page}`
                 )
                 .setEmoji('◀️')
                 .setStyle(
@@ -291,7 +283,7 @@ function buildButtons(
 
             new ButtonBuilder()
                 .setCustomId(
-                    `achievements:page:${page}`
+                    `achievements:page:${targetUserId}:${page}`
                 )
                 .setLabel(
                     `${page + 1} / ${totalPages}`
@@ -303,7 +295,7 @@ function buildButtons(
 
             new ButtonBuilder()
                 .setCustomId(
-                    `achievements:next:${page}`
+                    `achievements:next:${targetUserId}:${page}`
                 )
                 .setEmoji('▶️')
                 .setStyle(
@@ -315,8 +307,18 @@ function buildButtons(
         );
 }
 
+/*
+ * ВАЖНО:
+ *
+ * Loader interactions.js требует:
+ *
+ * interaction.name
+ *
+ * Поэтому здесь обязательно именно name,
+ * а не только customId.
+ */
 export default {
-    customId: 'achievements',
+    name: 'achievements',
 
     async execute(
         interaction,
@@ -326,33 +328,48 @@ export default {
         const action =
             args?.[0];
 
-        const oldPage =
-            Number(args?.[1]);
+        const targetUserId =
+            args?.[1];
 
-        const page =
+        const oldPage =
+            Number(args?.[2]);
+
+        if (
+            !targetUserId ||
+            !/^\d+$/.test(targetUserId)
+        ) {
+            return interaction.reply({
+                content:
+                    '❌ Не удалось определить пользователя.',
+                ephemeral: true,
+            });
+        }
+
+        let currentPage =
             Number.isFinite(oldPage)
                 ? oldPage
                 : 0;
 
-        const userId =
-            interaction.message?.embeds?.[0]
-                ?.footer?.text
-                ?.match(/user:(\d+)/)?.[1];
+        if (action === 'prev') {
+            currentPage--;
+        }
 
-        /*
-         * Если ID пользователя не был сохранён
-         * в footer, используем автора сообщения.
-         */
-        const targetUserId =
-            userId ||
-            interaction.user.id;
+        if (action === 'next') {
+            currentPage++;
+        }
 
         const targetUser =
             await client.users
                 .fetch(targetUserId)
-                .catch(() =>
-                    interaction.user
-                );
+                .catch(() => null);
+
+        if (!targetUser) {
+            return interaction.reply({
+                content:
+                    '❌ Пользователь не найден.',
+                ephemeral: true,
+            });
+        }
 
         const profile =
             await getUserAchievementProfile(
@@ -380,16 +397,6 @@ export default {
             });
         }
 
-        let currentPage = page;
-
-        if (action === 'prev') {
-            currentPage--;
-        }
-
-        if (action === 'next') {
-            currentPage++;
-        }
-
         currentPage =
             Math.max(
                 0,
@@ -408,8 +415,10 @@ export default {
                     page: currentPage,
                 }),
             ],
+
             components: [
                 buildButtons(
+                    targetUser.id,
                     currentPage,
                     pages.length
                 ),
