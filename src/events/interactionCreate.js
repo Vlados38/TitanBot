@@ -1,13 +1,11 @@
 import {
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle,
+    AttachmentBuilder,
 } from 'discord.js';
 
 import {
-    getProfileData,
-    buildBadgesPage,
-    buildStatisticsPage,
+    loadProfileData,
+    buildNavigationButtons,
+    renderNewProfilePage,
 } from '../commands/Community/newprofile.js';
 
 
@@ -16,14 +14,15 @@ import {
  * INTERACTION CREATE
  * =========================================================
  *
- * Здесь обрабатываются кнопки НОВОГО профиля.
+ * Обрабатывает ТОЛЬКО кнопки новой системы /newprofile.
  *
- * Старый /profile НЕ ИЗМЕНЯЕМ.
+ * Старый /profile здесь НЕ используется.
  *
  * Поддерживаем:
  *
- * profile:badges:USER_ID:PAGE
- * profile:stats:USER_ID
+ * newprofile:profile:USER_ID
+ * newprofile:achievements:USER_ID:PAGE
+ * newprofile:statistics:USER_ID
  *
  * =========================================================
  */
@@ -31,11 +30,15 @@ import {
 export default {
     name: 'interactionCreate',
 
-    async execute(interaction, client, config) {
+    async execute(
+        interaction,
+        client,
+        config
+    ) {
 
         /*
          * =====================================================
-         * BUTTONS ONLY
+         * НЕ BUTTON
          * =====================================================
          */
 
@@ -43,23 +46,16 @@ export default {
             return;
         }
 
-        const customId =
-            interaction.customId;
 
         /*
          * =====================================================
-         * NEW PROFILE BUTTONS
+         * ONLY NEWPROFILE
          * =====================================================
-         *
-         * Обрабатываем только наши кнопки.
-         *
-         * Никакие другие кнопки бота
-         * здесь не перехватываем.
          */
 
         if (
-            !customId.startsWith(
-                'profile:'
+            !interaction.customId.startsWith(
+                'newprofile:'
             )
         ) {
             return;
@@ -73,15 +69,18 @@ export default {
          */
 
         const parts =
-            customId.split(':');
+            interaction.customId.split(':');
 
-        const action =
+        const prefix =
+            parts[0];
+
+        const page =
             parts[1];
 
         const targetUserId =
             parts[2];
 
-        const page =
+        const achievementPage =
             Number(parts[3] ?? 0);
 
 
@@ -92,7 +91,8 @@ export default {
          */
 
         if (
-            !action ||
+            prefix !== 'newprofile' ||
+            !page ||
             !targetUserId
         ) {
             return interaction.reply({
@@ -123,27 +123,7 @@ export default {
 
         /*
          * =====================================================
-         * TARGET MEMBER
-         * =====================================================
-         */
-
-        const member =
-            await guild.members
-                .fetch(targetUserId)
-                .catch(() => null);
-
-        if (!member) {
-            return interaction.reply({
-                content:
-                    '❌ Пользователь больше не найден на сервере.',
-                ephemeral: true,
-            });
-        }
-
-
-        /*
-         * =====================================================
-         * TARGET USER
+         * LOAD USER
          * =====================================================
          */
 
@@ -155,7 +135,7 @@ export default {
         if (!targetUser) {
             return interaction.reply({
                 content:
-                    '❌ Не удалось найти пользователя.',
+                    '❌ Пользователь не найден.',
                 ephemeral: true,
             });
         }
@@ -163,22 +143,62 @@ export default {
 
         /*
          * =====================================================
-         * LOAD PROFILE DATA
+         * LOAD MEMBER
+         * =====================================================
+         */
+
+        const member =
+            await guild.members
+                .fetch(targetUserId)
+                .catch(() => null);
+
+        if (!member) {
+            return interaction.reply({
+                content:
+                    '❌ Пользователь больше не находится на сервере.',
+                ephemeral: true,
+            });
+        }
+
+
+        /*
+         * =====================================================
+         * ACCESS CHECK
          * =====================================================
          *
-         * Используем ту же функцию,
-         * которую использует /newprofile.
+         * Пока разрешаем смотреть любой профиль,
+         * как и сам /newprofile.
          *
-         * /profile здесь вообще не вызывается.
+         * Это значит:
+         *
+         * пользователь может нажать кнопку
+         * на чужой карточке.
          */
 
         try {
 
+            /*
+             * =================================================
+             * DEFER
+             * =================================================
+             *
+             * deferUpdate говорит Discord:
+             *
+             * "кнопка нажата, сейчас изменим
+             * существующее сообщение".
+             */
+
             await interaction.deferUpdate();
 
 
-            const profileData =
-                await getProfileData({
+            /*
+             * =================================================
+             * LOAD DATA
+             * =================================================
+             */
+
+            const data =
+                await loadProfileData({
                     client,
                     guild,
                     member,
@@ -188,352 +208,113 @@ export default {
 
             /*
              * =================================================
-             * ACHIEVEMENTS
-             * =================================================
-             */
-
-            if (
-                action === 'badges'
-            ) {
-
-                const {
-                    embed,
-                    page: safePage,
-                    totalPages,
-                } =
-                    buildBadgesPage(
-                        profileData,
-                        page
-                    );
-
-
-                /*
-                 * -------------------------------------------------
-                 * BUTTONS
-                 * -------------------------------------------------
-                 */
-
-                const buttons =
-                    new ActionRowBuilder();
-
-
-                /*
-                 * PREVIOUS
-                 */
-
-                buttons.addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(
-                            `profile:badges:${targetUserId}:${Math.max(
-                                0,
-                                safePage - 1
-                            )}`
-                        )
-                        .setLabel('Назад')
-                        .setEmoji('◀️')
-                        .setStyle(
-                            ButtonStyle.Secondary
-                        )
-                        .setDisabled(
-                            safePage <= 0
-                        )
-                );
-
-
-                /*
-                 * BACK TO PROFILE
-                 */
-
-                buttons.addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(
-                            `profile:main:${targetUserId}`
-                        )
-                        .setLabel(
-                            'Профиль'
-                        )
-                        .setEmoji('👤')
-                        .setStyle(
-                            ButtonStyle.Secondary
-                        )
-                );
-
-
-                /*
-                 * STATISTICS
-                 */
-
-                buttons.addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(
-                            `profile:stats:${targetUserId}`
-                        )
-                        .setLabel(
-                            'Статистика'
-                        )
-                        .setEmoji('📊')
-                        .setStyle(
-                            ButtonStyle.Secondary
-                        )
-                );
-
-
-                /*
-                 * NEXT
-                 */
-
-                buttons.addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(
-                            `profile:badges:${targetUserId}:${Math.min(
-                                totalPages - 1,
-                                safePage + 1
-                            )}`
-                        )
-                        .setLabel('Вперёд')
-                        .setEmoji('▶️')
-                        .setStyle(
-                            ButtonStyle.Secondary
-                        )
-                        .setDisabled(
-                            safePage >=
-                            totalPages - 1
-                        )
-                );
-
-
-                /*
-                 * -------------------------------------------------
-                 * UPDATE MESSAGE
-                 * -------------------------------------------------
-                 */
-
-                return interaction.editReply({
-                    embeds: [embed],
-                    components: [
-                        buttons,
-                    ],
-                });
-            }
-
-
-            /*
-             * =================================================
-             * STATISTICS
-             * =================================================
-             */
-
-            if (
-                action === 'stats'
-            ) {
-
-                const embed =
-                    buildStatisticsPage(
-                        profileData
-                    );
-
-
-                /*
-                 * -------------------------------------------------
-                 * BUTTONS
-                 * -------------------------------------------------
-                 */
-
-                const buttons =
-                    new ActionRowBuilder();
-
-
-                /*
-                 * BACK TO PROFILE
-                 */
-
-                buttons.addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(
-                            `profile:main:${targetUserId}`
-                        )
-                        .setLabel(
-                            'Профиль'
-                        )
-                        .setEmoji('👤')
-                        .setStyle(
-                            ButtonStyle.Secondary
-                        )
-                );
-
-
-                /*
-                 * ACHIEVEMENTS
-                 */
-
-                buttons.addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(
-                            `profile:badges:${targetUserId}:0`
-                        )
-                        .setLabel(
-                            'Достижения'
-                        )
-                        .setEmoji('🏅')
-                        .setStyle(
-                            ButtonStyle.Secondary
-                        )
-                );
-
-
-                /*
-                 * -------------------------------------------------
-                 * UPDATE MESSAGE
-                 * -------------------------------------------------
-                 */
-
-                return interaction.editReply({
-                    embeds: [embed],
-                    components: [
-                        buttons,
-                    ],
-                });
-            }
-
-
-            /*
-             * =================================================
-             * MAIN PROFILE
+             * ACHIEVEMENT PAGE
              * =================================================
              *
-             * Возвращаем картинку newprofile.
-             *
-             * ВАЖНО:
-             * здесь нужен generateProfileCard.
+             * renderNewProfilePage ожидает номер страницы
+             * в data.__achievementPage.
              */
 
             if (
-                action === 'main'
+                page === 'achievements'
             ) {
-
-                /*
-                 * Импортируем генератор динамически,
-                 * чтобы interactionCreate не создавал
-                 * циклическую зависимость при загрузке.
-                 */
-
-                const {
-                    generateProfileCard,
-                } =
-                    await import(
-                        '../services/profile/profileCard.js'
-                    );
-
-
-                const image =
-                    await generateProfileCard(
-                        profileData
-                    );
-
-
-                /*
-                 * AttachmentBuilder
-                 */
-
-                const {
-                    AttachmentBuilder,
-                } =
-                    await import(
-                        'discord.js'
-                    );
-
-
-                const attachment =
-                    new AttachmentBuilder(
-                        image,
-                        {
-                            name:
-                                `titan-profile-${targetUserId}.png`,
-                        }
-                    );
-
-
-                /*
-                 * BUTTONS
-                 */
-
-                const buttons =
-                    new ActionRowBuilder();
-
-
-                buttons.addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(
-                            `profile:badges:${targetUserId}:0`
+                data.__achievementPage =
+                    Number.isFinite(
+                        achievementPage
+                    )
+                        ? Math.max(
+                            0,
+                            achievementPage
                         )
-                        .setLabel(
-                            'Достижения'
-                        )
-                        .setEmoji('🏅')
-                        .setStyle(
-                            ButtonStyle.Secondary
-                        ),
-
-                    new ButtonBuilder()
-                        .setCustomId(
-                            `profile:stats:${targetUserId}`
-                        )
-                        .setLabel(
-                            'Статистика'
-                        )
-                        .setEmoji('📊')
-                        .setStyle(
-                            ButtonStyle.Secondary
-                        )
-                );
-
-
-                /*
-                 * -------------------------------------------------
-                 * RETURN TO IMAGE
-                 * -------------------------------------------------
-                 */
-
-                return interaction.editReply({
-                    content: '',
-                    embeds: [],
-                    files: [attachment],
-                    components: [
-                        buttons,
-                    ],
-                });
+                        : 0;
             }
 
 
             /*
              * =================================================
-             * UNKNOWN ACTION
+             * RENDER
              * =================================================
+             */
+
+            const rendered =
+                await renderNewProfilePage({
+                    page,
+                    data,
+                });
+
+
+            /*
+             * =================================================
+             * ATTACHMENT
+             * =================================================
+             */
+
+            const attachment =
+                new AttachmentBuilder(
+                    rendered.buffer,
+                    {
+                        name:
+                            `newprofile-${targetUserId}-${page}.png`,
+                    }
+                );
+
+
+            /*
+             * =================================================
+             * NAVIGATION
+             * =================================================
+             */
+
+            const components =
+                buildNavigationButtons(
+                    targetUserId,
+
+                    rendered.currentPage,
+
+                    rendered.achievementPage,
+
+                    rendered.totalAchievementPages
+                );
+
+
+            /*
+             * =================================================
+             * UPDATE MESSAGE
+             * =================================================
+             *
+             * Здесь происходит главное:
+             *
+             * старое изображение удаляется,
+             * новое изображение появляется
+             * в том же сообщении.
              */
 
             return interaction.editReply({
-                content:
-                    '❌ Неизвестное действие профиля.',
+                content: '',
                 embeds: [],
-                components: [],
+                files: [
+                    attachment,
+                ],
+                components,
             });
 
         } catch (error) {
 
             console.error(
-                '[NEWPROFILE BUTTON] Failed:',
+                '[NEWPROFILE BUTTON] Failed to render page:',
                 error
             );
 
 
             /*
-             * Если deferUpdate уже был вызван,
-             * используем editReply.
+             * =================================================
+             * ERROR
+             * =================================================
              */
 
             return interaction.editReply({
                 content:
-                    '❌ Не удалось открыть этот раздел профиля.',
+                    '❌ Не удалось открыть раздел профиля.',
                 embeds: [],
                 components: [],
             }).catch(() => {});
