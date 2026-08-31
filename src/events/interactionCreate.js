@@ -80,11 +80,15 @@ export default {
          * =====================================================
          */
 
-        if (
-            interaction.isButton()
-        ) {
+        if (interaction.isButton()) {
             const customId =
                 interaction.customId;
+
+            /*
+             * -------------------------------------------------
+             * NEWPROFILE
+             * -------------------------------------------------
+             */
 
             if (
                 customId.startsWith(
@@ -95,7 +99,15 @@ export default {
                     interaction,
                     client
                 );
+
+                return;
             }
+
+            /*
+             * -------------------------------------------------
+             * Остальные кнопки бота здесь не трогаем.
+             * -------------------------------------------------
+             */
 
             return;
         }
@@ -116,6 +128,20 @@ async function handleNewProfileButton(
         const parts =
             interaction.customId.split(':');
 
+        /*
+         * Форматы:
+         *
+         * newprofile:profile:USER_ID
+         *
+         * newprofile:achievements:USER_ID:0
+         *
+         * newprofile:achievements:USER_ID:next:1
+         *
+         * newprofile:achievements:USER_ID:prev:0
+         *
+         * newprofile:statistics:USER_ID
+         */
+
         const prefix =
             parts[0];
 
@@ -125,14 +151,17 @@ async function handleNewProfileButton(
         const targetUserId =
             parts[2];
 
-        const pageValue =
-            parts[3];
-
 
         console.log(
             `[NEWPROFILE BUTTON] ${interaction.customId}`
         );
 
+
+        /*
+         * =====================================================
+         * VALIDATE PREFIX
+         * =====================================================
+         */
 
         if (
             prefix !== 'newprofile'
@@ -140,6 +169,12 @@ async function handleNewProfileButton(
             return;
         }
 
+
+        /*
+         * =====================================================
+         * VALIDATE USER
+         * =====================================================
+         */
 
         if (
             !targetUserId
@@ -151,6 +186,12 @@ async function handleNewProfileButton(
             });
         }
 
+
+        /*
+         * =====================================================
+         * GUILD
+         * =====================================================
+         */
 
         const guild =
             interaction.guild;
@@ -215,7 +256,7 @@ async function handleNewProfileButton(
 
         /*
          * =====================================================
-         * LOAD PROFILE
+         * LOAD PROFILE DATA
          * =====================================================
          */
 
@@ -230,24 +271,117 @@ async function handleNewProfileButton(
 
         /*
          * =====================================================
-         * ACHIEVEMENT PAGE
+         * DETERMINE ACHIEVEMENT PAGE
          * =====================================================
          */
+
+        let achievementPage = 0;
+
 
         if (
             page === 'achievements'
         ) {
-            data.__achievementPage =
-                Math.max(
-                    0,
-                    Number(pageValue) || 0
-                );
+
+            /*
+             * -------------------------------------------------
+             * Старый формат:
+             *
+             * newprofile:achievements:USER_ID:0
+             * -------------------------------------------------
+             */
+
+            if (
+                parts[3] !== 'next' &&
+                parts[3] !== 'prev'
+            ) {
+                achievementPage =
+                    Math.max(
+                        0,
+                        Number(parts[3]) || 0
+                    );
+            }
+
+
+            /*
+             * -------------------------------------------------
+             * Новый формат:
+             *
+             * newprofile:achievements:USER_ID:next:1
+             *
+             * newprofile:achievements:USER_ID:prev:0
+             * -------------------------------------------------
+             */
+
+            else {
+
+                const action =
+                    parts[3];
+
+                const requestedPage =
+                    Number(parts[4]);
+
+
+                if (
+                    Number.isFinite(
+                        requestedPage
+                    )
+                ) {
+                    achievementPage =
+                        Math.max(
+                            0,
+                            requestedPage
+                        );
+                }
+
+
+                /*
+                 * На всякий случай поддерживаем
+                 * переход относительно текущей страницы,
+                 * если номер не был передан.
+                 */
+
+                else {
+
+                    const currentPage =
+                        Number(
+                            interaction.message
+                                ?.components?.[0]
+                                ?.components
+                                ?.find(
+                                    component =>
+                                        component.customId
+                                            ?.startsWith(
+                                                `newprofile:achievements:${targetUserId}:`
+                                            )
+                                )
+                                ?.customId
+                                ?.split(':')
+                                ?.at(-1)
+                        ) || 0;
+
+
+                    if (
+                        action === 'next'
+                    ) {
+                        achievementPage =
+                            currentPage + 1;
+                    } else if (
+                        action === 'prev'
+                    ) {
+                        achievementPage =
+                            Math.max(
+                                0,
+                                currentPage - 1
+                            );
+                    }
+                }
+            }
         }
 
 
         /*
          * =====================================================
-         * RENDER
+         * RENDER PAGE
          * =====================================================
          */
 
@@ -255,12 +389,13 @@ async function handleNewProfileButton(
             await renderNewProfilePage({
                 page,
                 data,
+                achievementPage,
             });
 
 
         /*
          * =====================================================
-         * BUTTONS
+         * NAVIGATION BUTTONS
          * =====================================================
          */
 
@@ -275,7 +410,7 @@ async function handleNewProfileButton(
 
         /*
          * =====================================================
-         * IMAGE
+         * IMAGE ATTACHMENT
          * =====================================================
          */
 
@@ -284,7 +419,7 @@ async function handleNewProfileButton(
                 result.buffer,
                 {
                     name:
-                        `newprofile-${targetUserId}-${result.currentPage}.png`,
+                        `newprofile-${targetUserId}-${result.currentPage}-${result.achievementPage}.png`,
                 }
             );
 
@@ -303,9 +438,23 @@ async function handleNewProfileButton(
         });
 
 
+        /*
+         * =====================================================
+         * LOG
+         * =====================================================
+         */
+
         console.log(
             `[NEWPROFILE BUTTON] ${page} rendered successfully`
         );
+
+        if (
+            page === 'achievements'
+        ) {
+            console.log(
+                `[NEWPROFILE BUTTON] Achievement page: ${result.achievementPage + 1}/${result.totalAchievementPages}`
+            );
+        }
 
     } catch (error) {
 
@@ -315,11 +464,19 @@ async function handleNewProfileButton(
         );
 
 
+        /*
+         * =====================================================
+         * ERROR RESPONSE
+         * =====================================================
+         */
+
         try {
+
             if (
                 interaction.deferred ||
                 interaction.replied
             ) {
+
                 await interaction.editReply({
                     content:
                         '❌ Не удалось открыть эту страницу профиля.',
@@ -327,14 +484,19 @@ async function handleNewProfileButton(
                     files: [],
                     components: [],
                 });
+
             } else {
+
                 await interaction.reply({
                     content:
                         '❌ Не удалось открыть эту страницу профиля.',
                     ephemeral: true,
                 });
+
             }
+
         } catch (replyError) {
+
             console.error(
                 '[NEWPROFILE BUTTON] Failed to send error:',
                 replyError
