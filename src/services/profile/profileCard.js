@@ -1,3 +1,5 @@
+// src/services/profile/profileCard.js
+
 import sharp from 'sharp';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -17,11 +19,8 @@ const FONT_PATH = path.resolve(
  */
 
 const COLORS = {
-    background: '#080611',
-    backgroundLight: '#100B1B',
-
-    panel: '#110D1C',
-    panelLight: '#161021',
+    background: '#090611',
+    background2: '#120B1D',
 
     purple: '#A855F7',
     purpleLight: '#C084FC',
@@ -29,9 +28,13 @@ const COLORS = {
 
     white: '#FFFFFF',
     text: '#D9D3E3',
-    muted: '#81778F',
+    muted: '#82788F',
     mutedDark: '#51485D',
 
+    panel: '#100B19',
+    panelLight: '#171020',
+
+    line: '#FFFFFF',
     progressBackground: '#292332',
 };
 
@@ -70,11 +73,7 @@ function truncate(value, maxLength = 25) {
     return `${text.slice(0, maxLength - 1)}…`;
 }
 
-function createProgressBar(
-    current,
-    total,
-    width
-) {
+function createProgressBar(current, total, width) {
     current = Number(current) || 0;
     total = Number(total) || 0;
 
@@ -139,7 +138,7 @@ async function avatarToDataUri(avatarUrl) {
     );
 
     const png = await sharp(buffer)
-        .resize(230, 230, {
+        .resize(240, 240, {
             fit: 'cover',
             position: 'centre',
         })
@@ -181,9 +180,9 @@ export async function generateProfileCard(data) {
         Number(level) || 0;
 
     /**
-     * -------------------------------------------------------
+     * =====================================================
      * USER
-     * -------------------------------------------------------
+     * =====================================================
      */
 
     const displayName = truncate(
@@ -191,7 +190,7 @@ export async function generateProfileCard(data) {
         user?.displayName ||
         user?.username ||
         'Неизвестный авантюрист',
-        20
+        21
     );
 
     const username = truncate(
@@ -207,21 +206,21 @@ export async function generateProfileCard(data) {
     );
 
     /**
-     * -------------------------------------------------------
+     * =====================================================
      * XP
-     * -------------------------------------------------------
+     * =====================================================
      */
 
     const xpBar = createProgressBar(
         xp,
         nextLevelXp,
-        670
+        700
     );
 
     /**
-     * -------------------------------------------------------
+     * =====================================================
      * ACHIEVEMENTS
-     * -------------------------------------------------------
+     * =====================================================
      */
 
     const achievementTotal =
@@ -243,17 +242,10 @@ export async function generateProfileCard(data) {
             )
             : 0;
 
-    const achievementBar =
-        Math.round(
-            200 *
-            achievementPercentage /
-            100
-        );
-
     /**
-     * -------------------------------------------------------
+     * =====================================================
      * RANK
-     * -------------------------------------------------------
+     * =====================================================
      */
 
     const rankText =
@@ -263,9 +255,9 @@ export async function generateProfileCard(data) {
             : '—';
 
     /**
-     * -------------------------------------------------------
+     * =====================================================
      * AVATAR
-     * -------------------------------------------------------
+     * =====================================================
      */
 
     let avatarData = null;
@@ -286,9 +278,9 @@ export async function generateProfileCard(data) {
     }
 
     /**
-     * =======================================================
+     * =====================================================
      * SVG
-     * =======================================================
+     * =====================================================
      */
 
     const svg = `
@@ -318,19 +310,19 @@ export async function generateProfileCard(data) {
         />
 
         <stop
-            offset="60%"
-            stop-color="${COLORS.backgroundLight}"
+            offset="55%"
+            stop-color="${COLORS.background2}"
         />
 
         <stop
             offset="100%"
-            stop-color="#171024"
+            stop-color="#1A1028"
         />
     </linearGradient>
 
 
     <!-- =================================================
-         PURPLE GRADIENT
+         PURPLE
     ================================================== -->
 
     <linearGradient
@@ -358,7 +350,7 @@ export async function generateProfileCard(data) {
 
 
     <!-- =================================================
-         XP GRADIENT
+         XP
     ================================================== -->
 
     <linearGradient
@@ -370,11 +362,11 @@ export async function generateProfileCard(data) {
     >
         <stop
             offset="0%"
-            stop-color="#8B3FD9"
+            stop-color="#7935B8"
         />
 
         <stop
-            offset="65%"
+            offset="60%"
             stop-color="${COLORS.purple}"
         />
 
@@ -386,31 +378,31 @@ export async function generateProfileCard(data) {
 
 
     <!-- =================================================
-         AVATAR
+         AVATAR CLIP
     ================================================== -->
 
     <clipPath id="avatarClip">
         <circle
             cx="165"
-            cy="245"
-            r="88"
+            cy="235"
+            r="91"
         />
     </clipPath>
 
 
     <!-- =================================================
-         GLOW
+         GLOWS
     ================================================== -->
 
-    <filter id="glow">
+    <filter id="largeGlow">
         <feGaussianBlur
-            stdDeviation="30"
+            stdDeviation="45"
         />
     </filter>
 
-    <filter id="smallGlow">
+    <filter id="avatarGlow">
         <feGaussianBlur
-            stdDeviation="12"
+            stdDeviation="18"
         />
     </filter>
 
@@ -424,65 +416,81 @@ export async function generateProfileCard(data) {
 <rect
     width="${WIDTH}"
     height="${HEIGHT}"
-    rx="30"
+    rx="32"
     fill="url(#background)"
 />
 
 
 <!-- =====================================================
-     PURPLE AMBIENT LIGHT
+     LARGE BACKGROUND LEVEL
+====================================================== -->
+
+<text
+    x="1080"
+    y="300"
+    text-anchor="end"
+    fill="${COLORS.purple}"
+    opacity="0.035"
+    font-family="Russo One"
+    font-size="300"
+>
+    ${safeLevel}
+</text>
+
+
+<!-- =====================================================
+     AMBIENT GLOW
 ====================================================== -->
 
 <circle
-    cx="950"
-    cy="90"
-    r="220"
+    cx="980"
+    cy="40"
+    r="250"
     fill="${COLORS.purple}"
-    opacity="0.075"
-    filter="url(#glow)"
+    opacity="0.10"
+    filter="url(#largeGlow)"
 />
 
 <circle
     cx="80"
-    cy="570"
-    r="180"
+    cy="580"
+    r="190"
     fill="${COLORS.purple}"
-    opacity="0.055"
-    filter="url(#glow)"
+    opacity="0.06"
+    filter="url(#largeGlow)"
 />
 
 
 <!-- =====================================================
-     TOP DECORATION
+     TOP LINE
 ====================================================== -->
 
 <rect
     x="55"
-    y="35"
+    y="34"
     width="990"
     height="1"
     fill="url(#purpleGradient)"
-    opacity="0.35"
+    opacity="0.28"
 />
-
 
 <rect
     x="55"
-    y="35"
-    width="190"
+    y="34"
+    width="220"
     height="2"
     fill="${COLORS.purple}"
-    opacity="0.75"
+    opacity="0.8"
 />
 
 
 <!-- =====================================================
-     TITLE
+     HEADER
 ====================================================== -->
 
 <text
     x="55"
-    y="70"
+    y="72"
     fill="${COLORS.white}"
     font-family="Russo One"
     font-size="21"
@@ -494,7 +502,7 @@ export async function generateProfileCard(data) {
 
 <text
     x="1045"
-    y="70"
+    y="72"
     text-anchor="end"
     fill="${COLORS.mutedDark}"
     font-family="Russo One"
@@ -506,19 +514,19 @@ export async function generateProfileCard(data) {
 
 
 <!-- =====================================================
-     AVATAR AREA
+     LEFT CHARACTER ZONE
 ====================================================== -->
 
 <rect
     x="45"
-    y="105"
+    y="108"
     width="240"
-    height="280"
-    rx="28"
+    height="345"
+    rx="30"
     fill="${COLORS.panel}"
-    fill-opacity="0.85"
+    fill-opacity="0.72"
     stroke="${COLORS.purple}"
-    stroke-opacity="0.14"
+    stroke-opacity="0.12"
     stroke-width="1"
 />
 
@@ -527,36 +535,38 @@ export async function generateProfileCard(data) {
 
 <circle
     cx="165"
-    cy="245"
-    r="112"
+    cy="235"
+    r="118"
     fill="${COLORS.purple}"
-    opacity="0.12"
-    filter="url(#smallGlow)"
+    opacity="0.10"
+    filter="url(#avatarGlow)"
 />
 
 
-<!-- avatar background -->
+<!-- avatar outer -->
 
 <circle
     cx="165"
-    cy="245"
-    r="99"
+    cy="235"
+    r="105"
     fill="${COLORS.background}"
     stroke="${COLORS.purple}"
-    stroke-opacity="0.30"
+    stroke-opacity="0.22"
     stroke-width="2"
 />
 
+
+<!-- avatar -->
 
 ${
     avatarData
         ? `
 <image
     href="${avatarData}"
-    x="77"
-    y="157"
-    width="176"
-    height="176"
+    x="74"
+    y="144"
+    width="182"
+    height="182"
     preserveAspectRatio="xMidYMid slice"
     clip-path="url(#avatarClip)"
 />
@@ -564,14 +574,14 @@ ${
         : `
 <circle
     cx="165"
-    cy="245"
-    r="88"
+    cy="235"
+    r="91"
     fill="${COLORS.panelLight}"
 />
 
 <text
     x="165"
-    y="260"
+    y="250"
     text-anchor="middle"
     fill="${COLORS.purpleLight}"
     font-family="Russo One"
@@ -587,18 +597,17 @@ ${
 
 <circle
     cx="165"
-    cy="245"
-    r="96"
+    cy="235"
+    r="98"
     fill="none"
     stroke="url(#purpleGradient)"
     stroke-width="4"
 />
 
-
 <circle
     cx="165"
-    cy="245"
-    r="104"
+    cy="235"
+    r="107"
     fill="none"
     stroke="${COLORS.purple}"
     stroke-width="1"
@@ -607,24 +616,25 @@ ${
 
 
 <!-- =====================================================
-     LEVEL BADGE
+     LEVEL PILL
 ====================================================== -->
 
 <rect
-    x="91"
-    y="351"
-    width="148"
-    height="38"
-    rx="19"
+    x="80"
+    y="355"
+    width="170"
+    height="40"
+    rx="20"
     fill="${COLORS.purple}"
+    fill-opacity="0.95"
 />
 
 
 <text
     x="165"
-    y="376"
+    y="381"
     text-anchor="middle"
-    fill="#100815"
+    fill="#110718"
     font-family="Russo One"
     font-size="15"
 >
@@ -633,15 +643,65 @@ ${
 
 
 <!-- =====================================================
-     USER
+     ACHIEVEMENT MINI PANEL
+====================================================== -->
+
+<text
+    x="65"
+    y="428"
+    fill="${COLORS.muted}"
+    font-family="Russo One"
+    font-size="9"
+    letter-spacing="1.5"
+>
+    ДОСТИЖЕНИЯ
+</text>
+
+
+<text
+    x="255"
+    y="428"
+    text-anchor="end"
+    fill="${COLORS.white}"
+    font-family="Russo One"
+    font-size="13"
+>
+    ${achievementUnlocked} / ${achievementTotal}
+</text>
+
+
+<rect
+    x="65"
+    y="438"
+    width="190"
+    height="5"
+    rx="2.5"
+    fill="${COLORS.progressBackground}"
+/>
+
+
+<rect
+    x="65"
+    y="438"
+    width="${Math.round(
+        190 * achievementPercentage / 100
+    )}"
+    height="5"
+    rx="2.5"
+    fill="url(#purpleGradient)"
+/>
+
+
+<!-- =====================================================
+     MAIN INFORMATION
 ====================================================== -->
 
 <text
     x="320"
-    y="122"
+    y="123"
     fill="${COLORS.purpleLight}"
     font-family="Russo One"
-    font-size="11"
+    font-size="10"
     letter-spacing="3"
 >
     АВАНТЮРИСТ
@@ -650,7 +710,7 @@ ${
 
 <text
     x="320"
-    y="171"
+    y="174"
     fill="${COLORS.white}"
     font-family="Russo One"
     font-size="40"
@@ -661,7 +721,7 @@ ${
 
 <text
     x="322"
-    y="201"
+    y="204"
     fill="${COLORS.muted}"
     font-family="Russo One"
     font-size="15"
@@ -674,7 +734,7 @@ ${
 
 <circle
     cx="329"
-    cy="238"
+    cy="241"
     r="5"
     fill="${COLORS.purpleLight}"
 />
@@ -682,7 +742,7 @@ ${
 
 <text
     x="344"
-    y="244"
+    y="247"
     fill="${COLORS.text}"
     font-family="Russo One"
     font-size="15"
@@ -697,7 +757,7 @@ ${
 
 <text
     x="320"
-    y="299"
+    y="300"
     fill="${COLORS.muted}"
     font-family="Russo One"
     font-size="10"
@@ -709,18 +769,18 @@ ${
 
 <text
     x="320"
-    y="343"
+    y="340"
     fill="${COLORS.purpleLight}"
     font-family="Russo One"
-    font-size="38"
+    font-size="34"
 >
     ${safeLevel}
 </text>
 
 
 <text
-    x="430"
-    y="299"
+    x="440"
+    y="300"
     fill="${COLORS.muted}"
     font-family="Russo One"
     font-size="10"
@@ -731,8 +791,8 @@ ${
 
 
 <text
-    x="430"
-    y="343"
+    x="440"
+    y="340"
     fill="${COLORS.white}"
     font-family="Russo One"
     font-size="30"
@@ -742,7 +802,7 @@ ${
 
 
 <!-- =====================================================
-     XP
+     XP HEADER
 ====================================================== -->
 
 <text
@@ -753,7 +813,7 @@ ${
     font-size="10"
     letter-spacing="2"
 >
-    ОПЫТ ДО СЛЕДУЮЩЕГО УРОВНЯ
+    ОПЫТ
 </text>
 
 
@@ -769,12 +829,14 @@ ${
 </text>
 
 
+<!-- XP BAR -->
+
 <rect
     x="320"
     y="405"
     width="695"
-    height="14"
-    rx="7"
+    height="15"
+    rx="7.5"
     fill="${COLORS.progressBackground}"
 />
 
@@ -783,15 +845,17 @@ ${
     x="320"
     y="405"
     width="${xpBar.filled}"
-    height="14"
-    rx="7"
+    height="15"
+    rx="7.5"
     fill="url(#xpGradient)"
 />
 
 
+<!-- XP values -->
+
 <text
     x="320"
-    y="444"
+    y="447"
     fill="${COLORS.text}"
     font-family="Russo One"
     font-size="13"
@@ -805,7 +869,7 @@ ${
 
 <text
     x="1015"
-    y="444"
+    y="447"
     text-anchor="end"
     fill="${COLORS.mutedDark}"
     font-family="Russo One"
@@ -816,27 +880,29 @@ ${
 
 
 <!-- =====================================================
-     ECONOMY
+     DIVIDER
 ====================================================== -->
 
 <line
     x1="320"
-    y1="469"
+    y1="474"
     x2="1015"
-    y2="469"
-    stroke="#FFFFFF"
-    stroke-opacity="0.055"
+    y2="474"
+    stroke="${COLORS.line}"
+    stroke-opacity="0.06"
 />
 
 
-<!-- balance -->
+<!-- =====================================================
+     ECONOMY
+====================================================== -->
 
 <text
     x="320"
-    y="501"
+    y="505"
     fill="${COLORS.muted}"
     font-family="Russo One"
-    font-size="10"
+    font-size="9"
     letter-spacing="2"
 >
     ОБЩИЙ БАЛАНС
@@ -845,7 +911,7 @@ ${
 
 <text
     x="320"
-    y="533"
+    y="540"
     fill="${COLORS.white}"
     font-family="Russo One"
     font-size="22"
@@ -854,14 +920,12 @@ ${
 </text>
 
 
-<!-- wallet -->
-
 <text
-    x="550"
-    y="501"
+    x="560"
+    y="505"
     fill="${COLORS.muted}"
     font-family="Russo One"
-    font-size="10"
+    font-size="9"
     letter-spacing="2"
 >
     КОШЕЛЁК
@@ -869,8 +933,8 @@ ${
 
 
 <text
-    x="550"
-    y="533"
+    x="560"
+    y="540"
     fill="${COLORS.white}"
     font-family="Russo One"
     font-size="22"
@@ -879,14 +943,12 @@ ${
 </text>
 
 
-<!-- bank -->
-
 <text
-    x="750"
-    y="501"
+    x="760"
+    y="505"
     fill="${COLORS.muted}"
     font-family="Russo One"
-    font-size="10"
+    font-size="9"
     letter-spacing="2"
 >
     БАНК
@@ -894,8 +956,8 @@ ${
 
 
 <text
-    x="750"
-    y="533"
+    x="760"
+    y="540"
     fill="${COLORS.white}"
     font-family="Russo One"
     font-size="22"
@@ -905,91 +967,14 @@ ${
 
 
 <!-- =====================================================
-     ACHIEVEMENTS
-====================================================== -->
-
-<rect
-    x="45"
-    y="520"
-    width="240"
-    height="55"
-    rx="18"
-    fill="${COLORS.panel}"
-    fill-opacity="0.8"
-    stroke="${COLORS.purple}"
-    stroke-opacity="0.12"
-/>
-
-
-<text
-    x="65"
-    y="543"
-    fill="${COLORS.muted}"
-    font-family="Russo One"
-    font-size="9"
-    letter-spacing="1"
->
-    ДОСТИЖЕНИЯ
-</text>
-
-
-<text
-    x="65"
-    y="563"
-    fill="${COLORS.white}"
-    font-family="Russo One"
-    font-size="15"
->
-    ${achievementUnlocked}
-    /
-    ${achievementTotal}
-</text>
-
-
-<rect
-    x="130"
-    y="548"
-    width="90"
-    height="5"
-    rx="2.5"
-    fill="${COLORS.progressBackground}"
-/>
-
-
-<rect
-    x="130"
-    y="548"
-    width="${Math.min(
-        achievementBar,
-        90
-    )}"
-    height="5"
-    rx="2.5"
-    fill="${COLORS.purple}"
-/>
-
-
-<text
-    x="250"
-    y="553"
-    text-anchor="end"
-    fill="${COLORS.purpleLight}"
-    font-family="Russo One"
-    font-size="11"
->
-    ${achievementPercentage}%
-</text>
-
-
-<!-- =====================================================
-     DECORATIVE ELEMENTS
+     DECORATION
 ====================================================== -->
 
 <path
     d="
-        M 1015 105
-        L 1045 105
-        L 1045 135
+        M 1015 108
+        L 1045 108
+        L 1045 138
     "
     fill="none"
     stroke="${COLORS.purpleLight}"
@@ -1000,39 +985,39 @@ ${
 
 <path
     d="
-        M 1025 105
-        L 1015 105
-        L 1015 115
+        M 1025 108
+        L 1015 108
+        L 1015 118
     "
     fill="none"
     stroke="${COLORS.purple}"
     stroke-width="1"
-    opacity="0.4"
+    opacity="0.45"
 />
 
 
 <circle
     cx="1000"
-    cy="560"
+    cy="575"
     r="3"
     fill="${COLORS.purpleLight}"
-    opacity="0.6"
+    opacity="0.65"
 />
 
 
 <line
     x1="1010"
-    y1="560"
+    y1="575"
     x2="1045"
-    y2="560"
+    y2="575"
     stroke="${COLORS.purple}"
     stroke-width="1"
-    opacity="0.3"
+    opacity="0.35"
 />
 
 
 <!-- =====================================================
-     OUTER BORDER
+     BORDER
 ====================================================== -->
 
 <rect
