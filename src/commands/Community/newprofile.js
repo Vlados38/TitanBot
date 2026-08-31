@@ -1,6 +1,9 @@
 import {
     SlashCommandBuilder,
     AttachmentBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
 } from 'discord.js';
 
 import {
@@ -18,6 +21,12 @@ import {
     generateProfileCard,
 } from '../../services/profile/profileCard.js';
 
+
+/**
+ * =========================================================
+ * COMMAND
+ * =========================================================
+ */
 
 export default {
     data: new SlashCommandBuilder()
@@ -40,7 +49,8 @@ export default {
             interaction.options.getUser('user') ??
             interaction.user;
 
-        const guild = interaction.guild;
+        const guild =
+            interaction.guild;
 
         if (!guild) {
             return interaction.editReply({
@@ -49,9 +59,16 @@ export default {
             });
         }
 
-        const member = await guild.members
-            .fetch(targetUser.id)
-            .catch(() => null);
+        /**
+         * -----------------------------------------------------
+         * MEMBER
+         * -----------------------------------------------------
+         */
+
+        const member =
+            await guild.members
+                .fetch(targetUser.id)
+                .catch(() => null);
 
         if (!member) {
             return interaction.editReply({
@@ -61,10 +78,10 @@ export default {
         }
 
         try {
-            /*
-             * =====================================================
-             * LOAD PROFILE DATA
-             * =====================================================
+            /**
+             * =================================================
+             * LOAD DATA
+             * =================================================
              */
 
             const [
@@ -92,20 +109,29 @@ export default {
             ]);
 
 
-            /*
-             * =====================================================
+            /**
+             * =================================================
              * LEVEL
-             * =====================================================
+             * =================================================
              */
 
             const level =
-                Number(levelData?.level) || 0;
+                Math.max(
+                    0,
+                    Number(levelData?.level) || 0
+                );
 
             const xp =
-                Number(levelData?.xp) || 0;
+                Math.max(
+                    0,
+                    Number(levelData?.xp) || 0
+                );
 
             const totalXp =
-                Number(levelData?.totalXp) || 0;
+                Math.max(
+                    0,
+                    Number(levelData?.totalXp) || 0
+                );
 
             const nextLevel =
                 level + 1;
@@ -122,47 +148,56 @@ export default {
             }
 
 
-            /*
-             * =====================================================
+            /**
+             * =================================================
              * ECONOMY
-             * =====================================================
+             * =================================================
              */
 
             const wallet =
-                Number(
-                    economyData?.wallet
-                ) || 0;
+                Math.max(
+                    0,
+                    Number(
+                        economyData?.wallet
+                    ) || 0
+                );
 
             const bank =
-                Number(
-                    economyData?.bank
-                ) || 0;
+                Math.max(
+                    0,
+                    Number(
+                        economyData?.bank
+                    ) || 0
+                );
 
             const totalBalance =
                 wallet + bank;
 
 
-            /*
-             * =====================================================
+            /**
+             * =================================================
              * ACHIEVEMENTS
-             * =====================================================
+             * =================================================
              */
 
             const achievements =
-                achievementProfile
-                    ?.achievements ?? [];
+                Array.isArray(
+                    achievementProfile?.achievements
+                )
+                    ? achievementProfile.achievements
+                    : [];
 
             const unlockedAchievements =
                 achievements.filter(
                     (achievement) =>
-                        achievement.unlocked
+                        achievement?.unlocked
                 );
 
 
-            /*
-             * =====================================================
+            /**
+             * =================================================
              * CARD DATA
-             * =====================================================
+             * =================================================
              */
 
             const cardData = {
@@ -182,6 +217,15 @@ export default {
 
                 achievements,
                 unlockedAchievements,
+
+                /**
+                 * Пока rank не передаём.
+                 *
+                 * Когда подключим реальный рейтинг,
+                 * сюда можно будет добавить:
+                 *
+                 * rank,
+                 */
             };
 
 
@@ -190,10 +234,10 @@ export default {
             );
 
 
-            /*
-             * =====================================================
-             * GENERATE IMAGE
-             * =====================================================
+            /**
+             * =================================================
+             * GENERATE CARD
+             * =================================================
              */
 
             const image =
@@ -203,14 +247,15 @@ export default {
 
 
             console.log(
-                `[NEWPROFILE] Card generated successfully. Size: ${image.length} bytes`
+                `[NEWPROFILE] Card generated successfully. ` +
+                `Size: ${image.length} bytes`
             );
 
 
-            /*
-             * =====================================================
-             * CREATE ATTACHMENT
-             * =====================================================
+            /**
+             * =================================================
+             * ATTACHMENT
+             * =================================================
              */
 
             const attachment =
@@ -223,38 +268,77 @@ export default {
                 );
 
 
-            /*
-             * =====================================================
+            /**
+             * =================================================
+             * BUTTONS
+             * =================================================
+             *
+             * Используем те же customId,
+             * которые уже использует старый profile.
+             *
+             * Поэтому существующий обработчик кнопок
+             * сможет работать и с /newprofile.
+             */
+
+            const buttons =
+                new ActionRowBuilder()
+                    .addComponents(
+
+                        new ButtonBuilder()
+                            .setCustomId(
+                                `profile:badges:${targetUser.id}:0`
+                            )
+                            .setLabel(
+                                'Достижения'
+                            )
+                            .setEmoji('🏅')
+                            .setStyle(
+                                ButtonStyle.Secondary
+                            ),
+
+                        new ButtonBuilder()
+                            .setCustomId(
+                                `profile:stats:${targetUser.id}`
+                            )
+                            .setLabel(
+                                'Статистика'
+                            )
+                            .setEmoji('📊')
+                            .setStyle(
+                                ButtonStyle.Secondary
+                            ),
+                    );
+
+
+            /**
+             * =================================================
              * SEND TO SERVER
-             * =====================================================
+             * =================================================
              */
 
             console.log(
-                `[NEWPROFILE] Sending profile card to #${interaction.channel?.name ?? 'unknown'}...`
-            );
-
-
-            await interaction.editReply({
-                files: [attachment],
-            });
-
-
-            console.log(
-                `[NEWPROFILE] Profile card successfully sent to server.`
-            );
-
-        } catch (error) {
-
-            console.error(
-                '[NEWPROFILE] Failed to generate/send profile:',
-                error
+                `[NEWPROFILE] Sending profile card to ` +
+                `#${interaction.channel?.name ?? 'unknown'}`
             );
 
 
             return interaction.editReply({
+                files: [attachment],
+                components: [buttons],
+            });
+
+        } catch (error) {
+
+            console.error(
+                `[NEWPROFILE] Failed to generate profile ` +
+                `for ${targetUser.id}:`,
+                error
+            );
+
+            return interaction.editReply({
                 content:
                     '❌ Не удалось создать RPG-профиль. ' +
-                    'Проверь логи Railway.',
+                    'Попробуйте ещё раз позже.',
             });
         }
     },
