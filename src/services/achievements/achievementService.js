@@ -469,7 +469,7 @@ async function sendAchievementNotification(
         embed
             .setFooter({
                 text:
-                    `${guild.name} • TitanBot Achievements`,
+                    `${guild.name} •`,
                 iconURL:
                     guild.iconURL({
                         extension: 'png',
